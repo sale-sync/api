@@ -48,6 +48,11 @@ class DefaultController extends Controller implements IControllerMethods {
 
     async get(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
         console.log({ isAuthorize: isAuthorize(event) });
+        console.log('=== DEBUG START ===');
+        console.log('Headers:', JSON.stringify(event.headers, null, 2));
+        console.log('MultiValueHeaders:', JSON.stringify(event.multiValueHeaders, null, 2));
+        console.log('Raw cookie header:', event.headers?.cookie || event.headers?.Cookie || 'NO COOKIE HEADER');
+        console.log('=== DEBUG END ===');
         if (!isAuthorize(event)) {
             return UNAUTHORIZE_ERROR;
         }

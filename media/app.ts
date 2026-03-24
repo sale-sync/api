@@ -9,6 +9,7 @@ import ContactController from './contact/contact.controller';
 
 async function main(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
     const region = 'ap-southeast-2';
+    console.log(event.path);
     try {
         const router = new Router(
             event,
@@ -28,7 +29,7 @@ async function main(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult>
                     services: [FormService],
                 },
             ],
-            '/crm',
+            '/media',
         );
 
         return await router.handle();

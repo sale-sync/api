@@ -1,7 +1,7 @@
 {
-  "name": "@sales-sync-api/workspace",
+  "name": "@sales-sync-api/media",
   "version": "1.0.0",
-  "description": "Sales Sync api for auth",
+  "description": "Sales Sync api for media",
   "main": "app.js",
   "author": "SAM CLI",
   "license": "MIT",
@@ -15,14 +15,17 @@
   },
   "dependencies": {
     "@aws-sdk/client-dynamodb": "^3.893.0",
+    "@aws-sdk/client-s3": "^3.948.0",
     "@aws-sdk/lib-dynamodb": "^3.893.0",
+    "@aws-sdk/s3-request-presigner": "^3.948.0",
     "@devyethiha/samjs": "^0.1.15",
     "@sales-sync/shared": "file:vendor/shared.tgz",
     "esbuild": "^0.14.14",
     "install": "^0.13.0",
     "jwt-decode": "^4.0.0",
     "npm": "^11.6.2",
-    "uuid": "^13.0.0"
+    "uuid": "^13.0.0",
+    "zod": "^4.1.12"
   },
   "devDependencies": {
     "@jest/globals": "^29.2.0",

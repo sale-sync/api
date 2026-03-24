@@ -3,9 +3,10 @@ import { BatchGetCommand, GetCommand, PutCommand, QueryCommand } from '@aws-sdk/
 import { Service } from '@devyethiha/samjs';
 import { v4 as uuidv4 } from 'uuid';
 
-export interface IWorkspaceService {
-    createWorkSpace: (param: CreatUserParam) => void;
-    getWorkspacesByUserId(
+export interface ICustomerService {
+    createContact: (param: CreatUserParam) => void;
+    addCustomer: (param: CreatUserParam) => void;
+    getContactsWorkspaceId(
         userId: string,
         options?: {
             hydrate?: boolean;
@@ -19,7 +20,7 @@ type CreatUserParam = {
     workspace_name: string;
 };
 
-export class WorkspaceService extends Service implements IWorkspaceService {
+export class CustomerService extends Service implements ICustomerService {
     private DB_Client: DynamoDBClient;
 
     constructor(DB_Client: DynamoDBClient) {
@@ -27,7 +28,40 @@ export class WorkspaceService extends Service implements IWorkspaceService {
         this.DB_Client = DB_Client;
     }
 
-    public async createWorkSpace(param: CreatUserParam) {
+    public async createContact(param: CreatUserParam) {
+        try {
+            const data = {
+                uuid: uuidv4(),
+                id: param.workspace_id,
+                name: param.workspace_name,
+            };
+
+            await this.DB_Client.send(
+                new PutCommand({
+                    TableName: 'sales-sync-workspace',
+                    Item: {
+                        pk: 'WORKSPACE',
+                        sk: 'META#' + data.id,
+                        data: JSON.stringify(data),
+                    },
+                }),
+            );
+
+            await this.DB_Client.send(
+                new PutCommand({
+                    TableName: 'sales-sync-workspace',
+                    Item: {
+                        pk: 'WORKSPACE#' + data.id,
+                        sk: 'USER#' + param.user_id,
+                    },
+                }),
+            );
+        } catch (error) {
+            console.log({ error });
+            throw Error(JSON.stringify(error));
+        }
+    }
+    public async addCustomer(param: CreatUserParam) {
         try {
             const data = {
                 uuid: uuidv4(),
@@ -69,9 +103,9 @@ export class WorkspaceService extends Service implements IWorkspaceService {
     //      gsi sort      (pk) = "WORKSPACE#<wsId>"
     //    Optionally hydrate workspace metadata via BatchGet
     // ---------------------------------------------------------
-    public async getWorkspacesByUserId(userId: string, options?: { hydrate?: boolean }) {
+    public async getContactsWorkspaceId(userId: string, options?: { hydrate?: boolean }) {
         const skUser = `USER#${userId}`;
-        console.log('getWorkspacesByUserId');
+
         const res = await this.DB_Client.send(
             new QueryCommand({
                 TableName: 'sales-sync-workspace',

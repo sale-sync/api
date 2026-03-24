@@ -121,6 +121,43 @@ Resources:
             RestApiId: !Ref SalesSyncApi
             Path: /crm
             Method: ANY
+
+  MediaFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: media/bundle
+      Handler: app.lambdaHandler
+      Runtime: nodejs22.x
+      Architectures: [ x86_64 ]
+      Policies:
+        - AWSLambdaBasicExecutionRole
+        - arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess
+      Events:
+        ApiRouter:
+          Type: Api
+          Properties:
+            RestApiId: !Ref SalesSyncApi
+            Path: /media/{proxy+}
+            Method: ANY
+          
+  MediaDefaultFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: media/bundle
+      Handler: app.lambdaHandler
+      Runtime: nodejs22.x
+      Architectures: [ x86_64 ]
+      Policies:
+        - AWSLambdaBasicExecutionRole
+        - arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess
+      Events:
+        ApiRouter:
+          Type: Api
+          Properties:
+            RestApiId: !Ref SalesSyncApi
+            Path: /media
+            Method: ANY
+     
             
   
 Outputs:

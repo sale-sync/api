@@ -2,8 +2,8 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 
 const allowedOrigins = [
-    'https://app.salessync.biz',
-    'https://staging.salessync.biz',
+    'https://app.salesync.biz',
+    'https://staging.salesync.biz',
     'http://localhost:3000',
     'http://127.0.0.1:3000',
 ];
