@@ -55,7 +55,7 @@ export class MediaService extends Service implements IService {
 
         const mediaId = uuidv4();
         const now = new Date().toISOString();
-        const s3Key = `/${workspace_id}/${mediaId}/${file_name}`;
+        const s3Key = `cdn/${workspace_id}/${mediaId}/${file_name}`;
         const path = folderPath === '/' ? `/${file_name}` : `${folderPath}/${file_name}`;
 
         const media: Media = {
@@ -278,7 +278,7 @@ export class MediaService extends Service implements IService {
             path: item.path,
             mime_type: item.mime_type,
             size: item.size,
-            s3_key: item.s3_key,
+            s3_key: `/${item.s3_key}`,
             thumbnail_url: item.thumbnail_url,
             metadata: item.metadata,
             status: item.status,

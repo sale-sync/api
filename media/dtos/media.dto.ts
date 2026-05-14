@@ -87,11 +87,6 @@ const UploadMediaSchema = z.object({
         .string()
         .min(1, 'mime_type is required')
         .refine((type) => ALLOWED_MIME_TYPES.includes(type), 'Unsupported file type'),
-    size: z
-        .number()
-        .int()
-        .positive('size must be a positive number')
-        .max(MAX_FILE_SIZE, `File size exceeds maximum allowed (100MB)`),
 });
 
 export type UploadMediaInput = z.infer<typeof UploadMediaSchema>;
@@ -149,6 +144,7 @@ export class RenameItemDTO extends DTO<typeof RenameItemSchema> {
 // ============================================================================
 
 const DeleteItemSchema = z.object({
+    item_id: z.string('Missing item_id param'),
     item_type: z.enum(['media', 'folder'], {
         error: "item_type must be 'media' or 'folder'",
     }),
@@ -159,5 +155,21 @@ export type DeleteItemInput = z.infer<typeof DeleteItemSchema>;
 export class DeleteItemDTO extends DTO<typeof DeleteItemSchema> {
     constructor() {
         super(DeleteItemSchema);
+    }
+}
+
+// ============================================================================
+// GET Item DTO (Query params)
+// ============================================================================
+
+const GetItemSchema = z.object({
+    item_id: z.string('Missing item_id param'),
+});
+
+export type GetItemParam = z.infer<typeof GetItemSchema>;
+
+export class GetItemDTO extends DTO<typeof GetItemSchema> {
+    constructor() {
+        super(GetItemSchema);
     }
 }

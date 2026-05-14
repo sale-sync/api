@@ -45,7 +45,7 @@ export class S3Service extends Service implements IService {
     /**
      * Generate presigned URL for upload
      */
-    async generateUploadUrl(s3Key: string, mediaId: string, mimeType: string, size: number): Promise<UploadUrlResult> {
+    async generateUploadUrl(s3Key: string, mediaId: string, mimeType: string): Promise<UploadUrlResult> {
         const command = new PutObjectCommand({
             Bucket: this.bucketName,
             Key: s3Key,

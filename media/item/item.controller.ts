@@ -12,7 +12,7 @@ import { getWorkspace, NO_WORKSPACE } from '@sales-sync/shared';
 import { MediaService } from '../services/media.service';
 import { FolderService } from '../services/folder.service';
 import { S3Service } from '../services/s3.service';
-import { MoveItemDTO, RenameItemDTO, DeleteItemDTO } from '../dtos/media.dto';
+import { MoveItemDTO, RenameItemDTO, DeleteItemDTO, GetItemDTO } from '../dtos/media.dto';
 import {
     ItemNotFoundError,
     AccessDeniedError,
@@ -27,14 +27,14 @@ export default class ItemController extends Controller implements IControllerMet
     private s3Service!: S3Service;
 
     constructor(mediaService: MediaService, folderService: FolderService, s3Service: S3Service) {
-        super('item');
+        super('items');
         this.mediaService = mediaService;
         this.folderService = folderService;
         this.s3Service = s3Service;
     }
 
     /**
-     * GET /media/{item_id} - Get media details
+     * GET /media?item_id=uuid - Get media details
      * GET /media/{item_id}/download - Get download URL
      *
      * Workspace context from Workspace cookie JWT
@@ -58,8 +58,10 @@ export default class ItemController extends Controller implements IControllerMet
             const workspace_id = workspace.uuid;
 
             // Extract item_id from path
-            const itemId = this.extractItemId(event.path);
-            if (!itemId) {
+            const dto = new GetItemDTO ()
+            const queryParams = dto.validate(event.queryStringParameters || {});
+            const { item_id } = queryParams;
+            if (!item_id) {
                 return {
                     statusCode: 400,
                     body: JSON.stringify({ message: 'Missing item_id in path' }),
@@ -69,9 +71,9 @@ export default class ItemController extends Controller implements IControllerMet
             // Check if this is a download request
             const isDownload = event.path.endsWith('/download');
 
-            const media = await this.mediaService.getMediaById(workspace_id, itemId);
+            const media = await this.mediaService.getMediaById(workspace_id, item_id);
             if (!media) {
-                throw new ItemNotFoundError('media', itemId);
+                throw new ItemNotFoundError('media', item_id);
             }
 
             if (isDownload) {
@@ -162,7 +164,7 @@ export default class ItemController extends Controller implements IControllerMet
     }
 
     /**
-     * DELETE /media/{item_id}?item_type=media|folder
+     * DELETE /media/items?item_id=uuid&item_type=media|folder
      *
      * Workspace context from Workspace cookie JWT
      */
@@ -184,11 +186,10 @@ export default class ItemController extends Controller implements IControllerMet
         try {
             const dto = new DeleteItemDTO();
             const queryParams = dto.validate(event.queryStringParameters || {});
-            const { item_type } = queryParams;
+            const { item_type, item_id } = queryParams;
             const workspace_id = workspace.uuid;
 
-            const itemId = this.extractItemId(event.path);
-            if (!itemId) {
+            if (!item_id) {
                 return {
                     statusCode: 400,
                     body: JSON.stringify({ message: 'Missing item_id in path' }),
@@ -198,7 +199,7 @@ export default class ItemController extends Controller implements IControllerMet
             const now = new Date().toISOString();
 
             if (item_type === 'folder') {
-                const result = await this.folderService.deleteFolder(workspace_id, itemId);
+                const result = await this.folderService.deleteFolder(workspace_id, item_id);
 
                 // TODO: Delete S3 objects for all media in cascade
                 // This should be done asynchronously via SQS/EventBridge
@@ -207,13 +208,13 @@ export default class ItemController extends Controller implements IControllerMet
                     statusCode: 200,
                     body: JSON.stringify({
                         message: 'Folder and contents deleted successfully',
-                        id: itemId,
+                        id: item_id,
                         deleted_items: result,
                         deleted_at: now,
                     }),
                 };
             } else {
-                const media = await this.mediaService.deleteMedia(workspace_id, itemId);
+                const media = await this.mediaService.deleteMedia(workspace_id, item_id);
 
                 // Delete S3 object
                 await this.s3Service.deleteObject(media.s3_key);
@@ -222,7 +223,7 @@ export default class ItemController extends Controller implements IControllerMet
                     statusCode: 200,
                     body: JSON.stringify({
                         message: 'Media deleted successfully',
-                        id: itemId,
+                        id: item_id,
                         deleted_at: now,
                     }),
                 };
