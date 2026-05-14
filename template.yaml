@@ -3,8 +3,18 @@ Transform: AWS::Serverless-2016-10-31
 
 Description: Sales Sync API
 
+# =============================================================================
+# NOTE: Lambda functions must be in the same template as the API Gateway.
+# SAM requires RestApiId to reference an AWS::Serverless::Api in the same template.
+# Infrastructure (S3, DynamoDB) can be in nested stacks under ./templates/
+# =============================================================================
+
 Parameters:
   TableName:
+    Type: String
+  MediaTableName:
+    Type: String
+  S3BucketName:
     Type: String
   CognitoUrl:
     Type: String
@@ -20,18 +30,44 @@ Globals:
     Timeout: 10
     Environment:
       Variables:
-        TABLE_NAME:            !Ref TableName
-        COGNITO_URL:           !Ref CognitoUrl
-        CLIENT_ID:             !Ref ClientId
-        CLIENT_SECRET:         !Ref ClientSecret
-        COGNITO_CALLBACK_URL:  !Ref CognitoCallbackUrl
+        TABLE_NAME: !Ref TableName
+        MEIDA_TABLE_NAME: !Ref MediaTableName
+        S3_BUCKET_NAME: !Ref S3BucketName
+        COGNITO_URL: !Ref CognitoUrl
+        CLIENT_ID: !Ref ClientId
+        CLIENT_SECRET: !Ref ClientSecret
+        COGNITO_CALLBACK_URL: !Ref CognitoCallbackUrl
 
 Resources:
+  # =========================================================================
+  # API Gateway
+  # =========================================================================
   SalesSyncApi:
     Type: AWS::Serverless::Api
     Properties:
       StageName: Prod
 
+  # =========================================================================
+  # Infrastructure Stacks (S3, DynamoDB)
+  # =========================================================================
+
+  # -------------------------------------------------------------------------
+  # Media Infrastructure (S3 + DynamoDB)
+  # -------------------------------------------------------------------------
+  MediaInfraStack:
+    Type: AWS::Serverless::Application
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      Location: ./templates/media.yaml
+
+  # =========================================================================
+  # Lambda Functions
+  # =========================================================================
+
+  # -------------------------------------------------------------------------
+  # Auth Lambda
+  # -------------------------------------------------------------------------
   AuthFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -50,6 +86,9 @@ Resources:
             Path: /auth/{proxy+}
             Method: ANY
 
+  # -------------------------------------------------------------------------
+  # Workspace Lambdas
+  # -------------------------------------------------------------------------
   WorkspaceFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -67,7 +106,7 @@ Resources:
             RestApiId: !Ref SalesSyncApi
             Path: /workspace/{proxy+}
             Method: ANY
-          
+
   WorkspaceDefaultFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -85,7 +124,10 @@ Resources:
             RestApiId: !Ref SalesSyncApi
             Path: /workspace
             Method: ANY
-            
+
+  # -------------------------------------------------------------------------
+  # CRM Lambdas
+  # -------------------------------------------------------------------------
   CRMFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -103,7 +145,7 @@ Resources:
             RestApiId: !Ref SalesSyncApi
             Path: /crm/{proxy+}
             Method: ANY
-          
+
   CRMDefaultFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -122,6 +164,9 @@ Resources:
             Path: /crm
             Method: ANY
 
+  # -------------------------------------------------------------------------
+  # Media Lambdas (uses infrastructure from MediaInfraStack)
+  # -------------------------------------------------------------------------
   MediaFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -129,9 +174,18 @@ Resources:
       Handler: app.lambdaHandler
       Runtime: nodejs22.x
       Architectures: [ x86_64 ]
+      MemorySize: 256
+      Timeout: 30
+      Environment:
+        Variables:
+          TABLE_NAME: !GetAtt MediaInfraStack.Outputs.MediaTableName
+          S3_BUCKET_NAME: !GetAtt MediaInfraStack.Outputs.MediaBucketName
       Policies:
         - AWSLambdaBasicExecutionRole
-        - arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess
+        - DynamoDBCrudPolicy:
+            TableName: !GetAtt MediaInfraStack.Outputs.MediaTableName
+        - S3CrudPolicy:
+            BucketName: !GetAtt MediaInfraStack.Outputs.MediaBucketName
       Events:
         ApiRouter:
           Type: Api
@@ -139,7 +193,7 @@ Resources:
             RestApiId: !Ref SalesSyncApi
             Path: /media/{proxy+}
             Method: ANY
-          
+
   MediaDefaultFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -147,9 +201,18 @@ Resources:
       Handler: app.lambdaHandler
       Runtime: nodejs22.x
       Architectures: [ x86_64 ]
+      MemorySize: 256
+      Timeout: 30
+      Environment:
+        Variables:
+          TABLE_NAME: !GetAtt MediaInfraStack.Outputs.MediaTableName
+          S3_BUCKET_NAME: !GetAtt MediaInfraStack.Outputs.MediaBucketName
       Policies:
         - AWSLambdaBasicExecutionRole
-        - arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess
+        - DynamoDBCrudPolicy:
+            TableName: !GetAtt MediaInfraStack.Outputs.MediaTableName
+        - S3CrudPolicy:
+            BucketName: !GetAtt MediaInfraStack.Outputs.MediaBucketName
       Events:
         ApiRouter:
           Type: Api
@@ -157,30 +220,40 @@ Resources:
             RestApiId: !Ref SalesSyncApi
             Path: /media
             Method: ANY
-     
-            
-  
+
 Outputs:
   SalesSyncApiId:
-    Description: "API Gateway RestApi ID"
+    Description: API Gateway RestApi ID
     Value: !Ref SalesSyncApi
 
   SalesSyncApiRootResourceId:
-    Description: "API Gateway Root Resource ID"
+    Description: API Gateway Root Resource ID
     Value: !GetAtt SalesSyncApi.RootResourceId
 
   SalesSyncApiInvokeUrl:
-    Description: "Invoke URL for the Prod stage"
+    Description: Invoke URL for the Prod stage
     Value: !Sub "https://${SalesSyncApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/"
 
   AuthFunctionArn:
-    Description: "Sales Sync Auth API Lambda Function ARN"
+    Description: Auth Lambda Function ARN
     Value: !GetAtt AuthFunction.Arn
 
   WorkspaceFunctionArn:
-    Description: "Sales Sync Workspace API Lambda Function ARN"
+    Description: Workspace Lambda Function ARN
     Value: !GetAtt WorkspaceFunction.Arn
 
   CRMFunctionArn:
-    Description: "Sales Sync CRM API Lambda Function ARN"
+    Description: CRM Lambda Function ARN
     Value: !GetAtt CRMFunction.Arn
+
+  MediaFunctionArn:
+    Description: Media Lambda Function ARN
+    Value: !GetAtt MediaFunction.Arn
+
+  MediaBucketName:
+    Description: S3 Bucket for media storage
+    Value: !GetAtt MediaInfraStack.Outputs.MediaBucketName
+
+  MediaTableName:
+    Description: DynamoDB Table for media metadata
+    Value: !GetAtt MediaInfraStack.Outputs.MediaTableName

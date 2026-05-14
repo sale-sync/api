@@ -1,4 +1,4 @@
-.PHONY: help clean shared.pack bundle build start deploy dev deps
+.PHONY: help clean shared.pack bundle bundle.s3-event build start deploy dev deps
 
 # Default target
 .DEFAULT_GOAL := help
@@ -90,9 +90,14 @@ bundle: shared.pack
 	npm run -w ./workspace bundle
 	@echo "==> Bundling crm Lambda"
 	npm run -w ./crm bundle
-	@echo "==> Bundling completed"
+	@echo "==> Bundling media Lambda"
 	npm run -w ./media bundle
 	@echo "==> Bundling completed"
+
+# === Bundle S3 event Lambda (only needed for deploy) ===
+bundle.s3-event:
+	@echo "==> Bundling media-s3-event Lambda"
+	cd media-s3-event && npm install --prefer-offline --no-audit --no-fund && npm run bundle
 
 # === SAM build & deploy commands ===
 build: bundle
@@ -103,7 +108,10 @@ start: build
 	@echo "==> Starting local API"
 	sam local start-api --port 8080 --env-vars env.staging.json
 
-deploy: build
+# Deploy needs s3-event bundled before SAM build
+deploy: bundle bundle.s3-event
+	@echo "==> SAM build (zipping pre-bundled Lambdas)"
+	sam build
 	@echo "==> Deploying to AWS"
 	sam deploy \
 	  --stack-name sales-sync-api \
@@ -113,7 +121,7 @@ deploy: build
 # === Cleanup ===
 clean:
 	@echo "==> Cleaning build artifacts"
-	rm -rf .aws-sam auth/bundle workspace/bundle crm/bundle
+	rm -rf .aws-sam auth/bundle workspace/bundle crm/bundle media/bundle media-s3-event/bundle
 
 # === Help ===
 help:
@@ -121,10 +129,10 @@ help:
 	@echo "Sales Sync API Commands:"
 	@echo "  make dev           - Run dev mode with nodemon auto-rebuild"
 	@echo "  make shared.pack   - Build & pack shared module tarballs (and reinstall workspaces)"
-	@echo "  make bundle        - Bundle auth/workspace/crm Lambdas with esbuild"
+	@echo "  make bundle        - Bundle API Lambdas with esbuild (auth, workspace, crm, media)"
+	@echo "  make bundle.s3-event - Bundle S3 event Lambda (only needed for deploy)"
 	@echo "  make build         - Bundle + SAM build (no rebuild inside SAM)"
 	@echo "  make start         - Run local API after build"
-	@echo "  make deploy        - Deploy after bundle build"
+	@echo "  make deploy        - Build + bundle S3 event + deploy to AWS"
 	@echo "  make clean         - Remove .aws-sam and bundle folders"
 	@echo ""
-

@@ -992,18 +992,13 @@ media/
 ├── item/
 │   └── item.controller.ts          # GET/PATCH/DELETE /media/{id}
 ├── dtos/
-│   ├── create-folder.dto.ts        # Zod schema for folder creation
-│   ├── upload-media.dto.ts         # Zod schema for upload request
-│   ├── move-item.dto.ts            # Zod schema for move operation
-│   └── rename-item.dto.ts          # Zod schema for rename operation
+│   └── media.dto.ts                # All Zod validation schemas
 ├── services/
 │   ├── media.service.ts            # Media CRUD operations
 │   ├── folder.service.ts           # Folder CRUD operations
 │   └── s3.service.ts               # S3 presigned URL operations
 ├── errors/
-│   ├── folder-exists.error.ts      # FolderAlreadyExistsError
-│   ├── max-depth.error.ts          # MaxDepthExceededError
-│   └── not-found.error.ts          # ItemNotFoundError
+│   └── media.errors.ts             # All custom error classes
 ├── bundle/                         # esbuild output
 ├── vendor/                         # shared.tgz
 └── package.json
@@ -1016,3 +1011,4 @@ media/
 - [Sale Sync API](./SALE-SYNC-API.md) — Main API documentation
 - [Workspace API](./WORKSPACE-API.md) — Workspace management
 - [SAMJS Reference](./SAMJS-REFERENCE.md) — Framework documentation
+- [Shared Middleware](./SHARED-MIDDLEWARE.md) — Workspace cookie extraction

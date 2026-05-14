@@ -11,28 +11,34 @@ import {
 import { getWorkspace, NO_WORKSPACE } from '@sales-sync/shared';
 import { MediaService } from '../services/media.service';
 import { FolderService } from '../services/folder.service';
-import { ListContentsDTO } from '../dtos/media.dto';
+import { S3Service } from '../services/s3.service';
+import { UploadMediaDTO } from '../dtos/media.dto';
 import { ItemNotFoundError, AccessDeniedError } from '../errors/media.errors';
 
-export default class DefaultController extends Controller implements IControllerMethods {
+export default class UploadController extends Controller implements IControllerMethods {
     private mediaService!: MediaService;
     private folderService!: FolderService;
+    private s3Service!: S3Service;
 
-    constructor(mediaService: MediaService, folderService: FolderService) {
-        super('default');
+    constructor(mediaService: MediaService, folderService: FolderService, s3Service: S3Service) {
+        super('upload');
         this.mediaService = mediaService;
         this.folderService = folderService;
+        this.s3Service = s3Service;
     }
 
     /**
-     * GET /media - List folder contents
+     * POST /media/upload - Get presigned upload URL
      *
-     * Query params:
+     * Body:
      * - folder_id (optional, default: 'root')
+     * - file_name (required)
+     * - mime_type (required)
+     * - size (required)
      *
      * Workspace context from Workspace cookie JWT
      */
-    async get(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
+    async post(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
         if (!isAuthorize(event)) {
             return UNAUTHORIZE_ERROR;
         }
@@ -48,66 +54,45 @@ export default class DefaultController extends Controller implements IController
         }
 
         try {
-            const dto = new ListContentsDTO();
-            const params = dto.validate(event.queryStringParameters || {});
+            const dto = new UploadMediaDTO();
+            const body = JSON.parse(event.body || '{}');
+            const params = dto.validate(body);
 
-            const { folder_id } = params;
+            const { folder_id, file_name, mime_type, size } = params;
             const workspace_id = workspace.uuid;
 
             // Ensure root folder exists
             await this.folderService.ensureRootFolder(workspace_id, user.id);
 
-            // Get the folder
+            // Verify target folder exists
             const folder = await this.folderService.getFolderById(workspace_id, folder_id);
-            console.log({ folder });
             if (!folder) {
                 throw new ItemNotFoundError('folder', folder_id);
             }
 
-            // Get breadcrumbs
-            const breadcrumbs = await this.folderService.getBreadcrumbs(workspace_id, folder_id);
-            console.log({ breadcrumbs });
+            // Create media record (pending status)
+            const media = await this.mediaService.createMedia(
+                {
+                    workspace_id,
+                    folder_id,
+                    file_name,
+                    mime_type,
+                    size,
+                    user_id: user.id,
+                },
+                folder.path,
+            );
 
-            // List folders in this folder
-            const folders = await this.folderService.listFoldersInParent(workspace_id, folder_id);
-            console.log({ folders });
-
-            // List media in this folder
-            const media = await this.mediaService.listMediaInFolder(workspace_id, folder_id);
-            console.log({ media });
+            // Generate presigned upload URL
+            const uploadResult = await this.s3Service.generateUploadUrl(media.s3_key, media.id, mime_type, size);
 
             return {
-                statusCode: 200,
+                statusCode: 201,
                 body: JSON.stringify({
-                    folder: {
-                        id: folder.id,
-                        name: folder.name,
-                        path: folder.path,
-                        parent_id: folder.parent_id,
-                        level: folder.level,
-                        created_at: folder.created_at,
-                        created_by: folder.created_by,
-                    },
-                    breadcrumbs,
-                    folders: folders.map((f) => ({
-                        id: f.id,
-                        name: f.name,
-                        path: f.path,
-                        level: f.level,
-                        item_count: f.item_count,
-                        created_at: f.created_at,
-                    })),
-                    media: media.map((m) => ({
-                        id: m.id,
-                        name: m.name,
-                        mime_type: m.mime_type,
-                        size: m.size,
-                        url: m.s3_key,
-                        thumbnail_url: m.thumbnail_url,
-                        status: m.status,
-                        created_at: m.created_at,
-                        created_by: m.created_by,
-                    })),
+                    media_id: media.id,
+                    upload_url: uploadResult.upload_url,
+                    upload_fields: uploadResult.upload_fields,
+                    expires_at: uploadResult.expires_at,
                 }),
             };
         } catch (error) {
