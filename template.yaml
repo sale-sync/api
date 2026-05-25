@@ -14,6 +14,8 @@ Parameters:
     Type: String
   MediaTableName:
     Type: String
+  BlockTableName:
+    Type: String
   S3BucketName:
     Type: String
   CognitoUrl:
@@ -32,6 +34,7 @@ Globals:
       Variables:
         TABLE_NAME: !Ref TableName
         MEIDA_TABLE_NAME: !Ref MediaTableName
+        BLOCK_TABLE_NAME: !Ref BlockTableName
         S3_BUCKET_NAME: !Ref S3BucketName
         COGNITO_URL: !Ref CognitoUrl
         CLIENT_ID: !Ref ClientId
@@ -221,6 +224,47 @@ Resources:
             Path: /media
             Method: ANY
 
+  # -------------------------------------------------------------------------
+  # Blocks Lambdas
+  # -------------------------------------------------------------------------
+  BlocksFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: blocks/bundle
+      Handler: app.lambdaHandler
+      Runtime: nodejs22.x
+      Architectures: [ x86_64 ]
+      Policies:
+        - AWSLambdaBasicExecutionRole
+        - DynamoDBCrudPolicy:
+            TableName: !Ref BlockTableName
+      Events:
+        ApiRouter:
+          Type: Api
+          Properties:
+            RestApiId: !Ref SalesSyncApi
+            Path: /blocks/{proxy+}
+            Method: ANY
+
+  BlocksDefaultFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: blocks/bundle
+      Handler: app.lambdaHandler
+      Runtime: nodejs22.x
+      Architectures: [ x86_64 ]
+      Policies:
+        - AWSLambdaBasicExecutionRole
+        - DynamoDBCrudPolicy:
+            TableName: !Ref BlockTableName
+      Events:
+        ApiRouter:
+          Type: Api
+          Properties:
+            RestApiId: !Ref SalesSyncApi
+            Path: /blocks
+            Method: ANY
+
 Outputs:
   SalesSyncApiId:
     Description: API Gateway RestApi ID
@@ -249,6 +293,10 @@ Outputs:
   MediaFunctionArn:
     Description: Media Lambda Function ARN
     Value: !GetAtt MediaFunction.Arn
+
+  BlocksFunctionArn:
+    Description: Blocks Lambda Function ARN
+    Value: !GetAtt BlocksFunction.Arn
 
   MediaBucketName:
     Description: S3 Bucket for media storage

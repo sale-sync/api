@@ -38,13 +38,11 @@ export interface CreateMediaParams {
 export class MediaService extends Service implements IService {
     private DB_Client: DynamoDBClient;
     private tableName: string;
-    private bucketName: string;
 
     constructor(DB_Client: DynamoDBClient) {
         super('media');
         this.DB_Client = DB_Client;
         this.tableName = process?.env.MEDIA_TABLE_NAME || 'sales-sync-media';
-        this.bucketName = process?.env.S3_BUCKET_NAME || 'sales-sync-media-bucket';
     }
 
     /**

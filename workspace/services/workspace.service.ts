@@ -3,6 +3,7 @@
 import { ConditionalCheckFailedException, DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { BatchGetCommand, PutCommand, QueryCommand } from '@aws-sdk/lib-dynamodb';
 import { Service } from '@devyethiha/samjs';
+import type { Workspace } from '@sales-sync/shared/src/types';
 import { v4 as uuidv4 } from 'uuid';
 
 type CreateWorkspaceParam = {
@@ -27,7 +28,7 @@ export class WorkspaceService extends Service {
     }
 
     public async createWorkSpace(param: CreateWorkspaceParam): Promise<void> {
-        const data = {
+        const data: Workspace = {
             uuid: uuidv4(),
             id: param.workspace_id,
             name: param.workspace_name,

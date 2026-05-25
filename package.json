@@ -8,6 +8,7 @@
     "workspace",
     "crm",
     "media",
+    "blocks",
     "packages"
   ],
   "scripts": {
