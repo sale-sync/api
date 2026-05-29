@@ -49,6 +49,7 @@ export default class UploadController extends Controller implements IControllerM
         }
 
         const workspace = getWorkspace(event);
+        console.log({ workspace });
         if (!workspace) {
             return NO_WORKSPACE;
         }
@@ -58,8 +59,15 @@ export default class UploadController extends Controller implements IControllerM
             const body = JSON.parse(event.body || '{}');
             const params = dto.validate(body);
 
-            const { folder_id, file_name, mime_type, size } = params;
+            const { folder_id: raw_folder_id, file_name, mime_type } = params;
+            const folder_id = raw_folder_id ?? 'root';
+
             const workspace_id = workspace.uuid;
+
+            console.log({
+                workspace,
+                user,
+            });
 
             // Ensure root folder exists
             await this.folderService.ensureRootFolder(workspace_id, user.id);
@@ -77,14 +85,13 @@ export default class UploadController extends Controller implements IControllerM
                     folder_id,
                     file_name,
                     mime_type,
-                    size,
                     user_id: user.id,
                 },
-                folder.path,
+                folder,
             );
 
             // Generate presigned upload URL
-            const uploadResult = await this.s3Service.generateUploadUrl(media.s3_key, media.id, mime_type, size);
+            const uploadResult = await this.s3Service.generateUploadUrl(media.s3_key, media.id, mime_type);
 
             return {
                 statusCode: 201,

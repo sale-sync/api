@@ -1,9 +1,10 @@
 import { Service, IService } from '@devyethiha/samjs';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { GetCommand, PutCommand, QueryCommand, DeleteCommand } from '@aws-sdk/lib-dynamodb';
+import { GetCommand, PutCommand, QueryCommand, DeleteCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import { v4 as uuidv4 } from 'uuid';
-import { ItemNotFoundError, MoveDepthExceededError } from '../errors/media.errors';
-import { FolderService, Folder } from './folder.service';
+import { FolderItemLimitExceededError, ItemNotFoundError } from '../errors/media.errors';
+import { Folder } from './folder.service';
+import { MAX_ITEMS_IN_FOLDER, PENDING_UPLOAD_TTL_SECONDS } from './media.constants';
 
 export interface Media {
     id: string;
@@ -12,18 +13,20 @@ export interface Media {
     name: string;
     path: string;
     mime_type: string;
-    size: number;
     s3_key: string;
     thumbnail_url?: string;
+    size?: number | null;
     metadata?: {
         width?: number;
         height?: number;
         duration?: number;
     };
     status: 'pending' | 'ready' | 'error';
+    TTL?: number;
     created_at: string;
     created_by: string;
     updated_at?: string;
+    updated_by?: string;
 }
 
 export interface CreateMediaParams {
@@ -31,7 +34,6 @@ export interface CreateMediaParams {
     folder_id: string;
     file_name: string;
     mime_type: string;
-    size: number;
     user_id: string;
 }
 
@@ -48,13 +50,17 @@ export class MediaService extends Service implements IService {
     /**
      * Create a new media record (pending upload)
      */
-    async createMedia(params: CreateMediaParams, folderPath: string): Promise<Media> {
-        const { workspace_id, folder_id, file_name, mime_type, size, user_id } = params;
+    async createMedia(params: CreateMediaParams, folder: Folder): Promise<Media> {
+        const { workspace_id, folder_id, file_name, mime_type, user_id } = params;
+
+        // Check media limit
+        this.checkMediaLimit(folder);
 
         const mediaId = uuidv4();
         const now = new Date().toISOString();
+        const TTL = Math.floor(Date.now() / 1000) + PENDING_UPLOAD_TTL_SECONDS;
         const s3Key = `cdn/${workspace_id}/${mediaId}/${file_name}`;
-        const path = folderPath === '/' ? `/${file_name}` : `${folderPath}/${file_name}`;
+        const path = folder.path === '/' ? `/${file_name}` : `${folder.path}/${file_name}`;
 
         const media: Media = {
             id: mediaId,
@@ -63,9 +69,9 @@ export class MediaService extends Service implements IService {
             name: file_name,
             path,
             mime_type,
-            size,
             s3_key: s3Key,
             status: 'pending',
+            TTL,
             created_at: now,
             created_by: user_id,
         };
@@ -74,13 +80,14 @@ export class MediaService extends Service implements IService {
             new PutCommand({
                 TableName: this.tableName,
                 Item: {
-                    pk: `WS#${workspace_id}`,
-                    sk: `MEDIA#${mediaId}`,
-                    ...media,
+                    PK: `WS#${workspace_id}#PENDING#MEDIA`, // ← pending partition
+                    SK: `MEDIA#${mediaId}`,
                     GSI1PK: `FOLDER#${workspace_id}#${folder_id}`,
                     GSI1SK: `MEDIA#${file_name}`,
                     GSI2PK: `PATH#${workspace_id}`,
                     GSI2SK: path,
+                    TTL, // ← top level for DynamoDB TTL
+                    data: media, // ← data wrapper
                 },
             }),
         );
@@ -96,8 +103,8 @@ export class MediaService extends Service implements IService {
             new GetCommand({
                 TableName: this.tableName,
                 Key: {
-                    pk: `WS#${workspaceId}`,
-                    sk: `MEDIA#${mediaId}`,
+                    PK: `WS#${workspaceId}#MEDIA`, // ← ready partition only
+                    SK: `MEDIA#${mediaId}`,
                 },
             }),
         );
@@ -129,110 +136,96 @@ export class MediaService extends Service implements IService {
     }
 
     /**
-     * Update media status after upload completes
-     */
-    async updateMediaStatus(
-        workspaceId: string,
-        mediaId: string,
-        status: 'ready' | 'error',
-        metadata?: Media['metadata'],
-    ): Promise<Media> {
-        const media = await this.getMediaById(workspaceId, mediaId);
-        if (!media) {
-            throw new ItemNotFoundError('media', mediaId);
-        }
-
-        const now = new Date().toISOString();
-
-        await this.DB_Client.send(
-            new PutCommand({
-                TableName: this.tableName,
-                Item: {
-                    pk: `WS#${workspaceId}`,
-                    sk: `MEDIA#${mediaId}`,
-                    ...media,
-                    status,
-                    metadata: metadata || media.metadata,
-                    updated_at: now,
-                    GSI1PK: `FOLDER#${workspaceId}#${media.folder_id}`,
-                    GSI1SK: `MEDIA#${media.name}`,
-                    GSI2PK: `PATH#${workspaceId}`,
-                    GSI2SK: media.path,
-                },
-            }),
-        );
-
-        return (await this.getMediaById(workspaceId, mediaId))!;
-    }
-
-    /**
      * Move media to a different folder
      */
-    async moveMedia(workspaceId: string, mediaId: string, targetFolder: Folder): Promise<Media> {
+    async moveMedia(workspaceId: string, mediaId: string, targetFolder: Folder, userId: string): Promise<Media> {
         const media = await this.getMediaById(workspaceId, mediaId);
         if (!media) {
             throw new ItemNotFoundError('media', mediaId);
         }
 
-        const newPath = targetFolder.path === '/' ? `/${media.name}` : `${targetFolder.path}/${media.name}`;
+        // Check media limit on target folder
+        this.checkMediaLimit(targetFolder);
 
+        const newPath = targetFolder.path === '/' ? `/${media.name}` : `${targetFolder.path}/${media.name}`;
         const now = new Date().toISOString();
 
+        // PK + SK are unchanged on move — PutCommand fully replaces the item in place,
+        // including all GSI keys (GSI1PK updates to new folder, GSI2SK updates to new path).
+        // No separate DeleteCommand needed.
         await this.DB_Client.send(
             new PutCommand({
                 TableName: this.tableName,
                 Item: {
-                    pk: `WS#${workspaceId}`,
-                    sk: `MEDIA#${mediaId}`,
-                    ...media,
-                    folder_id: targetFolder.id,
-                    path: newPath,
-                    updated_at: now,
+                    PK: `WS#${workspaceId}#MEDIA`,
+                    SK: `MEDIA#${mediaId}`,
                     GSI1PK: `FOLDER#${workspaceId}#${targetFolder.id}`,
                     GSI1SK: `MEDIA#${media.name}`,
                     GSI2PK: `PATH#${workspaceId}`,
                     GSI2SK: newPath,
+                    data: {
+                        ...media,
+                        folder_id: targetFolder.id,
+                        path: newPath,
+                        updated_at: now,
+                        updated_by: userId,
+                    },
                 },
             }),
         );
 
-        return (await this.getMediaById(workspaceId, mediaId))!;
+        // Update item counts
+        await this.updateCount(workspaceId, media.folder_id, -1); // ← old folder
+        await this.updateCount(workspaceId, targetFolder.id, 1); // ← new folder
+
+        const moved = await this.getMediaById(workspaceId, mediaId);
+        if (!moved) {
+            throw new ItemNotFoundError('media', mediaId);
+        }
+
+        return moved;
     }
 
     /**
      * Rename media
      */
-    async renameMedia(workspaceId: string, mediaId: string, newName: string): Promise<Media> {
+    async renameMedia(workspaceId: string, mediaId: string, newName: string, userId: string): Promise<Media> {
         const media = await this.getMediaById(workspaceId, mediaId);
         if (!media) {
             throw new ItemNotFoundError('media', mediaId);
         }
 
-        // Build new path
         const parentPath = media.path.substring(0, media.path.lastIndexOf('/'));
         const newPath = parentPath === '' ? `/${newName}` : `${parentPath}/${newName}`;
-
         const now = new Date().toISOString();
 
         await this.DB_Client.send(
             new PutCommand({
                 TableName: this.tableName,
                 Item: {
-                    pk: `WS#${workspaceId}`,
-                    sk: `MEDIA#${mediaId}`,
-                    ...media,
-                    name: newName,
-                    path: newPath,
-                    updated_at: now,
+                    PK: `WS#${workspaceId}#MEDIA`,
+                    SK: `MEDIA#${mediaId}`,
                     GSI1PK: `FOLDER#${workspaceId}#${media.folder_id}`,
                     GSI1SK: `MEDIA#${newName}`,
                     GSI2PK: `PATH#${workspaceId}`,
                     GSI2SK: newPath,
+                    data: {
+                        ...media,
+                        name: newName,
+                        path: newPath,
+                        updated_at: now,
+                        updated_by: userId,
+                    },
                 },
             }),
         );
 
-        return (await this.getMediaById(workspaceId, mediaId))!;
+        const renamed = await this.getMediaById(workspaceId, mediaId);
+        if (!renamed) {
+            throw new ItemNotFoundError('media', mediaId);
+        }
+
+        return renamed;
     }
 
     /**
@@ -248,41 +241,80 @@ export class MediaService extends Service implements IService {
             new DeleteCommand({
                 TableName: this.tableName,
                 Key: {
-                    pk: `WS#${workspaceId}`,
-                    sk: `MEDIA#${mediaId}`,
+                    PK: `WS#${workspaceId}#MEDIA`,
+                    SK: `MEDIA#${mediaId}`,
                 },
             }),
         );
 
-        return media;
-    }
+        // Decrement folder item count
+        await this.updateCount(workspaceId, media.folder_id, -1);
 
-    /**
-     * Get S3 key for media
-     */
-    getS3Key(media: Media): string {
-        return media.s3_key;
+        return media;
     }
 
     /**
      * Map DynamoDB item to Media interface
      */
     private mapToMedia(item: Record<string, any>): Media {
+        const data = item.data;
         return {
-            id: item.id,
-            workspace_id: item.workspace_id,
-            folder_id: item.folder_id,
-            name: item.name,
-            path: item.path,
-            mime_type: item.mime_type,
-            size: item.size,
-            s3_key: `/${item.s3_key}`,
-            thumbnail_url: item.thumbnail_url,
-            metadata: item.metadata,
-            status: item.status,
-            created_at: item.created_at,
-            created_by: item.created_by,
-            updated_at: item.updated_at,
+            id: data.id,
+            workspace_id: data.workspace_id,
+            folder_id: data.folder_id,
+            name: data.name,
+            path: data.path,
+            mime_type: data.mime_type,
+            s3_key: data.s3_key,
+            thumbnail_url: data.thumbnail_url,
+            size: data.size,
+            metadata: data.metadata,
+            status: data.status,
+            TTL: data.TTL,
+            created_at: data.created_at,
+            created_by: data.created_by,
+            updated_at: data.updated_at,
+            updated_by: data.updated_by,
         };
+    }
+
+    // ⚠️ WARNING: Negative count guard
+    // item_count should never go below 0 in normal flow since we only
+    // decrement after confirmed deletes. If data inconsistency occurs
+    // (e.g. failed writes, manual DB edits), this could produce negative
+    // counts. Add a ConditionExpression guard if stricter consistency needed:
+    //
+    // ConditionExpression: 'if_not_exists(#data.#field, :zero) + :delta >= :zero'
+    //
+    // ⚠️ WARNING: Not fully atomic
+    // SET + if_not_exists is used instead of ADD because ADD does not support
+    // nested attributes (fields inside 'data'). Safe for sequential calls but
+    // has a small race condition window for concurrent updates to the same folder.
+    // Move item_count to top-level attribute to enable true atomic ADD if needed.
+    private async updateCount(workspaceId: string, folderId: string, delta: 1 | -1): Promise<void> {
+        await this.DB_Client.send(
+            new UpdateCommand({
+                TableName: this.tableName,
+                Key: {
+                    PK: `WS#${workspaceId}#FOLDER`,
+                    SK: `FOLDER#${folderId}`,
+                },
+                UpdateExpression: 'SET #data.#field = if_not_exists(#data.#field, :zero) + :delta',
+                ExpressionAttributeNames: {
+                    '#data': 'data',
+                    '#field': 'item_count',
+                },
+                ExpressionAttributeValues: {
+                    ':delta': delta,
+                    ':zero': 0,
+                },
+            }),
+        );
+    }
+
+    private checkMediaLimit(folder: Folder): void {
+        if ((folder.item_count ?? 0) >= MAX_ITEMS_IN_FOLDER) {
+            throw new FolderItemLimitExceededError();
+        }
     }
 }

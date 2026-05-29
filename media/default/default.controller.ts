@@ -55,26 +55,27 @@ export default class DefaultController extends Controller implements IController
             const workspace_id = workspace.uuid;
 
             // Ensure root folder exists
+            // ⚠️ TODO: Move this to workspace creation flow in the future.
+            // This currently runs a GetCommand on every GET request to check if root
+            // exists, which is unnecessary after the workspace is fully set up.
+            // Root folder should be created once during workspace provisioning instead.
+            // Ensure root folder exists
             await this.folderService.ensureRootFolder(workspace_id, user.id);
 
             // Get the folder
             const folder = await this.folderService.getFolderById(workspace_id, folder_id);
-            console.log({ folder });
             if (!folder) {
                 throw new ItemNotFoundError('folder', folder_id);
             }
 
             // Get breadcrumbs
             const breadcrumbs = await this.folderService.getBreadcrumbs(workspace_id, folder_id);
-            console.log({ breadcrumbs });
 
             // List folders in this folder
             const folders = await this.folderService.listFoldersInParent(workspace_id, folder_id);
-            console.log({ folders });
 
             // List media in this folder
             const media = await this.mediaService.listMediaInFolder(workspace_id, folder_id);
-            console.log({ media });
 
             return {
                 statusCode: 200,
@@ -95,6 +96,7 @@ export default class DefaultController extends Controller implements IController
                         path: f.path,
                         level: f.level,
                         item_count: f.item_count,
+                        subfolder_count: f.subfolder_count, // ← new
                         created_at: f.created_at,
                     })),
                     media: media.map((m) => ({

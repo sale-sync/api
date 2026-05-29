@@ -81,7 +81,11 @@ const ALLOWED_MIME_TYPES = [
 ];
 
 const UploadMediaSchema = z.object({
-    folder_id: z.string().optional().default('root'),
+    folder_id: z
+        .string()
+        .nullable()
+        .optional()
+        .transform((val) => val ?? 'root'),
     file_name: z.string().min(1, 'file_name is required').max(255, 'file_name must be 255 characters or less'),
     mime_type: z
         .string()

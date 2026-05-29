@@ -1,7 +1,8 @@
 import { Service, IService } from '@devyethiha/samjs';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { GetCommand, PutCommand, QueryCommand, BatchWriteCommand } from '@aws-sdk/lib-dynamodb';
+import { GetCommand, PutCommand, QueryCommand, BatchWriteCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import { v4 as uuidv4 } from 'uuid';
+import { MAX_FOLDER_DEPTH, MAX_SUBFOLDERS_IN_FOLDER } from './media.constants';
 import {
     FolderAlreadyExistsError,
     MaxDepthExceededError,
@@ -9,9 +10,9 @@ import {
     CircularMoveError,
     ItemNotFoundError,
     CannotModifyRootError,
+    SameNameError,
+    SubfolderLimitExceededError,
 } from '../errors/media.errors';
-
-const MAX_FOLDER_DEPTH = 7; // Including root (levels 0-6)
 
 export interface Folder {
     id: string;
@@ -21,8 +22,11 @@ export interface Folder {
     path: string;
     level: number;
     item_count?: number;
+    subfolder_count?: number;
     created_at: string;
     created_by: string;
+    updated_at?: string;
+    updated_by?: string;
 }
 
 export interface Breadcrumb {
@@ -63,21 +67,25 @@ export class FolderService extends Service implements IService {
             name: 'Root',
             path: '/',
             level: 0,
+            item_count: 0,
+            subfolder_count: 0,
             created_at: new Date().toISOString(),
             created_by: userId,
         };
+
+        console.log({ rootFolder });
 
         await this.DB_Client.send(
             new PutCommand({
                 TableName: this.tableName,
                 Item: {
-                    pk: `WS#${workspaceId}`,
-                    sk: 'FOLDER#root',
-                    ...rootFolder,
+                    PK: `WS#${workspaceId}#FOLDER`,
+                    SK: 'FOLDER#root',
                     GSI1PK: `FOLDER#${workspaceId}#root`,
                     GSI1SK: 'FOLDER#Root',
+                    data: rootFolder, // ← data wrapper
                 },
-                ConditionExpression: 'attribute_not_exists(pk)',
+                ConditionExpression: 'attribute_not_exists(PK)',
             }),
         );
 
@@ -88,12 +96,16 @@ export class FolderService extends Service implements IService {
      * Get folder by ID
      */
     async getFolderById(workspaceId: string, folderId: string): Promise<Folder | null> {
+        console.log({
+            workspaceId,
+            folderId,
+        });
         const result = await this.DB_Client.send(
             new GetCommand({
                 TableName: this.tableName,
                 Key: {
-                    pk: `WS#${workspaceId}`,
-                    sk: `FOLDER#${folderId}`,
+                    PK: `WS#${workspaceId}#FOLDER`, // ← updated
+                    SK: `FOLDER#${folderId}`,
                 },
             }),
         );
@@ -106,25 +118,67 @@ export class FolderService extends Service implements IService {
     }
 
     /**
+     * Check duplicate folder name in same parent
+     */
+    private async checkDuplicateName(workspaceId: string, parentId: string, name: string): Promise<void> {
+        const duplicateCheck = await this.DB_Client.send(
+            new QueryCommand({
+                TableName: this.tableName,
+                IndexName: 'folder-name-index',
+                KeyConditionExpression: 'GSI3PK = :pk AND GSI3SK = :sk',
+                ExpressionAttributeValues: {
+                    ':pk': `FOLDER#${workspaceId}#${parentId}`,
+                    ':sk': `NAME#${name}`,
+                },
+                Limit: 1,
+            }),
+        );
+
+        if (duplicateCheck.Items && duplicateCheck.Items.length > 0) {
+            throw new FolderAlreadyExistsError(name);
+        }
+    }
+
+    /**
+     * Search folders by name prefix within a parent
+     */
+    async searchFoldersByName(workspaceId: string, parentId: string, prefix: string): Promise<Folder[]> {
+        const result = await this.DB_Client.send(
+            new QueryCommand({
+                TableName: this.tableName,
+                IndexName: 'folder-name-index',
+                KeyConditionExpression: 'GSI3PK = :pk AND begins_with(GSI3SK, :prefix)',
+                ExpressionAttributeValues: {
+                    ':pk': `FOLDER#${workspaceId}#${parentId}`,
+                    ':prefix': `NAME#${prefix}`,
+                },
+            }),
+        );
+
+        return (result.Items || []).map(this.mapToFolder);
+    }
+
+    /**
      * Create a new folder
      */
     async createFolder(params: CreateFolderParams): Promise<Folder> {
         const { workspace_id, parent_id, name, user_id } = params;
 
-        // Get parent folder
         const parentFolder = await this.getFolderById(workspace_id, parent_id);
         if (!parentFolder) {
             throw new ItemNotFoundError('folder', parent_id);
         }
 
-        // Check max depth
         if (parentFolder.level >= MAX_FOLDER_DEPTH - 1) {
             throw new MaxDepthExceededError();
         }
 
-        // Build path
-        const path = parentFolder.path === '/' ? `/${name}` : `${parentFolder.path}/${name}`;
+        // Check folder limits
+        this.checkFolderLimits(parentFolder);
 
+        await this.checkDuplicateName(workspace_id, parent_id, name);
+
+        const path = parentFolder.path === '/' ? `/${name}` : `${parentFolder.path}/${name}`;
         const folderId = uuidv4();
         const now = new Date().toISOString();
 
@@ -135,33 +189,31 @@ export class FolderService extends Service implements IService {
             name,
             path,
             level: parentFolder.level + 1,
+            item_count: 0,
+            subfolder_count: 0,
             created_at: now,
             created_by: user_id,
         };
 
-        try {
-            await this.DB_Client.send(
-                new PutCommand({
-                    TableName: this.tableName,
-                    Item: {
-                        pk: `WS#${workspace_id}`,
-                        sk: `FOLDER#${folderId}`,
-                        ...folder,
-                        GSI1PK: `FOLDER#${workspace_id}#${parent_id}`,
-                        GSI1SK: `FOLDER#${name}`,
-                        GSI2PK: `PATH#${workspace_id}`,
-                        GSI2SK: path,
-                    },
-                    // Prevent duplicate folder names in same parent
-                    ConditionExpression: 'attribute_not_exists(pk)',
-                }),
-            );
-        } catch (error: any) {
-            if (error.name === 'ConditionalCheckFailedException') {
-                throw new FolderAlreadyExistsError(name);
-            }
-            throw error;
-        }
+        await this.DB_Client.send(
+            new PutCommand({
+                TableName: this.tableName,
+                Item: {
+                    PK: `WS#${workspace_id}#FOLDER`,
+                    SK: `FOLDER#${folderId}`,
+                    GSI1PK: `FOLDER#${workspace_id}#${parent_id}`,
+                    GSI1SK: `FOLDER#${name}`,
+                    GSI2PK: `PATH#${workspace_id}`,
+                    GSI2SK: path,
+                    GSI3PK: `FOLDER#${workspace_id}#${parent_id}`,
+                    GSI3SK: `NAME#${name}`,
+                    data: folder, // ← data wrapper
+                },
+            }),
+        );
+
+        // Increment parent subfolder count
+        await this.updateCount(workspace_id, parent_id, 'subfolder_count', 1);
 
         return folder;
     }
@@ -194,13 +246,7 @@ export class FolderService extends Service implements IService {
 
         while (currentId) {
             const folder = await this.getFolderById(workspaceId, currentId);
-            console.log({
-                whileFolder: {
-                    folder,
-                    workspaceId,
-                    currentId,
-                },
-            });
+
             if (!folder) break;
 
             breadcrumbs.unshift({ id: folder.id, name: folder.name });
@@ -240,6 +286,9 @@ export class FolderService extends Service implements IService {
             throw new MoveDepthExceededError();
         }
 
+        // Check subfolder limit on target  ← new
+        this.checkFolderLimits(targetFolder);
+
         // Update folder and all descendants
         await this.updateFolderPath(workspaceId, folder, targetFolder, userId);
 
@@ -259,29 +308,40 @@ export class FolderService extends Service implements IService {
             throw new ItemNotFoundError('folder', folderId);
         }
 
-        // Build new path
+        if (folder.name === newName) {
+            throw new SameNameError(newName);
+        }
+
+        await this.checkDuplicateName(workspaceId, folder.parent_id!, newName);
+
         const parentPath = folder.path.substring(0, folder.path.lastIndexOf('/'));
         const newPath = parentPath === '' ? `/${newName}` : `${parentPath}/${newName}`;
+        const now = new Date().toISOString();
 
-        // Update folder
         await this.DB_Client.send(
             new PutCommand({
                 TableName: this.tableName,
                 Item: {
-                    pk: `WS#${workspaceId}`,
-                    sk: `FOLDER#${folderId}`,
-                    ...folder,
-                    name: newName,
-                    path: newPath,
+                    PK: `WS#${workspaceId}#FOLDER`,
+                    SK: `FOLDER#${folderId}`,
                     GSI1PK: `FOLDER#${workspaceId}#${folder.parent_id}`,
                     GSI1SK: `FOLDER#${newName}`,
                     GSI2PK: `PATH#${workspaceId}`,
                     GSI2SK: newPath,
+                    GSI3PK: `FOLDER#${workspaceId}#${folder.parent_id}`,
+                    GSI3SK: `NAME#${newName}`,
+                    data: {
+                        // ← data wrapper
+                        ...folder,
+                        name: newName,
+                        path: newPath,
+                        updated_at: now,
+                        updated_by: userId,
+                    },
                 },
             }),
         );
 
-        // Update all descendant paths
         await this.updateDescendantPaths(workspaceId, folder.path, newPath);
 
         return (await this.getFolderById(workspaceId, folderId))!;
@@ -300,32 +360,33 @@ export class FolderService extends Service implements IService {
             throw new ItemNotFoundError('folder', folderId);
         }
 
-        // Get all descendants using path prefix
         const descendants = await this.getDescendants(workspaceId, folder.path);
 
-        // Separate folders and media
-        const folderItems = descendants.filter((item) => item.sk.startsWith('FOLDER#'));
-        const mediaItems = descendants.filter((item) => item.sk.startsWith('MEDIA#'));
+        const folderItems = descendants.filter((item) => item.SK.startsWith('FOLDER#'));
+        const mediaItems = descendants.filter((item) => item.SK.startsWith('MEDIA#'));
 
-        // Batch delete all items (including the folder itself)
         const allItems = [
-            { pk: `WS#${workspaceId}`, sk: `FOLDER#${folderId}` },
-            ...descendants.map((item) => ({ pk: item.pk, sk: item.sk })),
+            { PK: `WS#${workspaceId}#FOLDER`, SK: `FOLDER#${folderId}` },
+            ...descendants.map((item) => ({ PK: item.PK, SK: item.SK })),
         ];
 
-        // DynamoDB BatchWriteItem limit is 25
         const batches = this.chunkArray(allItems, 25);
-        for (const batch of batches) {
-            await this.DB_Client.send(
-                new BatchWriteCommand({
-                    RequestItems: {
-                        [this.tableName]: batch.map((item) => ({
-                            DeleteRequest: { Key: item },
-                        })),
-                    },
-                }),
-            );
-        }
+        await Promise.all(
+            batches.map((batch) =>
+                this.DB_Client.send(
+                    new BatchWriteCommand({
+                        RequestItems: {
+                            [this.tableName]: batch.map((item) => ({
+                                DeleteRequest: { Key: item },
+                            })),
+                        },
+                    }),
+                ),
+            ),
+        );
+
+        // Decrement parent subfolder count
+        await this.updateCount(workspaceId, folder.parent_id!, 'subfolder_count', -1);
 
         return {
             folders: folderItems.length,
@@ -364,12 +425,13 @@ export class FolderService extends Service implements IService {
         if (!folder) return 0;
 
         const descendants = await this.getDescendants(workspaceId, folder.path);
-        const folderDescendants = descendants.filter((item) => item.sk.startsWith('FOLDER#'));
+        const folderDescendants = descendants.filter((item) => item.SK.startsWith('FOLDER#'));
 
         let maxLevel = folder.level;
         for (const desc of folderDescendants) {
-            if (desc.level > maxLevel) {
-                maxLevel = desc.level;
+            if (desc.data.level > maxLevel) {
+                // ← read from data
+                maxLevel = desc.data.level;
             }
         }
 
@@ -398,7 +460,7 @@ export class FolderService extends Service implements IService {
     }
 
     /**
-     * Update folder path after move
+     * Update folder path after move (private helper)
      */
     private async updateFolderPath(
         workspaceId: string,
@@ -409,27 +471,39 @@ export class FolderService extends Service implements IService {
         const oldPath = folder.path;
         const newPath = targetFolder.path === '/' ? `/${folder.name}` : `${targetFolder.path}/${folder.name}`;
         const levelDiff = targetFolder.level + 1 - folder.level;
+        const now = new Date().toISOString();
 
-        // Update the folder itself
+        await this.checkDuplicateName(workspaceId, targetFolder.id, folder.name);
+
         await this.DB_Client.send(
             new PutCommand({
                 TableName: this.tableName,
                 Item: {
-                    pk: `WS#${workspaceId}`,
-                    sk: `FOLDER#${folder.id}`,
-                    ...folder,
-                    parent_id: targetFolder.id,
-                    path: newPath,
-                    level: targetFolder.level + 1,
+                    PK: `WS#${workspaceId}#FOLDER`,
+                    SK: `FOLDER#${folder.id}`,
                     GSI1PK: `FOLDER#${workspaceId}#${targetFolder.id}`,
                     GSI1SK: `FOLDER#${folder.name}`,
                     GSI2PK: `PATH#${workspaceId}`,
                     GSI2SK: newPath,
+                    GSI3PK: `FOLDER#${workspaceId}#${targetFolder.id}`,
+                    GSI3SK: `NAME#${folder.name}`,
+                    data: {
+                        // ← data wrapper
+                        ...folder,
+                        parent_id: targetFolder.id,
+                        path: newPath,
+                        level: targetFolder.level + 1,
+                        updated_at: now,
+                        updated_by: userId,
+                    },
                 },
             }),
         );
 
-        // Update all descendants
+        // Update subfolder counts
+        await this.updateCount(workspaceId, folder.parent_id!, 'subfolder_count', -1);
+        await this.updateCount(workspaceId, targetFolder.id, 'subfolder_count', 1);
+
         await this.updateDescendantPaths(workspaceId, oldPath, newPath, levelDiff);
     }
 
@@ -444,21 +518,90 @@ export class FolderService extends Service implements IService {
     ): Promise<void> {
         const descendants = await this.getDescendants(workspaceId, oldPath);
 
-        for (const item of descendants) {
-            const updatedPath = item.path.replace(oldPath, newPath);
-            const updatedLevel = levelDiff !== 0 ? item.level + levelDiff : item.level;
+        await Promise.all(
+            descendants.map((item) => {
+                const updatedPath = item.data.path.replace(oldPath, newPath); // ← read from data
+                const updatedLevel =
+                    levelDiff !== 0
+                        ? item.data.level + levelDiff // ← read from data
+                        : item.data.level;
 
-            await this.DB_Client.send(
-                new PutCommand({
-                    TableName: this.tableName,
-                    Item: {
-                        ...item,
-                        path: updatedPath,
-                        level: updatedLevel,
-                        GSI2SK: updatedPath,
-                    },
-                }),
-            );
+                const PK = item.SK.startsWith('FOLDER#') ? `WS#${workspaceId}#FOLDER` : `WS#${workspaceId}#MEDIA`;
+
+                return this.DB_Client.send(
+                    new PutCommand({
+                        TableName: this.tableName,
+                        Item: {
+                            ...item,
+                            PK,
+                            GSI2SK: updatedPath,
+                            data: {
+                                // ← update inside data wrapper
+                                ...item.data,
+                                path: updatedPath,
+                                level: updatedLevel,
+                            },
+                        },
+                    }),
+                );
+            }),
+        );
+    }
+
+    /**
+     * Update the item_count / subfolder_count of the folder
+     */
+    private async updateCount(
+        workspaceId: string,
+        folderId: string,
+        field: 'item_count' | 'subfolder_count',
+        delta: 1 | -1,
+    ): Promise<void> {
+        // ⚠️ WARNING: Negative count guard
+        // In normal flow, counts should never go below 0 since we initialize
+        // both item_count and subfolder_count to 0 on folder creation and only
+        // decrement after confirmed writes. However, if data inconsistency occurs
+        // (e.g. failed writes, manual DB edits, race conditions), this operation
+        // could produce negative counts. Consider adding a ConditionExpression
+        // guard if stricter consistency is required:
+        //
+        // ConditionExpression: 'if_not_exists(#data.#field, :zero) + :delta >= :zero'
+        //
+        // Note: This would cause the update to throw ConditionalCheckFailedException
+        // instead of silently writing a negative value, but adds an extra failure
+        // mode to handle in callers.
+
+        // ⚠️ WARNING: Not fully atomic
+        // SET + if_not_exists is used instead of ADD because ADD does not support
+        // nested attributes (fields inside 'data'). This approach is safe for
+        // sequential calls but has a small race condition window for concurrent
+        // updates to the same folder. For high-concurrency workspaces, consider
+        // moving item_count and subfolder_count to top-level attributes to
+        // enable true atomic ADD operations.
+
+        await this.DB_Client.send(
+            new UpdateCommand({
+                TableName: this.tableName,
+                Key: {
+                    PK: `WS#${workspaceId}#FOLDER`,
+                    SK: `FOLDER#${folderId}`,
+                },
+                UpdateExpression: 'SET #data.#field = if_not_exists(#data.#field, :zero) + :delta',
+                ExpressionAttributeNames: {
+                    '#data': 'data',
+                    '#field': field,
+                },
+                ExpressionAttributeValues: {
+                    ':delta': delta,
+                    ':zero': 0,
+                },
+            }),
+        );
+    }
+
+    private checkFolderLimits(parentFolder: Folder): void {
+        if ((parentFolder.subfolder_count ?? 0) >= MAX_SUBFOLDERS_IN_FOLDER) {
+            throw new SubfolderLimitExceededError();
         }
     }
 
@@ -466,16 +609,20 @@ export class FolderService extends Service implements IService {
      * Map DynamoDB item to Folder interface
      */
     private mapToFolder(item: Record<string, any>): Folder {
+        const data = item.data;
         return {
-            id: item.id,
-            workspace_id: item.workspace_id,
-            parent_id: item.parent_id,
-            name: item.name,
-            path: item.path,
-            level: item.level,
-            item_count: item.item_count,
-            created_at: item.created_at,
-            created_by: item.created_by,
+            id: data.id,
+            workspace_id: data.workspace_id,
+            parent_id: data.parent_id,
+            name: data.name,
+            path: data.path,
+            level: data.level,
+            item_count: data.item_count,
+            subfolder_count: data.subfolder_count,
+            created_at: data.created_at,
+            created_by: data.created_by,
+            updated_at: data.updated_at,
+            updated_by: data.updated_by,
         };
     }
 
