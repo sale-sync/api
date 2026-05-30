@@ -83,7 +83,7 @@ export class MediaService extends Service implements IService {
                     PK: `WS#${workspace_id}#PENDING#MEDIA`, // ← pending partition
                     SK: `MEDIA#${mediaId}`,
                     GSI1PK: `FOLDER#${workspace_id}#${folder_id}`,
-                    GSI1SK: `MEDIA#${file_name}`,
+                    GSI1SK: `PENDING#MEDIA#${file_name}`,
                     GSI2PK: `PATH#${workspace_id}`,
                     GSI2SK: path,
                     TTL, // ← top level for DynamoDB TTL

@@ -33,7 +33,7 @@ Globals:
         Environment:
             Variables:
                 TABLE_NAME: !Ref TableName
-                MEDIA_TABLE_NAME: !GetAtt MediaInfraStack.Outputs.MediaTableName
+                MEDIA_TABLE_NAME: !Ref MediaTableName
                 BLOCK_TABLE_NAME: !Ref BlockTableName
                 S3_BUCKET_NAME: !Ref S3BucketName
                 COGNITO_URL: !Ref CognitoUrl
@@ -185,10 +185,8 @@ Resources:
                     S3_BUCKET_NAME: !GetAtt MediaInfraStack.Outputs.MediaBucketName
             Policies:
                 - AWSLambdaBasicExecutionRole
-                - DynamoDBCrudPolicy:
-                      TableName: !GetAtt MediaInfraStack.Outputs.MediaTableName
-                - S3CrudPolicy:
-                      BucketName: !GetAtt MediaInfraStack.Outputs.MediaBucketName
+                - arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess
+                - arn:aws:iam::aws:policy/AmazonS3FullAccess
             Events:
                 ApiRouter:
                     Type: Api
@@ -212,10 +210,8 @@ Resources:
                     S3_BUCKET_NAME: !GetAtt MediaInfraStack.Outputs.MediaBucketName
             Policies:
                 - AWSLambdaBasicExecutionRole
-                - DynamoDBCrudPolicy:
-                      TableName: !GetAtt MediaInfraStack.Outputs.MediaTableName
-                - S3CrudPolicy:
-                      BucketName: !GetAtt MediaInfraStack.Outputs.MediaBucketName
+                - arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess
+                - arn:aws:iam::aws:policy/AmazonS3FullAccess
             Events:
                 ApiRouter:
                     Type: Api
