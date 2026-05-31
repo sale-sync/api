@@ -1,3 +1,5 @@
+// packages/src/types/contact.ts
+
 export type IContact = {
   workspace_uuid: string;
   id: string;

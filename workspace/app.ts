@@ -1,3 +1,5 @@
+// workspace/app.ts
+
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { Router, withCORS } from '@devyethiha/samjs';
 import DefaultController from './default/default.controller';
@@ -25,8 +27,8 @@ async function main(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult>
 }
 
 export const lambdaHandler = withCORS(main, [
-    'https://app.salessync.biz',
-    'https://staging.salessync.biz',
+    'https://app.salesync.biz',
+    'https://staging.salesync.biz',
     'http://localhost:3000',
     'http://127.0.0.1:3000',
 ]);
