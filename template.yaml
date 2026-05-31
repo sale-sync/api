@@ -64,6 +64,16 @@ Resources:
         Properties:
             Location: ./templates/media.yaml
 
+    # -------------------------------------------------------------------------
+    # Image Infrastructure (S3 + DynamoDB)
+    # -------------------------------------------------------------------------
+    ImageInfraStack:
+        Type: AWS::Serverless::Application
+        DeletionPolicy: Retain
+        UpdateReplacePolicy: Retain
+        Properties:
+            Location: ./templates/images.yaml
+
     # =========================================================================
     # Lambda Functions
     # =========================================================================

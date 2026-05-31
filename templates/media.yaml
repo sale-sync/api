@@ -4,294 +4,294 @@ Transform: AWS::Serverless-2016-10-31
 Description: Sales Sync Media Infrastructure (S3 + DynamoDB)
 
 Resources:
-  # -------------------------------------------------------------------------
-  # S3 Bucket for Access Logs
-  # -------------------------------------------------------------------------
-  # NOTE: cfn-guard warnings are suppressed below because:
-  # 1. SSL_REQUESTS_ONLY - Enforced via separate MediaBucketLogsPolicy resource (DenyNonSSLRequests statement)
-  # 2. LOGGING_ENABLED - This bucket logs to itself using string reference to avoid circular dependency
-  # 3. VERSIONING_ENABLED - Not required for logs bucket, lifecycle policy handles cleanup
-  # The security controls ARE implemented, but cfn-guard can't detect policies in separate resources.
-  # -------------------------------------------------------------------------
-  MediaBucketLogs:
-    Type: AWS::S3::Bucket
-    DeletionPolicy: Retain
-    UpdateReplacePolicy: Retain
-    Metadata:
-      cfn-guard:
-        SuppressedRules:
-          - S3_BUCKET_SSL_REQUESTS_ONLY
-          - S3_BUCKET_LOGGING_ENABLED
-          - S3_BUCKET_VERSIONING_ENABLED
-    Properties:
-      BucketName: !Sub sales-sync-media-logs-${AWS::AccountId}-${AWS::Region}
-      PublicAccessBlockConfiguration:
-        BlockPublicAcls: true
-        BlockPublicPolicy: true
-        IgnorePublicAcls: true
-        RestrictPublicBuckets: true
-      BucketEncryption:
-        ServerSideEncryptionConfiguration:
-          - ServerSideEncryptionByDefault:
-              SSEAlgorithm: AES256
-      LoggingConfiguration:
-        DestinationBucketName: !Sub sales-sync-media-logs-${AWS::AccountId}-${AWS::Region}
-        LogFilePrefix: self-logs/
-      LifecycleConfiguration:
-        Rules:
-          - Id: DeleteOldLogs
-            Status: Enabled
-            ExpirationInDays: 90
-
-  # -------------------------------------------------------------------------
-  # Bucket Policy for MediaBucketLogs
-  # IMPORTANT: This policy implements the security controls for MediaBucketLogs:
-  # - S3ServerAccessLogsPolicy: Allows S3 logging service to write logs
-  # - DenyNonSSLRequests: Denies all non-HTTPS requests (SSL enforcement)
-  # -------------------------------------------------------------------------
-  MediaBucketLogsPolicy:
-    Type: AWS::S3::BucketPolicy
-    Properties:
-      Bucket: !Ref MediaBucketLogs
-      PolicyDocument:
-        Version: '2012-10-17'
-        Statement:
-          - Sid: S3ServerAccessLogsPolicy
-            Effect: Allow
-            Principal:
-              Service: logging.s3.amazonaws.com
-            Action: s3:PutObject
-            Resource: !Sub arn:aws:s3:::sales-sync-media-logs-${AWS::AccountId}-${AWS::Region}/*
-            Condition:
-              ArnLike:
-                aws:SourceArn:
-                  - !Sub arn:aws:s3:::sales-sync-media-${AWS::AccountId}-${AWS::Region}
-                  - !Sub arn:aws:s3:::sales-sync-media-logs-${AWS::AccountId}-${AWS::Region}
-              StringEquals:
-                aws:SourceAccount: !Ref AWS::AccountId
-          - Sid: DenyNonSSLRequests
-            Effect: Deny
-            Principal: '*'
-            Action: s3:*
-            Resource:
-              - !Sub arn:aws:s3:::sales-sync-media-logs-${AWS::AccountId}-${AWS::Region}
-              - !Sub arn:aws:s3:::sales-sync-media-logs-${AWS::AccountId}-${AWS::Region}/*
-            Condition:
-              Bool:
-                aws:SecureTransport: 'false'
-
-  # -------------------------------------------------------------------------
-  # S3 Bucket for Media Storage
-  # -------------------------------------------------------------------------
-  # NOTE: cfn-guard warnings are suppressed below because:
-  # 1. SSL_REQUESTS_ONLY - Enforced via separate MediaBucketPolicy resource (DenyNonSSLRequests statement)
-  # 2. VERSIONING_ENABLED - Not required, lifecycle policy handles cleanup of old versions
-  # The security control IS implemented, but cfn-guard can't detect policies in separate resources.
-  # -------------------------------------------------------------------------
-  MediaBucket:
-    Type: AWS::S3::Bucket
-    DependsOn: MediaS3EventPermission
-    DeletionPolicy: Retain
-    UpdateReplacePolicy: Retain
-    Metadata:
-      cfn-guard:
-        SuppressedRules:
-          - S3_BUCKET_SSL_REQUESTS_ONLY
-          - S3_BUCKET_VERSIONING_ENABLED
-    Properties:
-      BucketName: !Sub sales-sync-media-${AWS::AccountId}-${AWS::Region}
-      LoggingConfiguration:
-        DestinationBucketName: !Ref MediaBucketLogs
-        LogFilePrefix: media-access-logs/
-      BucketEncryption:
-        ServerSideEncryptionConfiguration:
-          - ServerSideEncryptionByDefault:
-              SSEAlgorithm: AES256
-      CorsConfiguration:
-        CorsRules:
-          - AllowedHeaders:
-              - '*'
-            AllowedMethods:
-              - GET
-              - PUT
-              - POST
-              - DELETE
-              - HEAD
-            AllowedOrigins:
-              - https://app.salesync.biz
-              - https://staging.salesync.biz
-              - http://localhost:3000
-              - http://127.0.0.1:3000
-            ExposedHeaders:
-              - ETag
-              - x-amz-meta-media-id
-            MaxAge: 3600
-      PublicAccessBlockConfiguration:
-        BlockPublicAcls: true
-        BlockPublicPolicy: true
-        IgnorePublicAcls: true
-        RestrictPublicBuckets: true
-      LifecycleConfiguration:
-        Rules:
-          - Id: DeletePendingUploads
-            Status: Enabled
-            AbortIncompleteMultipartUpload:
-              DaysAfterInitiation: 1
-          - Id: DeleteOldVersions
-            Status: Enabled
-            NoncurrentVersionExpiration:
-              NoncurrentDays: 30
-      # -----------------------------------------------------------------------
-      # S3 Event Notification - Trigger Lambda on upload
-      # Uses predictable Lambda ARN (via FunctionName) to avoid circular dependency
-      # -----------------------------------------------------------------------
-      NotificationConfiguration:
-        LambdaConfigurations:
-          - Event: s3:ObjectCreated:*
-            Function: !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:sales-sync-media-s3-event
-            Filter:
-              S3Key:
+    # -------------------------------------------------------------------------
+    # S3 Bucket for Access Logs
+    # -------------------------------------------------------------------------
+    # NOTE: cfn-guard warnings are suppressed below because:
+    # 1. SSL_REQUESTS_ONLY - Enforced via separate MediaBucketLogsPolicy resource (DenyNonSSLRequests statement)
+    # 2. LOGGING_ENABLED - This bucket logs to itself using string reference to avoid circular dependency
+    # 3. VERSIONING_ENABLED - Not required for logs bucket, lifecycle policy handles cleanup
+    # The security controls ARE implemented, but cfn-guard can't detect policies in separate resources.
+    # -------------------------------------------------------------------------
+    MediaBucketLogs:
+        Type: AWS::S3::Bucket
+        DeletionPolicy: Retain
+        UpdateReplacePolicy: Retain
+        Metadata:
+            cfn-guard:
+                SuppressedRules:
+                    - S3_BUCKET_SSL_REQUESTS_ONLY
+                    - S3_BUCKET_LOGGING_ENABLED
+                    - S3_BUCKET_VERSIONING_ENABLED
+        Properties:
+            BucketName: !Sub sales-sync-media-logs-${AWS::AccountId}-${AWS::Region}
+            PublicAccessBlockConfiguration:
+                BlockPublicAcls: true
+                BlockPublicPolicy: true
+                IgnorePublicAcls: true
+                RestrictPublicBuckets: true
+            BucketEncryption:
+                ServerSideEncryptionConfiguration:
+                    - ServerSideEncryptionByDefault:
+                          SSEAlgorithm: AES256
+            LoggingConfiguration:
+                DestinationBucketName: !Sub sales-sync-media-logs-${AWS::AccountId}-${AWS::Region}
+                LogFilePrefix: self-logs/
+            LifecycleConfiguration:
                 Rules:
-                  - Name: prefix
-                    Value: workspaces/
+                    - Id: DeleteOldLogs
+                      Status: Enabled
+                      ExpirationInDays: 90
 
-  # -------------------------------------------------------------------------
-  # Bucket Policy for MediaBucket
-  # IMPORTANT: This policy implements the security controls for MediaBucket:
-  # - DenyNonSSLRequests: Denies all non-HTTPS requests (SSL enforcement)
-  # -------------------------------------------------------------------------
-  MediaBucketPolicy:
-    Type: AWS::S3::BucketPolicy
-    Properties:
-      Bucket: !Ref MediaBucket
-      PolicyDocument:
-        Version: '2012-10-17'
-        Statement:
-          - Sid: DenyNonSSLRequests
-            Effect: Deny
-            Principal: '*'
-            Action: s3:*
-            Resource:
-              - !GetAtt MediaBucket.Arn
-              - !Sub ${MediaBucket.Arn}/*
-            Condition:
-              Bool:
-                aws:SecureTransport: 'false'
+    # -------------------------------------------------------------------------
+    # Bucket Policy for MediaBucketLogs
+    # IMPORTANT: This policy implements the security controls for MediaBucketLogs:
+    # - S3ServerAccessLogsPolicy: Allows S3 logging service to write logs
+    # - DenyNonSSLRequests: Denies all non-HTTPS requests (SSL enforcement)
+    # -------------------------------------------------------------------------
+    MediaBucketLogsPolicy:
+        Type: AWS::S3::BucketPolicy
+        Properties:
+            Bucket: !Ref MediaBucketLogs
+            PolicyDocument:
+                Version: '2012-10-17'
+                Statement:
+                    - Sid: S3ServerAccessLogsPolicy
+                      Effect: Allow
+                      Principal:
+                          Service: logging.s3.amazonaws.com
+                      Action: s3:PutObject
+                      Resource: !Sub arn:aws:s3:::sales-sync-media-logs-${AWS::AccountId}-${AWS::Region}/*
+                      Condition:
+                          ArnLike:
+                              aws:SourceArn:
+                                  - !Sub arn:aws:s3:::sales-sync-media-${AWS::AccountId}-${AWS::Region}
+                                  - !Sub arn:aws:s3:::sales-sync-media-logs-${AWS::AccountId}-${AWS::Region}
+                          StringEquals:
+                              aws:SourceAccount: !Ref AWS::AccountId
+                    - Sid: DenyNonSSLRequests
+                      Effect: Deny
+                      Principal: '*'
+                      Action: s3:*
+                      Resource:
+                          - !Sub arn:aws:s3:::sales-sync-media-logs-${AWS::AccountId}-${AWS::Region}
+                          - !Sub arn:aws:s3:::sales-sync-media-logs-${AWS::AccountId}-${AWS::Region}/*
+                      Condition:
+                          Bool:
+                              aws:SecureTransport: 'false'
 
-  # -------------------------------------------------------------------------
-  # DynamoDB Table for Media Metadata
-  # -------------------------------------------------------------------------
-  MediaTable:
-    Type: AWS::DynamoDB::Table
-    DeletionPolicy: Retain
-    UpdateReplacePolicy: Retain
-    Properties:
-      TableName: sales-sync-media
-      BillingMode: PAY_PER_REQUEST
-      SSESpecification:
-        SSEEnabled: true
-      AttributeDefinitions:
-        - AttributeName: pk
-          AttributeType: S
-        - AttributeName: sk
-          AttributeType: S
-        - AttributeName: GSI1PK
-          AttributeType: S
-        - AttributeName: GSI1SK
-          AttributeType: S
-        - AttributeName: GSI2PK
-          AttributeType: S
-        - AttributeName: GSI2SK
-          AttributeType: S
-      KeySchema:
-        - AttributeName: pk
-          KeyType: HASH
-        - AttributeName: sk
-          KeyType: RANGE
-      GlobalSecondaryIndexes:
-        - IndexName: folder-contents-index
-          KeySchema:
-            - AttributeName: GSI1PK
-              KeyType: HASH
-            - AttributeName: GSI1SK
-              KeyType: RANGE
-          Projection:
-            ProjectionType: ALL
-        - IndexName: path-index
-          KeySchema:
-            - AttributeName: GSI2PK
-              KeyType: HASH
-            - AttributeName: GSI2SK
-              KeyType: RANGE
-          Projection:
-            ProjectionType: ALL
+    # -------------------------------------------------------------------------
+    # S3 Bucket for Media Storage
+    # -------------------------------------------------------------------------
+    # NOTE: cfn-guard warnings are suppressed below because:
+    # 1. SSL_REQUESTS_ONLY - Enforced via separate MediaBucketPolicy resource (DenyNonSSLRequests statement)
+    # 2. VERSIONING_ENABLED - Not required, lifecycle policy handles cleanup of old versions
+    # The security control IS implemented, but cfn-guard can't detect policies in separate resources.
+    # -------------------------------------------------------------------------
+    MediaBucket:
+        Type: AWS::S3::Bucket
+        DependsOn: MediaS3EventPermission
+        DeletionPolicy: Retain
+        UpdateReplacePolicy: Retain
+        Metadata:
+            cfn-guard:
+                SuppressedRules:
+                    - S3_BUCKET_SSL_REQUESTS_ONLY
+                    - S3_BUCKET_VERSIONING_ENABLED
+        Properties:
+            BucketName: !Sub sales-sync-media-${AWS::AccountId}-${AWS::Region}
+            LoggingConfiguration:
+                DestinationBucketName: !Ref MediaBucketLogs
+                LogFilePrefix: media-access-logs/
+            BucketEncryption:
+                ServerSideEncryptionConfiguration:
+                    - ServerSideEncryptionByDefault:
+                          SSEAlgorithm: AES256
+            CorsConfiguration:
+                CorsRules:
+                    - AllowedHeaders:
+                          - '*'
+                      AllowedMethods:
+                          - GET
+                          - PUT
+                          - POST
+                          - DELETE
+                          - HEAD
+                      AllowedOrigins:
+                          - https://app.salesync.biz
+                          - https://staging.salesync.biz
+                          - http://localhost:3000
+                          - http://127.0.0.1:3000
+                      ExposedHeaders:
+                          - ETag
+                          - x-amz-meta-media-id
+                      MaxAge: 3600
+            PublicAccessBlockConfiguration:
+                BlockPublicAcls: true
+                BlockPublicPolicy: true
+                IgnorePublicAcls: true
+                RestrictPublicBuckets: true
+            LifecycleConfiguration:
+                Rules:
+                    - Id: DeletePendingUploads
+                      Status: Enabled
+                      AbortIncompleteMultipartUpload:
+                          DaysAfterInitiation: 1
+                    - Id: DeleteOldVersions
+                      Status: Enabled
+                      NoncurrentVersionExpiration:
+                          NoncurrentDays: 30
+            # -----------------------------------------------------------------------
+            # S3 Event Notification - Trigger Lambda on upload
+            # Uses predictable Lambda ARN (via FunctionName) to avoid circular dependency
+            # -----------------------------------------------------------------------
+            NotificationConfiguration:
+                LambdaConfigurations:
+                    - Event: s3:ObjectCreated:*
+                      Function: !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:sales-sync-media-s3-event
+                      Filter:
+                          S3Key:
+                              Rules:
+                                  - Name: prefix
+                                    Value: workspaces/
 
-  # -------------------------------------------------------------------------
-  # S3 Event Lambda - Updates media status after upload
-  # 
-  # Triggered when files are uploaded to workspaces/ prefix.
-  # Updates the corresponding media record status from 'pending' to 'ready'.
-  # 
-  # NOTE: We use manual NotificationConfiguration + Permission instead of
-  # SAM's S3 Event source to avoid circular dependency.
-  # -------------------------------------------------------------------------
-  MediaS3EventFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      FunctionName: sales-sync-media-s3-event
-      CodeUri: ../media-s3-event/bundle
-      Handler: s3-event.lambdaHandler
-      Runtime: nodejs22.x
-      Architectures: [x86_64]
-      Timeout: 30
-      MemorySize: 256
-      Environment:
-        Variables:
-          TABLE_NAME: !Ref MediaTable
-      Policies:
-        - AWSLambdaBasicExecutionRole
-        - DynamoDBCrudPolicy:
-            TableName: !Ref MediaTable
-        - Statement:
-            - Effect: Allow
-              Action:
-                - s3:GetObject
-                - s3:HeadObject
-              Resource: !Sub arn:aws:s3:::sales-sync-media-${AWS::AccountId}-${AWS::Region}/*
+    # -------------------------------------------------------------------------
+    # Bucket Policy for MediaBucket
+    # IMPORTANT: This policy implements the security controls for MediaBucket:
+    # - DenyNonSSLRequests: Denies all non-HTTPS requests (SSL enforcement)
+    # -------------------------------------------------------------------------
+    MediaBucketPolicy:
+        Type: AWS::S3::BucketPolicy
+        Properties:
+            Bucket: !Ref MediaBucket
+            PolicyDocument:
+                Version: '2012-10-17'
+                Statement:
+                    - Sid: DenyNonSSLRequests
+                      Effect: Deny
+                      Principal: '*'
+                      Action: s3:*
+                      Resource:
+                          - !GetAtt MediaBucket.Arn
+                          - !Sub ${MediaBucket.Arn}/*
+                      Condition:
+                          Bool:
+                              aws:SecureTransport: 'false'
 
-  # -------------------------------------------------------------------------
-  # Lambda Permission - Allow S3 to invoke the function
-  # -------------------------------------------------------------------------
-  MediaS3EventPermission:
-    Type: AWS::Lambda::Permission
-    Properties:
-      FunctionName: !GetAtt MediaS3EventFunction.Arn
-      Action: lambda:InvokeFunction
-      Principal: s3.amazonaws.com
-      SourceAccount: !Ref AWS::AccountId
-      SourceArn: !Sub arn:aws:s3:::sales-sync-media-${AWS::AccountId}-${AWS::Region}
+    # -------------------------------------------------------------------------
+    # DynamoDB Table for Media Metadata
+    # -------------------------------------------------------------------------
+    MediaTable:
+        Type: AWS::DynamoDB::Table
+        DeletionPolicy: Retain
+        UpdateReplacePolicy: Retain
+        Properties:
+            TableName: sales-sync-media
+            BillingMode: PAY_PER_REQUEST
+            SSESpecification:
+                SSEEnabled: true
+            AttributeDefinitions:
+                - AttributeName: pk
+                  AttributeType: S
+                - AttributeName: sk
+                  AttributeType: S
+                - AttributeName: GSI1PK
+                  AttributeType: S
+                - AttributeName: GSI1SK
+                  AttributeType: S
+                - AttributeName: GSI2PK
+                  AttributeType: S
+                - AttributeName: GSI2SK
+                  AttributeType: S
+            KeySchema:
+                - AttributeName: pk
+                  KeyType: HASH
+                - AttributeName: sk
+                  KeyType: RANGE
+            GlobalSecondaryIndexes:
+                - IndexName: folder-contents-index
+                  KeySchema:
+                      - AttributeName: GSI1PK
+                        KeyType: HASH
+                      - AttributeName: GSI1SK
+                        KeyType: RANGE
+                  Projection:
+                      ProjectionType: ALL
+                - IndexName: path-index
+                  KeySchema:
+                      - AttributeName: GSI2PK
+                        KeyType: HASH
+                      - AttributeName: GSI2SK
+                        KeyType: RANGE
+                  Projection:
+                      ProjectionType: ALL
+
+    # -------------------------------------------------------------------------
+    # S3 Event Lambda - Updates media status after upload
+    #
+    # Triggered when files are uploaded to workspaces/ prefix.
+    # Updates the corresponding media record status from 'pending' to 'ready'.
+    #
+    # NOTE: We use manual NotificationConfiguration + Permission instead of
+    # SAM's S3 Event source to avoid circular dependency.
+    # -------------------------------------------------------------------------
+    MediaS3EventFunction:
+        Type: AWS::Serverless::Function
+        Properties:
+            FunctionName: sales-sync-media-s3-event
+            CodeUri: ../media-s3-event/bundle
+            Handler: s3-event.lambdaHandler
+            Runtime: nodejs22.x
+            Architectures: [x86_64]
+            Timeout: 30
+            MemorySize: 256
+            Environment:
+                Variables:
+                    TABLE_NAME: !Ref MediaTable
+            Policies:
+                - AWSLambdaBasicExecutionRole
+                - DynamoDBCrudPolicy:
+                      TableName: !Ref MediaTable
+                - Statement:
+                      - Effect: Allow
+                        Action:
+                            - s3:GetObject
+                            - s3:HeadObject
+                        Resource: !Sub arn:aws:s3:::sales-sync-media-${AWS::AccountId}-${AWS::Region}/*
+
+    # -------------------------------------------------------------------------
+    # Lambda Permission - Allow S3 to invoke the function
+    # -------------------------------------------------------------------------
+    MediaS3EventPermission:
+        Type: AWS::Lambda::Permission
+        Properties:
+            FunctionName: !GetAtt MediaS3EventFunction.Arn
+            Action: lambda:InvokeFunction
+            Principal: s3.amazonaws.com
+            SourceAccount: !Ref AWS::AccountId
+            SourceArn: !Sub arn:aws:s3:::sales-sync-media-${AWS::AccountId}-${AWS::Region}
 
 Outputs:
-  MediaBucketName:
-    Description: S3 Bucket for media storage
-    Value: !Ref MediaBucket
+    MediaBucketName:
+        Description: S3 Bucket for media storage
+        Value: !Ref MediaBucket
 
-  MediaBucketArn:
-    Description: S3 Bucket ARN for media storage
-    Value: !GetAtt MediaBucket.Arn
+    MediaBucketArn:
+        Description: S3 Bucket ARN for media storage
+        Value: !GetAtt MediaBucket.Arn
 
-  MediaBucketLogsName:
-    Description: S3 Bucket for media access logs
-    Value: !Ref MediaBucketLogs
+    MediaBucketLogsName:
+        Description: S3 Bucket for media access logs
+        Value: !Ref MediaBucketLogs
 
-  MediaTableName:
-    Description: DynamoDB Table for media metadata
-    Value: !Ref MediaTable
+    MediaTableName:
+        Description: DynamoDB Table for media metadata
+        Value: !Ref MediaTable
 
-  MediaTableArn:
-    Description: DynamoDB Table ARN for media metadata
-    Value: !GetAtt MediaTable.Arn
+    MediaTableArn:
+        Description: DynamoDB Table ARN for media metadata
+        Value: !GetAtt MediaTable.Arn
 
-  MediaS3EventFunctionArn:
-    Description: S3 Event Lambda Function ARN
-    Value: !GetAtt MediaS3EventFunction.Arn
+    MediaS3EventFunctionArn:
+        Description: S3 Event Lambda Function ARN
+        Value: !GetAtt MediaS3EventFunction.Arn
