@@ -9,7 +9,8 @@
     "crm",
     "media",
     "blocks",
-    "packages"
+    "packages",
+    "openapi"
   ],
   "scripts": {
     "nx": "nx",

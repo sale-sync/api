@@ -1,4 +1,4 @@
-.PHONY: help clean shared.pack bundle bundle.s3-event build start deploy dev deps deps.all deps.auth deps.organisation deps.crm deps.media deps.blocks
+.PHONY: help clean shared.pack bundle bundle.s3-event build start deploy dev deps deps.all deps.auth deps.organisation deps.crm deps.media deps.blocks docs
 
 # Default target
 .DEFAULT_GOAL := help
@@ -137,6 +137,11 @@ clean:
 	@echo "==> Cleaning build artifacts"
 	rm -rf .aws-sam auth/bundle organisation/bundle crm/bundle media/bundle media-s3-event/bundle blocks/bundle
 
+# === OpenAPI docs server ===
+docs:
+	@echo "==> Starting OpenAPI docs server on :1778"
+	cd openapi && npx ts-node app.ts
+
 # === Help ===
 help:
 	@echo ""
@@ -150,4 +155,5 @@ help:
 	@echo "  make start         - Run local API after build"
 	@echo "  make deploy        - Build + bundle S3 event + deploy to AWS"
 	@echo "  make clean         - Remove .aws-sam and bundle folders"
+	@echo "  make docs          - Start OpenAPI documentation server on :1778"
 	@echo ""
