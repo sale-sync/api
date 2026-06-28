@@ -6,7 +6,7 @@ import { v4 as uuidv4 } from 'uuid';
 export interface ICustomerService {
     createContact: (param: CreatUserParam) => void;
     addCustomer: (param: CreatUserParam) => void;
-    getContactsWorkspaceId(
+    getContactsOrganisationId(
         userId: string,
         options?: {
             hydrate?: boolean;
@@ -16,15 +16,15 @@ export interface ICustomerService {
 
 type CreatUserParam = {
     user_id: string;
-    workspace_id: string;
-    workspace_name: string;
+    organisation_id: string;
+    organisation_name: string;
 };
 
 export class CustomerService extends Service implements ICustomerService {
     private DB_Client: DynamoDBClient;
 
     constructor(DB_Client: DynamoDBClient) {
-        super('workspace');
+        super('organisation');
         this.DB_Client = DB_Client;
     }
 
@@ -32,15 +32,15 @@ export class CustomerService extends Service implements ICustomerService {
         try {
             const data = {
                 uuid: uuidv4(),
-                id: param.workspace_id,
-                name: param.workspace_name,
+                id: param.organisation_id,
+                name: param.organisation_name,
             };
 
             await this.DB_Client.send(
                 new PutCommand({
-                    TableName: 'sales-sync-workspace',
+                    TableName: 'sales-sync-organisation',
                     Item: {
-                        pk: 'WORKSPACE',
+                        pk: 'ORGANISATION',
                         sk: 'META#' + data.id,
                         data: JSON.stringify(data),
                     },
@@ -49,9 +49,9 @@ export class CustomerService extends Service implements ICustomerService {
 
             await this.DB_Client.send(
                 new PutCommand({
-                    TableName: 'sales-sync-workspace',
+                    TableName: 'sales-sync-organisation',
                     Item: {
-                        pk: 'WORKSPACE#' + data.id,
+                        pk: 'ORGANISATION#' + data.id,
                         sk: 'USER#' + param.user_id,
                     },
                 }),
@@ -65,15 +65,15 @@ export class CustomerService extends Service implements ICustomerService {
         try {
             const data = {
                 uuid: uuidv4(),
-                id: param.workspace_id,
-                name: param.workspace_name,
+                id: param.organisation_id,
+                name: param.organisation_name,
             };
 
             await this.DB_Client.send(
                 new PutCommand({
-                    TableName: 'sales-sync-workspace',
+                    TableName: 'sales-sync-organisation',
                     Item: {
-                        pk: 'WORKSPACE',
+                        pk: 'ORGANISATION',
                         sk: 'META#' + data.id,
                         data: JSON.stringify(data),
                     },
@@ -82,9 +82,9 @@ export class CustomerService extends Service implements ICustomerService {
 
             await this.DB_Client.send(
                 new PutCommand({
-                    TableName: 'sales-sync-workspace',
+                    TableName: 'sales-sync-organisation',
                     Item: {
-                        pk: 'WORKSPACE#' + data.id,
+                        pk: 'ORGANISATION#' + data.id,
                         sk: 'USER#' + param.user_id,
                     },
                 }),
@@ -96,55 +96,54 @@ export class CustomerService extends Service implements ICustomerService {
     }
 
     // ---------------------------------------------------------
-    // Get all workspaces a user belongs to
+    // Get all organisations a user belongs to
     //    (Use GSI with sk as the HASH key -> query by "#USER#<userId>")
     //    Membership items show on the GSI as:
     //      gsi partition (sk) = "USER#<userId>"
-    //      gsi sort      (pk) = "WORKSPACE#<wsId>"
-    //    Optionally hydrate workspace metadata via BatchGet
+    //      gsi sort      (pk) = "ORGANISATION#<orgId>"
+    //    Optionally hydrate organisation metadata via BatchGet
     // ---------------------------------------------------------
-    public async getContactsWorkspaceId(userId: string, options?: { hydrate?: boolean }) {
+    public async getContactsOrganisationId(userId: string, options?: { hydrate?: boolean }) {
         const skUser = `USER#${userId}`;
 
         const res = await this.DB_Client.send(
             new QueryCommand({
-                TableName: 'sales-sync-workspace',
+                TableName: 'sales-sync-organisation',
                 IndexName: 'inverted-index',
-                KeyConditionExpression: 'sk = :skUser AND begins_with(pk, :wsPrefix)',
+                KeyConditionExpression: 'sk = :skUser AND begins_with(pk, :orgPrefix)',
                 ExpressionAttributeValues: {
                     ':skUser': skUser,
-                    ':wsPrefix': `WORKSPACE#`,
+                    ':orgPrefix': `ORGANISATION#`,
                 },
             }),
         );
 
-        const workspaceIds = res.Items?.map((it) => String(it.pk).replace(`WORKSPACE#`, '')) ?? [];
+        const organisationIds = res.Items?.map((it) => String(it.pk).replace(`ORGANISATION#`, '')) ?? [];
 
         // Fast path: just IDs
-        if (!options?.hydrate || workspaceIds.length === 0) {
-            return { userId, workspaces: workspaceIds };
+        if (!options?.hydrate || organisationIds.length === 0) {
+            return { userId, organisations: organisationIds };
         }
 
-        // Hydrate: fetch workspace metadata rows:
-        //   pk = "WORKSPACE", sk = "META#<wsId>"
-        const keys = workspaceIds.map((id) => ({
-            pk: 'WORKSPACE',
+        // Hydrate: fetch organisation metadata rows:
+        //   pk = "ORGANISATION", sk = "META#<orgId>"
+        const keys = organisationIds.map((id) => ({
+            pk: 'ORGANISATION',
             sk: `META#${id}`,
         }));
 
         const batch = await this.DB_Client.send(
             new BatchGetCommand({
                 RequestItems: {
-                    ['sales-sync-workspace']: {
+                    ['sales-sync-organisation']: {
                         Keys: keys,
                     },
                 },
             }),
         );
 
-        const items = batch.Responses?.['sales-sync-workspace'] ?? [];
-        // If you stored the workspace blob under "data" as JSON string, parse it safely
-        const workspaces = items.map((item: any) => {
+        const items = batch.Responses?.['sales-sync-organisation'] ?? [];
+        const organisations = items.map((item: any) => {
             try {
                 return item.data ? JSON.parse(item.data) : { id: String(item.sk).replace(`META#`, '') };
             } catch {
@@ -152,6 +151,6 @@ export class CustomerService extends Service implements ICustomerService {
             }
         });
 
-        return workspaces ?? [];
+        return organisations ?? [];
     }
 }

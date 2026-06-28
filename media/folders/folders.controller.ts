@@ -8,7 +8,7 @@ import {
     NO_USER,
     ValidationError,
 } from '@devyethiha/samjs';
-import { getWorkspace, NO_WORKSPACE } from '@sales-sync/shared';
+import { getOrganisation, NO_ORGANISATION } from '@sales-sync/shared';
 import { FolderService } from '../services/folder.service';
 import { CreateFolderDTO } from '../dtos/media.dto';
 import {
@@ -33,7 +33,7 @@ export default class FoldersController extends Controller implements IController
      * - parent_id (optional, default: 'root')
      * - name (required)
      *
-     * Workspace context from Workspace cookie JWT
+     * Organisation context from Organisation cookie JWT
      */
     async post(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
         if (!isAuthorize(event)) {
@@ -45,9 +45,9 @@ export default class FoldersController extends Controller implements IController
             return NO_USER;
         }
 
-        const workspace = getWorkspace(event);
-        if (!workspace) {
-            return NO_WORKSPACE;
+        const organisation = getOrganisation(event);
+        if (!organisation) {
+            return NO_ORGANISATION;
         }
 
         try {
@@ -56,14 +56,14 @@ export default class FoldersController extends Controller implements IController
             const params = dto.validate(body);
 
             const { parent_id, name } = params;
-            const workspace_id = workspace.uuid;
+            const organisation_id = organisation.uuid;
 
             // Ensure root folder exists
-            await this.folderService.ensureRootFolder(workspace_id, user.id);
+            await this.folderService.ensureRootFolder(organisation_id, user.id);
 
             // Create the folder
             const folder = await this.folderService.createFolder({
-                workspace_id,
+                organisation_id,
                 parent_id,
                 name,
                 user_id: user.id,

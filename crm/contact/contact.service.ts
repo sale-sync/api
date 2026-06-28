@@ -10,7 +10,7 @@ export interface IContactService {
     addContactItem: (param: IAddContactItemDto) => Promise<IContactItem>;
     editContactItem(param: IEditContactItemDto): Promise<IContactItem>;
     getContactItems(contact_id: string): Promise<IContactItem[]>;
-    getContacts: (workspace_uuid: string) => Promise<IContact[]>;
+    getContacts: (organisation_uuid: string) => Promise<IContact[]>;
 }
 
 export class ContactService extends Service implements IContactService {
@@ -32,7 +32,7 @@ export class ContactService extends Service implements IContactService {
                 new PutCommand({
                     TableName: 'sales-sync-crm',
                     Item: {
-                        pk: `WORKSPACE#${data.workspace_uuid}#CONTACT`,
+                        pk: `ORGANISATION#${data.organisation_uuid}#CONTACT`,
                         sk: `CONTACT#${data.id}`,
                         data: JSON.stringify(data),
                     },
@@ -154,7 +154,6 @@ export class ContactService extends Service implements IContactService {
             const res = await this.DB_Client.send(command);
             const items = res.Items ?? [];
 
-            // Your createContact stores JSON in the "data" attribute
             const contact_items = items.map((it) => JSON.parse(it.data as string) as IContactItem);
 
             return contact_items;
@@ -164,13 +163,13 @@ export class ContactService extends Service implements IContactService {
         }
     }
 
-    public async getContacts(workspace_uuid: string): Promise<IContact[]> {
+    public async getContacts(organisation_uuid: string): Promise<IContact[]> {
         try {
             const command = new QueryCommand({
                 TableName: 'sales-sync-crm',
                 KeyConditionExpression: 'pk = :pk AND begins_with(sk, :skPrefix)',
                 ExpressionAttributeValues: {
-                    ':pk': `WORKSPACE#${workspace_uuid}#CONTACT`,
+                    ':pk': `ORGANISATION#${organisation_uuid}#CONTACT`,
                     ':skPrefix': 'CONTACT#',
                 },
             });
@@ -178,7 +177,6 @@ export class ContactService extends Service implements IContactService {
             const res = await this.DB_Client.send(command);
             const items = res.Items ?? [];
 
-            // Your createContact stores JSON in the "data" attribute
             const contacts = items.map((it) => JSON.parse(it.data as string) as IContact);
 
             return contacts;

@@ -15,7 +15,7 @@ async function main(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult>
 
         return await router.handle();
     } catch (error: any) {
-        const statusCode = error?.statusstatusCode;
+        const statusCode = error?.statusCode;
         return { statusCode: statusCode ? statusCode : 500, body: JSON.stringify(error) };
     }
 }
@@ -25,4 +25,5 @@ export const lambdaHandler = withCORS(main, [
     'https://staging.salesync.biz',
     'http://localhost:3000',
     'http://127.0.0.1:3000',
+    'https://app.salesync.local',
 ]);

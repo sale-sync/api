@@ -1,7 +1,7 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { Controller, IControllerMethods } from '@devyethiha/samjs';
 import { isAuthorize, getUser, UNAUTHORIZE_ERROR, NO_USER } from '@devyethiha/samjs';
-import { getWorkspace, NO_WORKSPACE } from '@sales-sync/shared';
+import { getOrganisation, NO_ORGANISATION } from '@sales-sync/shared';
 import { BlocksService } from './blocks.service';
 import { CreateBlockDTO, UpdateBlockDTO, ValidateBlockDTO, validateBatchSchema } from './blocks.dto';
 
@@ -45,25 +45,25 @@ export default class BlocksController extends Controller implements IControllerM
         if (!isAuthorize(event)) return UNAUTHORIZE_ERROR;
         const user = getUser(event);
         if (!user) return NO_USER;
-        const workspace = getWorkspace(event);
-        if (!workspace) return NO_WORKSPACE;
+        const organisation = getOrganisation(event);
+        if (!organisation) return NO_ORGANISATION;
 
         try {
             const { id, validate } = event.queryStringParameters ?? {};
-            const workspace_id = workspace.uuid;
+            const organisation_id = organisation.uuid;
 
             if (id && validate === 'true') {
-                const result = await this.blocksService.validateById(workspace_id, id);
+                const result = await this.blocksService.validateById(organisation_id, id);
                 return this.ok(result);
             }
 
             if (id) {
-                const block = await this.blocksService.findById(workspace_id, id);
+                const block = await this.blocksService.findById(organisation_id, id);
                 if (!block) return this.err(404, 'Block not found');
                 return this.ok(block);
             }
 
-            const blocks = await this.blocksService.findAll(workspace_id);
+            const blocks = await this.blocksService.findAll(organisation_id);
             return this.ok(blocks);
         } catch (e) {
             return this.handleError(e);
@@ -77,13 +77,13 @@ export default class BlocksController extends Controller implements IControllerM
         if (!isAuthorize(event)) return UNAUTHORIZE_ERROR;
         const user = getUser(event);
         if (!user) return NO_USER;
-        const workspace = getWorkspace(event);
-        if (!workspace) return NO_WORKSPACE;
+        const organisation = getOrganisation(event);
+        if (!organisation) return NO_ORGANISATION;
 
         try {
             const { validate } = event.queryStringParameters ?? {};
             const body = JSON.parse(event.body || '{}');
-            const workspace_id = workspace.uuid;
+            const organisation_id = organisation.uuid;
 
             if (validate === 'batch') {
                 const parsed = validateBatchSchema.parse(body);
@@ -98,7 +98,7 @@ export default class BlocksController extends Controller implements IControllerM
             }
 
             const parsed = createBlockDTO.validate(body);
-            const block = await this.blocksService.create(workspace_id, parsed);
+            const block = await this.blocksService.create(organisation_id, parsed);
             return this.ok(block, 201);
         } catch (e) {
             return this.handleError(e);
@@ -110,8 +110,8 @@ export default class BlocksController extends Controller implements IControllerM
         if (!isAuthorize(event)) return UNAUTHORIZE_ERROR;
         const user = getUser(event);
         if (!user) return NO_USER;
-        const workspace = getWorkspace(event);
-        if (!workspace) return NO_WORKSPACE;
+        const organisation = getOrganisation(event);
+        if (!organisation) return NO_ORGANISATION;
 
         try {
             const { id } = event.queryStringParameters ?? {};
@@ -119,9 +119,9 @@ export default class BlocksController extends Controller implements IControllerM
 
             const body = JSON.parse(event.body || '{}');
             const parsed = updateBlockDTO.validate(body);
-            const workspace_id = workspace.uuid;
+            const organisation_id = organisation.uuid;
 
-            const block = await this.blocksService.update(workspace_id, id, parsed);
+            const block = await this.blocksService.update(organisation_id, id, parsed);
             return this.ok(block);
         } catch (e) {
             return this.handleError(e);
@@ -133,14 +133,14 @@ export default class BlocksController extends Controller implements IControllerM
         if (!isAuthorize(event)) return UNAUTHORIZE_ERROR;
         const user = getUser(event);
         if (!user) return NO_USER;
-        const workspace = getWorkspace(event);
-        if (!workspace) return NO_WORKSPACE;
+        const organisation = getOrganisation(event);
+        if (!organisation) return NO_ORGANISATION;
 
         try {
             const { id } = event.queryStringParameters ?? {};
             if (!id) return this.err(400, 'Missing query param: id');
 
-            await this.blocksService.delete(workspace.uuid, id);
+            await this.blocksService.delete(organisation.uuid, id);
             return { statusCode: 204, body: '' };
         } catch (e) {
             return this.handleError(e);

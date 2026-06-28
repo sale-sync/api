@@ -1,7 +1,7 @@
 import { IContactService } from './../contact/contact.service';
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { Controller, getUser, IControllerMethods, isAuthorize, NO_USER, UNAUTHORIZE_ERROR } from '@devyethiha/samjs';
-import { getWorkspace, NO_WORKSPACE } from '@sales-sync/shared';
+import { getOrganisation, NO_ORGANISATION } from '@sales-sync/shared';
 import { IFormService } from '../form/form.service';
 
 class DefaultController extends Controller implements IControllerMethods {
@@ -24,12 +24,12 @@ class DefaultController extends Controller implements IControllerMethods {
         if (!user) {
             return NO_USER;
         }
-        const workspace = getWorkspace(event);
-        if (!workspace) {
-            return NO_WORKSPACE;
+        const organisation = getOrganisation(event);
+        if (!organisation) {
+            return NO_ORGANISATION;
         }
-        const contactList = await this.contactService.getContacts(workspace.uuid);
-        const formList = await this.formService.getForms(workspace.uuid);
+        const contactList = await this.contactService.getContacts(organisation.uuid);
+        const formList = await this.formService.getForms(organisation.uuid);
 
         return {
             statusCode: 200,

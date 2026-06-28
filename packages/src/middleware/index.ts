@@ -1,3 +1,3 @@
 // packages/src/middleware/index.ts
 
-export * from "./workspace.middleware"
+export * from "./organisation.middleware"

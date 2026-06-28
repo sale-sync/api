@@ -1,7 +1,7 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { Controller, IControllerMethods, isAuthorize, UNAUTHORIZE_ERROR } from '@devyethiha/samjs';
 
-import { getWorkspace, NO_WORKSPACE } from '@sales-sync/shared';
+import { getOrganisation, NO_ORGANISATION } from '@sales-sync/shared';
 import { IFormService } from './form.service';
 import { ICreateFormDto } from './form.dto';
 
@@ -15,7 +15,7 @@ class FormController extends Controller implements IControllerMethods {
 
     /**
      *
-     * Create Form for workspace
+     * Create Form for organisation
      * @param event
      * @returns
      */
@@ -23,9 +23,9 @@ class FormController extends Controller implements IControllerMethods {
         if (!isAuthorize(event)) {
             return UNAUTHORIZE_ERROR;
         }
-        const workspace = getWorkspace(event);
-        if (!workspace) {
-            return NO_WORKSPACE;
+        const organisation = getOrganisation(event);
+        if (!organisation) {
+            return NO_ORGANISATION;
         }
         const bodyStr: any = event.body;
         if (!bodyStr) {
@@ -38,7 +38,7 @@ class FormController extends Controller implements IControllerMethods {
 
         // Refractor: need to validate data with actural dto created with zod
         const data: ICreateFormDto = {
-            workspace_uuid: workspace.uuid,
+            organisation_uuid: organisation.uuid,
             ...body,
         };
         const contact = await this.formService.createForm(data);

@@ -8,7 +8,7 @@ import { MAX_ITEMS_IN_FOLDER, PENDING_UPLOAD_TTL_SECONDS } from './media.constan
 
 export interface Media {
     id: string;
-    workspace_id: string;
+    organisation_id: string;
     folder_id: string;
     name: string;
     path: string;
@@ -30,7 +30,7 @@ export interface Media {
 }
 
 export interface CreateMediaParams {
-    workspace_id: string;
+    organisation_id: string;
     folder_id: string;
     file_name: string;
     mime_type: string;
@@ -51,7 +51,7 @@ export class MediaService extends Service implements IService {
      * Create a new media record (pending upload)
      */
     async createMedia(params: CreateMediaParams, folder: Folder): Promise<Media> {
-        const { workspace_id, folder_id, file_name, mime_type, user_id } = params;
+        const { organisation_id, folder_id, file_name, mime_type, user_id } = params;
 
         // Check media limit
         this.checkMediaLimit(folder);
@@ -59,12 +59,12 @@ export class MediaService extends Service implements IService {
         const mediaId = uuidv4();
         const now = new Date().toISOString();
         const TTL = Math.floor(Date.now() / 1000) + PENDING_UPLOAD_TTL_SECONDS;
-        const s3Key = `cdn/${workspace_id}/${mediaId}/${file_name}`;
+        const s3Key = `cdn/${organisation_id}/${mediaId}/${file_name}`;
         const path = folder.path === '/' ? `/${file_name}` : `${folder.path}/${file_name}`;
 
         const media: Media = {
             id: mediaId,
-            workspace_id,
+            organisation_id,
             folder_id,
             name: file_name,
             path,
@@ -80,11 +80,11 @@ export class MediaService extends Service implements IService {
             new PutCommand({
                 TableName: this.tableName,
                 Item: {
-                    PK: `WS#${workspace_id}#PENDING#MEDIA`, // ← pending partition
+                    PK: `WS#${organisation_id}#PENDING#MEDIA`, // ← pending partition
                     SK: `MEDIA#${mediaId}`,
-                    GSI1PK: `FOLDER#${workspace_id}#${folder_id}`,
+                    GSI1PK: `FOLDER#${organisation_id}#${folder_id}`,
                     GSI1SK: `PENDING#MEDIA#${file_name}`,
-                    GSI2PK: `PATH#${workspace_id}`,
+                    GSI2PK: `PATH#${organisation_id}`,
                     GSI2SK: path,
                     TTL, // ← top level for DynamoDB TTL
                     data: media, // ← data wrapper
@@ -98,12 +98,12 @@ export class MediaService extends Service implements IService {
     /**
      * Get media by ID
      */
-    async getMediaById(workspaceId: string, mediaId: string): Promise<Media | null> {
+    async getMediaById(organisationId: string, mediaId: string): Promise<Media | null> {
         const result = await this.DB_Client.send(
             new GetCommand({
                 TableName: this.tableName,
                 Key: {
-                    PK: `WS#${workspaceId}#MEDIA`, // ← ready partition only
+                    PK: `WS#${organisationId}#MEDIA`, // ← ready partition only
                     SK: `MEDIA#${mediaId}`,
                 },
             }),
@@ -119,14 +119,14 @@ export class MediaService extends Service implements IService {
     /**
      * List media in a folder
      */
-    async listMediaInFolder(workspaceId: string, folderId: string): Promise<Media[]> {
+    async listMediaInFolder(organisationId: string, folderId: string): Promise<Media[]> {
         const result = await this.DB_Client.send(
             new QueryCommand({
                 TableName: this.tableName,
                 IndexName: 'folder-contents-index',
                 KeyConditionExpression: 'GSI1PK = :pk AND begins_with(GSI1SK, :sk)',
                 ExpressionAttributeValues: {
-                    ':pk': `FOLDER#${workspaceId}#${folderId}`,
+                    ':pk': `FOLDER#${organisationId}#${folderId}`,
                     ':sk': 'MEDIA#',
                 },
             }),
@@ -138,8 +138,8 @@ export class MediaService extends Service implements IService {
     /**
      * Move media to a different folder
      */
-    async moveMedia(workspaceId: string, mediaId: string, targetFolder: Folder, userId: string): Promise<Media> {
-        const media = await this.getMediaById(workspaceId, mediaId);
+    async moveMedia(organisationId: string, mediaId: string, targetFolder: Folder, userId: string): Promise<Media> {
+        const media = await this.getMediaById(organisationId, mediaId);
         if (!media) {
             throw new ItemNotFoundError('media', mediaId);
         }
@@ -157,11 +157,11 @@ export class MediaService extends Service implements IService {
             new PutCommand({
                 TableName: this.tableName,
                 Item: {
-                    PK: `WS#${workspaceId}#MEDIA`,
+                    PK: `WS#${organisationId}#MEDIA`,
                     SK: `MEDIA#${mediaId}`,
-                    GSI1PK: `FOLDER#${workspaceId}#${targetFolder.id}`,
+                    GSI1PK: `FOLDER#${organisationId}#${targetFolder.id}`,
                     GSI1SK: `MEDIA#${media.name}`,
-                    GSI2PK: `PATH#${workspaceId}`,
+                    GSI2PK: `PATH#${organisationId}`,
                     GSI2SK: newPath,
                     data: {
                         ...media,
@@ -175,10 +175,10 @@ export class MediaService extends Service implements IService {
         );
 
         // Update item counts
-        await this.updateCount(workspaceId, media.folder_id, -1); // ← old folder
-        await this.updateCount(workspaceId, targetFolder.id, 1); // ← new folder
+        await this.updateCount(organisationId, media.folder_id, -1); // ← old folder
+        await this.updateCount(organisationId, targetFolder.id, 1); // ← new folder
 
-        const moved = await this.getMediaById(workspaceId, mediaId);
+        const moved = await this.getMediaById(organisationId, mediaId);
         if (!moved) {
             throw new ItemNotFoundError('media', mediaId);
         }
@@ -189,8 +189,8 @@ export class MediaService extends Service implements IService {
     /**
      * Rename media
      */
-    async renameMedia(workspaceId: string, mediaId: string, newName: string, userId: string): Promise<Media> {
-        const media = await this.getMediaById(workspaceId, mediaId);
+    async renameMedia(organisationId: string, mediaId: string, newName: string, userId: string): Promise<Media> {
+        const media = await this.getMediaById(organisationId, mediaId);
         if (!media) {
             throw new ItemNotFoundError('media', mediaId);
         }
@@ -203,11 +203,11 @@ export class MediaService extends Service implements IService {
             new PutCommand({
                 TableName: this.tableName,
                 Item: {
-                    PK: `WS#${workspaceId}#MEDIA`,
+                    PK: `WS#${organisationId}#MEDIA`,
                     SK: `MEDIA#${mediaId}`,
-                    GSI1PK: `FOLDER#${workspaceId}#${media.folder_id}`,
+                    GSI1PK: `FOLDER#${organisationId}#${media.folder_id}`,
                     GSI1SK: `MEDIA#${newName}`,
-                    GSI2PK: `PATH#${workspaceId}`,
+                    GSI2PK: `PATH#${organisationId}`,
                     GSI2SK: newPath,
                     data: {
                         ...media,
@@ -220,7 +220,7 @@ export class MediaService extends Service implements IService {
             }),
         );
 
-        const renamed = await this.getMediaById(workspaceId, mediaId);
+        const renamed = await this.getMediaById(organisationId, mediaId);
         if (!renamed) {
             throw new ItemNotFoundError('media', mediaId);
         }
@@ -231,8 +231,8 @@ export class MediaService extends Service implements IService {
     /**
      * Delete media
      */
-    async deleteMedia(workspaceId: string, mediaId: string): Promise<Media> {
-        const media = await this.getMediaById(workspaceId, mediaId);
+    async deleteMedia(organisationId: string, mediaId: string): Promise<Media> {
+        const media = await this.getMediaById(organisationId, mediaId);
         if (!media) {
             throw new ItemNotFoundError('media', mediaId);
         }
@@ -241,14 +241,14 @@ export class MediaService extends Service implements IService {
             new DeleteCommand({
                 TableName: this.tableName,
                 Key: {
-                    PK: `WS#${workspaceId}#MEDIA`,
+                    PK: `WS#${organisationId}#MEDIA`,
                     SK: `MEDIA#${mediaId}`,
                 },
             }),
         );
 
         // Decrement folder item count
-        await this.updateCount(workspaceId, media.folder_id, -1);
+        await this.updateCount(organisationId, media.folder_id, -1);
 
         return media;
     }
@@ -260,7 +260,7 @@ export class MediaService extends Service implements IService {
         const data = item.data;
         return {
             id: data.id,
-            workspace_id: data.workspace_id,
+            organisation_id: data.organisation_id,
             folder_id: data.folder_id,
             name: data.name,
             path: data.path,
@@ -291,12 +291,12 @@ export class MediaService extends Service implements IService {
     // nested attributes (fields inside 'data'). Safe for sequential calls but
     // has a small race condition window for concurrent updates to the same folder.
     // Move item_count to top-level attribute to enable true atomic ADD if needed.
-    private async updateCount(workspaceId: string, folderId: string, delta: 1 | -1): Promise<void> {
+    private async updateCount(organisationId: string, folderId: string, delta: 1 | -1): Promise<void> {
         await this.DB_Client.send(
             new UpdateCommand({
                 TableName: this.tableName,
                 Key: {
-                    PK: `WS#${workspaceId}#FOLDER`,
+                    PK: `WS#${organisationId}#FOLDER`,
                     SK: `FOLDER#${folderId}`,
                 },
                 UpdateExpression: 'SET #data.#field = if_not_exists(#data.#field, :zero) + :delta',

@@ -1,4 +1,4 @@
-// workspace/default/default.controller.ts
+// organisation/default/default.controller.ts
 
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import {
@@ -10,15 +10,15 @@ import {
     UNAUTHORIZE_ERROR,
     ValidationError,
 } from '@devyethiha/samjs';
-import { WorkspaceAlreadyExistsError, WorkspaceService } from '../services/workspace.service';
-import { CreateWorkspaceDTO } from '../dtos/create-workspace.dto';
+import { OrganisationAlreadyExistsError, OrganisationService } from '../services/organisation.service';
+import { CreateOrganisationDTO } from '../dtos/create-organisation.dto';
 
 class DefaultController extends Controller implements IControllerMethods {
-    private workspaceService!: WorkspaceService;
+    private organisationService!: OrganisationService;
 
-    constructor(workspaceService: WorkspaceService) {
+    constructor(organisationService: OrganisationService) {
         super('default');
-        this.workspaceService = workspaceService;
+        this.organisationService = organisationService;
     }
 
     async get(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
@@ -30,7 +30,7 @@ class DefaultController extends Controller implements IControllerMethods {
             return NO_USER;
         }
 
-        const data = await this.workspaceService.getWorkspacesByUserId(user.id, {
+        const data = await this.organisationService.getOrganisationsByUserId(user.id, {
             hydrate: true,
         });
 
@@ -50,21 +50,21 @@ class DefaultController extends Controller implements IControllerMethods {
         }
 
         try {
-            const dto = new CreateWorkspaceDTO();
+            const dto = new CreateOrganisationDTO();
             const body = dto.validate(JSON.parse(event.body || '{}'));
 
-            await this.workspaceService.createWorkSpace({
-                workspace_id: body.workspace_id,
-                workspace_name: body.workspace_name,
+            await this.organisationService.createOrganisation({
+                organisation_id: body.organisation_id,
+                organisation_name: body.organisation_name,
                 user_id: user.id,
             });
 
             return {
                 statusCode: 201,
                 body: JSON.stringify({
-                    message: 'Workspace created',
-                    workspace_id: body.workspace_id,
-                    workspace_name: body.workspace_name,
+                    message: 'Organisation created',
+                    organisation_id: body.organisation_id,
+                    organisation_name: body.organisation_name,
                 }),
             };
         } catch (error) {
@@ -77,7 +77,7 @@ class DefaultController extends Controller implements IControllerMethods {
                     }),
                 };
             }
-            if (error instanceof WorkspaceAlreadyExistsError) {
+            if (error instanceof OrganisationAlreadyExistsError) {
                 return {
                     statusCode: 409,
                     body: JSON.stringify({

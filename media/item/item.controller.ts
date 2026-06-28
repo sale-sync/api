@@ -8,7 +8,7 @@ import {
     NO_USER,
     ValidationError,
 } from '@devyethiha/samjs';
-import { getWorkspace, NO_WORKSPACE } from '@sales-sync/shared';
+import { getOrganisation, NO_ORGANISATION } from '@sales-sync/shared';
 import { MediaService } from '../services/media.service';
 import { FolderService } from '../services/folder.service';
 import { S3Service } from '../services/s3.service';
@@ -37,7 +37,7 @@ export default class ItemController extends Controller implements IControllerMet
      * GET /media?item_id=uuid - Get media details
      * GET /media/{item_id}/download - Get download URL
      *
-     * Workspace context from Workspace cookie JWT
+     * Organisation context from Organisation cookie JWT
      */
     async get(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
         if (!isAuthorize(event)) {
@@ -49,13 +49,13 @@ export default class ItemController extends Controller implements IControllerMet
             return NO_USER;
         }
 
-        const workspace = getWorkspace(event);
-        if (!workspace) {
-            return NO_WORKSPACE;
+        const organisation = getOrganisation(event);
+        if (!organisation) {
+            return NO_ORGANISATION;
         }
 
         try {
-            const workspace_id = workspace.uuid;
+            const organisation_id = organisation.uuid;
 
             // Extract item_id from path
             const dto = new GetItemDTO ()
@@ -71,7 +71,7 @@ export default class ItemController extends Controller implements IControllerMet
             // Check if this is a download request
             const isDownload = event.path.endsWith('/download');
 
-            const media = await this.mediaService.getMediaById(workspace_id, item_id);
+            const media = await this.mediaService.getMediaById(organisation_id, item_id);
             if (!media) {
                 throw new ItemNotFoundError('media', item_id);
             }
@@ -119,7 +119,7 @@ export default class ItemController extends Controller implements IControllerMet
      * PATCH /media/{item_id}/move - Move item to different folder
      * PATCH /media/{item_id}/rename - Rename item
      *
-     * Workspace context from Workspace cookie JWT
+     * Organisation context from Organisation cookie JWT
      */
     async patch(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
         if (!isAuthorize(event)) {
@@ -131,9 +131,9 @@ export default class ItemController extends Controller implements IControllerMet
             return NO_USER;
         }
 
-        const workspace = getWorkspace(event);
-        if (!workspace) {
-            return NO_WORKSPACE;
+        const organisation = getOrganisation(event);
+        if (!organisation) {
+            return NO_ORGANISATION;
         }
 
         try {
@@ -149,9 +149,9 @@ export default class ItemController extends Controller implements IControllerMet
             const isRename = event.path.includes('/rename');
 
             if (isMove) {
-                return await this.handleMove(event, itemId, workspace.uuid, user.id);
+                return await this.handleMove(event, itemId, organisation.uuid, user.id);
             } else if (isRename) {
-                return await this.handleRename(event, itemId, workspace.uuid, user.id);
+                return await this.handleRename(event, itemId, organisation.uuid, user.id);
             }
 
             return {
@@ -166,7 +166,7 @@ export default class ItemController extends Controller implements IControllerMet
     /**
      * DELETE /media/items?item_id=uuid&item_type=media|folder
      *
-     * Workspace context from Workspace cookie JWT
+     * Organisation context from Organisation cookie JWT
      */
     async delete(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
         if (!isAuthorize(event)) {
@@ -178,16 +178,16 @@ export default class ItemController extends Controller implements IControllerMet
             return NO_USER;
         }
 
-        const workspace = getWorkspace(event);
-        if (!workspace) {
-            return NO_WORKSPACE;
+        const organisation = getOrganisation(event);
+        if (!organisation) {
+            return NO_ORGANISATION;
         }
 
         try {
             const dto = new DeleteItemDTO();
             const queryParams = dto.validate(event.queryStringParameters || {});
             const { item_type, item_id } = queryParams;
-            const workspace_id = workspace.uuid;
+            const organisation_id = organisation.uuid;
 
             if (!item_id) {
                 return {
@@ -199,7 +199,7 @@ export default class ItemController extends Controller implements IControllerMet
             const now = new Date().toISOString();
 
             if (item_type === 'folder') {
-                const result = await this.folderService.deleteFolder(workspace_id, item_id);
+                const result = await this.folderService.deleteFolder(organisation_id, item_id);
 
                 // TODO: Delete S3 objects for all media in cascade
                 // This should be done asynchronously via SQS/EventBridge
@@ -214,7 +214,7 @@ export default class ItemController extends Controller implements IControllerMet
                     }),
                 };
             } else {
-                const media = await this.mediaService.deleteMedia(workspace_id, item_id);
+                const media = await this.mediaService.deleteMedia(organisation_id, item_id);
 
                 // Delete S3 object
                 await this.s3Service.deleteObject(media.s3_key);
@@ -239,7 +239,7 @@ export default class ItemController extends Controller implements IControllerMet
     private async handleMove(
         event: APIGatewayProxyEvent,
         itemId: string,
-        workspaceId: string,
+        organisationId: string,
         userId: string,
     ): Promise<APIGatewayProxyResult> {
         const dto = new MoveItemDTO();
@@ -249,7 +249,7 @@ export default class ItemController extends Controller implements IControllerMet
         const { target_folder_id, item_type } = params;
 
         // Verify target folder exists
-        const targetFolder = await this.folderService.getFolderById(workspaceId, target_folder_id);
+        const targetFolder = await this.folderService.getFolderById(organisationId, target_folder_id);
         if (!targetFolder) {
             throw new ItemNotFoundError('folder', target_folder_id);
         }
@@ -257,7 +257,7 @@ export default class ItemController extends Controller implements IControllerMet
         const now = new Date().toISOString();
 
         if (item_type === 'folder') {
-            const folder = await this.folderService.moveFolder(workspaceId, itemId, target_folder_id, userId);
+            const folder = await this.folderService.moveFolder(organisationId, itemId, target_folder_id, userId);
 
             return {
                 statusCode: 200,
@@ -270,7 +270,7 @@ export default class ItemController extends Controller implements IControllerMet
                 }),
             };
         } else {
-            const media = await this.mediaService.moveMedia(workspaceId, itemId, targetFolder);
+            const media = await this.mediaService.moveMedia(organisationId, itemId, targetFolder);
 
             return {
                 statusCode: 200,
@@ -291,7 +291,7 @@ export default class ItemController extends Controller implements IControllerMet
     private async handleRename(
         event: APIGatewayProxyEvent,
         itemId: string,
-        workspaceId: string,
+        organisationId: string,
         userId: string,
     ): Promise<APIGatewayProxyResult> {
         const dto = new RenameItemDTO();
@@ -303,7 +303,7 @@ export default class ItemController extends Controller implements IControllerMet
         const now = new Date().toISOString();
 
         if (item_type === 'folder') {
-            const folder = await this.folderService.renameFolder(workspaceId, itemId, name, userId);
+            const folder = await this.folderService.renameFolder(organisationId, itemId, name, userId);
 
             return {
                 statusCode: 200,
@@ -315,7 +315,7 @@ export default class ItemController extends Controller implements IControllerMet
                 }),
             };
         } else {
-            const media = await this.mediaService.renameMedia(workspaceId, itemId, name);
+            const media = await this.mediaService.renameMedia(organisationId, itemId, name);
 
             return {
                 statusCode: 200,

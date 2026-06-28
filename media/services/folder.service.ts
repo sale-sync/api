@@ -16,7 +16,7 @@ import {
 
 export interface Folder {
     id: string;
-    workspace_id: string;
+    organisation_id: string;
     parent_id: string | null;
     name: string;
     path: string;
@@ -35,7 +35,7 @@ export interface Breadcrumb {
 }
 
 export interface CreateFolderParams {
-    workspace_id: string;
+    organisation_id: string;
     parent_id: string;
     name: string;
     user_id: string;
@@ -52,17 +52,17 @@ export class FolderService extends Service implements IService {
     }
 
     /**
-     * Ensure root folder exists for workspace, create if not
+     * Ensure root folder exists for organisation, create if not
      */
-    async ensureRootFolder(workspaceId: string, userId: string): Promise<Folder> {
-        const existing = await this.getFolderById(workspaceId, 'root');
+    async ensureRootFolder(organisationId: string, userId: string): Promise<Folder> {
+        const existing = await this.getFolderById(organisationId, 'root');
         if (existing) {
             return existing;
         }
 
         const rootFolder: Folder = {
             id: 'root',
-            workspace_id: workspaceId,
+            organisation_id: organisationId,
             parent_id: null,
             name: 'Root',
             path: '/',
@@ -79,9 +79,9 @@ export class FolderService extends Service implements IService {
             new PutCommand({
                 TableName: this.tableName,
                 Item: {
-                    PK: `WS#${workspaceId}#FOLDER`,
+                    PK: `WS#${organisationId}#FOLDER`,
                     SK: 'FOLDER#root',
-                    GSI1PK: `FOLDER#${workspaceId}#root`,
+                    GSI1PK: `FOLDER#${organisationId}#root`,
                     GSI1SK: 'FOLDER#Root',
                     data: rootFolder, // ← data wrapper
                 },
@@ -95,16 +95,16 @@ export class FolderService extends Service implements IService {
     /**
      * Get folder by ID
      */
-    async getFolderById(workspaceId: string, folderId: string): Promise<Folder | null> {
+    async getFolderById(organisationId: string, folderId: string): Promise<Folder | null> {
         console.log({
-            workspaceId,
+            organisationId,
             folderId,
         });
         const result = await this.DB_Client.send(
             new GetCommand({
                 TableName: this.tableName,
                 Key: {
-                    PK: `WS#${workspaceId}#FOLDER`, // ← updated
+                    PK: `WS#${organisationId}#FOLDER`, // ← updated
                     SK: `FOLDER#${folderId}`,
                 },
             }),
@@ -120,14 +120,14 @@ export class FolderService extends Service implements IService {
     /**
      * Check duplicate folder name in same parent
      */
-    private async checkDuplicateName(workspaceId: string, parentId: string, name: string): Promise<void> {
+    private async checkDuplicateName(organisationId: string, parentId: string, name: string): Promise<void> {
         const duplicateCheck = await this.DB_Client.send(
             new QueryCommand({
                 TableName: this.tableName,
                 IndexName: 'folder-name-index',
                 KeyConditionExpression: 'GSI3PK = :pk AND GSI3SK = :sk',
                 ExpressionAttributeValues: {
-                    ':pk': `FOLDER#${workspaceId}#${parentId}`,
+                    ':pk': `FOLDER#${organisationId}#${parentId}`,
                     ':sk': `NAME#${name}`,
                 },
                 Limit: 1,
@@ -142,14 +142,14 @@ export class FolderService extends Service implements IService {
     /**
      * Search folders by name prefix within a parent
      */
-    async searchFoldersByName(workspaceId: string, parentId: string, prefix: string): Promise<Folder[]> {
+    async searchFoldersByName(organisationId: string, parentId: string, prefix: string): Promise<Folder[]> {
         const result = await this.DB_Client.send(
             new QueryCommand({
                 TableName: this.tableName,
                 IndexName: 'folder-name-index',
                 KeyConditionExpression: 'GSI3PK = :pk AND begins_with(GSI3SK, :prefix)',
                 ExpressionAttributeValues: {
-                    ':pk': `FOLDER#${workspaceId}#${parentId}`,
+                    ':pk': `FOLDER#${organisationId}#${parentId}`,
                     ':prefix': `NAME#${prefix}`,
                 },
             }),
@@ -162,9 +162,9 @@ export class FolderService extends Service implements IService {
      * Create a new folder
      */
     async createFolder(params: CreateFolderParams): Promise<Folder> {
-        const { workspace_id, parent_id, name, user_id } = params;
+        const { organisation_id, parent_id, name, user_id } = params;
 
-        const parentFolder = await this.getFolderById(workspace_id, parent_id);
+        const parentFolder = await this.getFolderById(organisation_id, parent_id);
         if (!parentFolder) {
             throw new ItemNotFoundError('folder', parent_id);
         }
@@ -176,7 +176,7 @@ export class FolderService extends Service implements IService {
         // Check folder limits
         this.checkFolderLimits(parentFolder);
 
-        await this.checkDuplicateName(workspace_id, parent_id, name);
+        await this.checkDuplicateName(organisation_id, parent_id, name);
 
         const path = parentFolder.path === '/' ? `/${name}` : `${parentFolder.path}/${name}`;
         const folderId = uuidv4();
@@ -184,7 +184,7 @@ export class FolderService extends Service implements IService {
 
         const folder: Folder = {
             id: folderId,
-            workspace_id,
+            organisation_id,
             parent_id,
             name,
             path,
@@ -199,13 +199,13 @@ export class FolderService extends Service implements IService {
             new PutCommand({
                 TableName: this.tableName,
                 Item: {
-                    PK: `WS#${workspace_id}#FOLDER`,
+                    PK: `WS#${organisation_id}#FOLDER`,
                     SK: `FOLDER#${folderId}`,
-                    GSI1PK: `FOLDER#${workspace_id}#${parent_id}`,
+                    GSI1PK: `FOLDER#${organisation_id}#${parent_id}`,
                     GSI1SK: `FOLDER#${name}`,
-                    GSI2PK: `PATH#${workspace_id}`,
+                    GSI2PK: `PATH#${organisation_id}`,
                     GSI2SK: path,
-                    GSI3PK: `FOLDER#${workspace_id}#${parent_id}`,
+                    GSI3PK: `FOLDER#${organisation_id}#${parent_id}`,
                     GSI3SK: `NAME#${name}`,
                     data: folder, // ← data wrapper
                 },
@@ -213,7 +213,7 @@ export class FolderService extends Service implements IService {
         );
 
         // Increment parent subfolder count
-        await this.updateCount(workspace_id, parent_id, 'subfolder_count', 1);
+        await this.updateCount(organisation_id, parent_id, 'subfolder_count', 1);
 
         return folder;
     }
@@ -221,14 +221,14 @@ export class FolderService extends Service implements IService {
     /**
      * List folders in a parent folder
      */
-    async listFoldersInParent(workspaceId: string, parentId: string): Promise<Folder[]> {
+    async listFoldersInParent(organisationId: string, parentId: string): Promise<Folder[]> {
         const result = await this.DB_Client.send(
             new QueryCommand({
                 TableName: this.tableName,
                 IndexName: 'folder-contents-index',
                 KeyConditionExpression: 'GSI1PK = :pk AND begins_with(GSI1SK, :sk)',
                 ExpressionAttributeValues: {
-                    ':pk': `FOLDER#${workspaceId}#${parentId}`,
+                    ':pk': `FOLDER#${organisationId}#${parentId}`,
                     ':sk': 'FOLDER#',
                 },
             }),
@@ -240,12 +240,12 @@ export class FolderService extends Service implements IService {
     /**
      * Get breadcrumb trail for a folder
      */
-    async getBreadcrumbs(workspaceId: string, folderId: string): Promise<Breadcrumb[]> {
+    async getBreadcrumbs(organisationId: string, folderId: string): Promise<Breadcrumb[]> {
         const breadcrumbs: Breadcrumb[] = [];
         let currentId: string | null = folderId;
 
         while (currentId) {
-            const folder = await this.getFolderById(workspaceId, currentId);
+            const folder = await this.getFolderById(organisationId, currentId);
 
             if (!folder) break;
 
@@ -259,28 +259,28 @@ export class FolderService extends Service implements IService {
     /**
      * Move folder to new parent
      */
-    async moveFolder(workspaceId: string, folderId: string, targetFolderId: string, userId: string): Promise<Folder> {
+    async moveFolder(organisationId: string, folderId: string, targetFolderId: string, userId: string): Promise<Folder> {
         if (folderId === 'root') {
             throw new CannotModifyRootError('move');
         }
 
-        const folder = await this.getFolderById(workspaceId, folderId);
+        const folder = await this.getFolderById(organisationId, folderId);
         if (!folder) {
             throw new ItemNotFoundError('folder', folderId);
         }
 
-        const targetFolder = await this.getFolderById(workspaceId, targetFolderId);
+        const targetFolder = await this.getFolderById(organisationId, targetFolderId);
         if (!targetFolder) {
             throw new ItemNotFoundError('folder', targetFolderId);
         }
 
         // Check for circular reference
-        if (await this.isDescendant(workspaceId, targetFolderId, folderId)) {
+        if (await this.isDescendant(organisationId, targetFolderId, folderId)) {
             throw new CircularMoveError();
         }
 
         // Check depth after move
-        const folderDepth = await this.getMaxDescendantDepth(workspaceId, folderId);
+        const folderDepth = await this.getMaxDescendantDepth(organisationId, folderId);
         const depthIncrease = targetFolder.level + 1 - folder.level;
         if (folderDepth + depthIncrease >= MAX_FOLDER_DEPTH) {
             throw new MoveDepthExceededError();
@@ -290,20 +290,20 @@ export class FolderService extends Service implements IService {
         this.checkFolderLimits(targetFolder);
 
         // Update folder and all descendants
-        await this.updateFolderPath(workspaceId, folder, targetFolder, userId);
+        await this.updateFolderPath(organisationId, folder, targetFolder, userId);
 
-        return (await this.getFolderById(workspaceId, folderId))!;
+        return (await this.getFolderById(organisationId, folderId))!;
     }
 
     /**
      * Rename a folder
      */
-    async renameFolder(workspaceId: string, folderId: string, newName: string, userId: string): Promise<Folder> {
+    async renameFolder(organisationId: string, folderId: string, newName: string, userId: string): Promise<Folder> {
         if (folderId === 'root') {
             throw new CannotModifyRootError('rename');
         }
 
-        const folder = await this.getFolderById(workspaceId, folderId);
+        const folder = await this.getFolderById(organisationId, folderId);
         if (!folder) {
             throw new ItemNotFoundError('folder', folderId);
         }
@@ -312,7 +312,7 @@ export class FolderService extends Service implements IService {
             throw new SameNameError(newName);
         }
 
-        await this.checkDuplicateName(workspaceId, folder.parent_id!, newName);
+        await this.checkDuplicateName(organisationId, folder.parent_id!, newName);
 
         const parentPath = folder.path.substring(0, folder.path.lastIndexOf('/'));
         const newPath = parentPath === '' ? `/${newName}` : `${parentPath}/${newName}`;
@@ -322,13 +322,13 @@ export class FolderService extends Service implements IService {
             new PutCommand({
                 TableName: this.tableName,
                 Item: {
-                    PK: `WS#${workspaceId}#FOLDER`,
+                    PK: `WS#${organisationId}#FOLDER`,
                     SK: `FOLDER#${folderId}`,
-                    GSI1PK: `FOLDER#${workspaceId}#${folder.parent_id}`,
+                    GSI1PK: `FOLDER#${organisationId}#${folder.parent_id}`,
                     GSI1SK: `FOLDER#${newName}`,
-                    GSI2PK: `PATH#${workspaceId}`,
+                    GSI2PK: `PATH#${organisationId}`,
                     GSI2SK: newPath,
-                    GSI3PK: `FOLDER#${workspaceId}#${folder.parent_id}`,
+                    GSI3PK: `FOLDER#${organisationId}#${folder.parent_id}`,
                     GSI3SK: `NAME#${newName}`,
                     data: {
                         // ← data wrapper
@@ -342,31 +342,31 @@ export class FolderService extends Service implements IService {
             }),
         );
 
-        await this.updateDescendantPaths(workspaceId, folder.path, newPath);
+        await this.updateDescendantPaths(organisationId, folder.path, newPath);
 
-        return (await this.getFolderById(workspaceId, folderId))!;
+        return (await this.getFolderById(organisationId, folderId))!;
     }
 
     /**
      * Delete folder and all contents (cascade)
      */
-    async deleteFolder(workspaceId: string, folderId: string): Promise<{ folders: number; media: number }> {
+    async deleteFolder(organisationId: string, folderId: string): Promise<{ folders: number; media: number }> {
         if (folderId === 'root') {
             throw new CannotModifyRootError('delete');
         }
 
-        const folder = await this.getFolderById(workspaceId, folderId);
+        const folder = await this.getFolderById(organisationId, folderId);
         if (!folder) {
             throw new ItemNotFoundError('folder', folderId);
         }
 
-        const descendants = await this.getDescendants(workspaceId, folder.path);
+        const descendants = await this.getDescendants(organisationId, folder.path);
 
         const folderItems = descendants.filter((item) => item.SK.startsWith('FOLDER#'));
         const mediaItems = descendants.filter((item) => item.SK.startsWith('MEDIA#'));
 
         const allItems = [
-            { PK: `WS#${workspaceId}#FOLDER`, SK: `FOLDER#${folderId}` },
+            { PK: `WS#${organisationId}#FOLDER`, SK: `FOLDER#${folderId}` },
             ...descendants.map((item) => ({ PK: item.PK, SK: item.SK })),
         ];
 
@@ -386,7 +386,7 @@ export class FolderService extends Service implements IService {
         );
 
         // Decrement parent subfolder count
-        await this.updateCount(workspaceId, folder.parent_id!, 'subfolder_count', -1);
+        await this.updateCount(organisationId, folder.parent_id!, 'subfolder_count', -1);
 
         return {
             folders: folderItems.length,
@@ -398,7 +398,7 @@ export class FolderService extends Service implements IService {
      * Check if a folder is a descendant of another
      */
     private async isDescendant(
-        workspaceId: string,
+        organisationId: string,
         potentialDescendantId: string,
         ancestorId: string,
     ): Promise<boolean> {
@@ -408,7 +408,7 @@ export class FolderService extends Service implements IService {
 
         let currentId: string | null = potentialDescendantId;
         while (currentId && currentId !== 'root') {
-            const folder = await this.getFolderById(workspaceId, currentId);
+            const folder = await this.getFolderById(organisationId, currentId);
             if (!folder) return false;
             if (folder.parent_id === ancestorId) return true;
             currentId = folder.parent_id;
@@ -420,11 +420,11 @@ export class FolderService extends Service implements IService {
     /**
      * Get maximum depth of descendants
      */
-    private async getMaxDescendantDepth(workspaceId: string, folderId: string): Promise<number> {
-        const folder = await this.getFolderById(workspaceId, folderId);
+    private async getMaxDescendantDepth(organisationId: string, folderId: string): Promise<number> {
+        const folder = await this.getFolderById(organisationId, folderId);
         if (!folder) return 0;
 
-        const descendants = await this.getDescendants(workspaceId, folder.path);
+        const descendants = await this.getDescendants(organisationId, folder.path);
         const folderDescendants = descendants.filter((item) => item.SK.startsWith('FOLDER#'));
 
         let maxLevel = folder.level;
@@ -441,7 +441,7 @@ export class FolderService extends Service implements IService {
     /**
      * Get all descendants of a folder by path prefix
      */
-    private async getDescendants(workspaceId: string, folderPath: string): Promise<any[]> {
+    private async getDescendants(organisationId: string, folderPath: string): Promise<any[]> {
         const pathPrefix = folderPath === '/' ? '/' : `${folderPath}/`;
 
         const result = await this.DB_Client.send(
@@ -450,7 +450,7 @@ export class FolderService extends Service implements IService {
                 IndexName: 'path-index',
                 KeyConditionExpression: 'GSI2PK = :pk AND begins_with(GSI2SK, :path)',
                 ExpressionAttributeValues: {
-                    ':pk': `PATH#${workspaceId}`,
+                    ':pk': `PATH#${organisationId}`,
                     ':path': pathPrefix,
                 },
             }),
@@ -463,7 +463,7 @@ export class FolderService extends Service implements IService {
      * Update folder path after move (private helper)
      */
     private async updateFolderPath(
-        workspaceId: string,
+        organisationId: string,
         folder: Folder,
         targetFolder: Folder,
         userId: string,
@@ -473,19 +473,19 @@ export class FolderService extends Service implements IService {
         const levelDiff = targetFolder.level + 1 - folder.level;
         const now = new Date().toISOString();
 
-        await this.checkDuplicateName(workspaceId, targetFolder.id, folder.name);
+        await this.checkDuplicateName(organisationId, targetFolder.id, folder.name);
 
         await this.DB_Client.send(
             new PutCommand({
                 TableName: this.tableName,
                 Item: {
-                    PK: `WS#${workspaceId}#FOLDER`,
+                    PK: `WS#${organisationId}#FOLDER`,
                     SK: `FOLDER#${folder.id}`,
-                    GSI1PK: `FOLDER#${workspaceId}#${targetFolder.id}`,
+                    GSI1PK: `FOLDER#${organisationId}#${targetFolder.id}`,
                     GSI1SK: `FOLDER#${folder.name}`,
-                    GSI2PK: `PATH#${workspaceId}`,
+                    GSI2PK: `PATH#${organisationId}`,
                     GSI2SK: newPath,
-                    GSI3PK: `FOLDER#${workspaceId}#${targetFolder.id}`,
+                    GSI3PK: `FOLDER#${organisationId}#${targetFolder.id}`,
                     GSI3SK: `NAME#${folder.name}`,
                     data: {
                         // ← data wrapper
@@ -501,22 +501,22 @@ export class FolderService extends Service implements IService {
         );
 
         // Update subfolder counts
-        await this.updateCount(workspaceId, folder.parent_id!, 'subfolder_count', -1);
-        await this.updateCount(workspaceId, targetFolder.id, 'subfolder_count', 1);
+        await this.updateCount(organisationId, folder.parent_id!, 'subfolder_count', -1);
+        await this.updateCount(organisationId, targetFolder.id, 'subfolder_count', 1);
 
-        await this.updateDescendantPaths(workspaceId, oldPath, newPath, levelDiff);
+        await this.updateDescendantPaths(organisationId, oldPath, newPath, levelDiff);
     }
 
     /**
      * Update paths of all descendants after rename/move
      */
     private async updateDescendantPaths(
-        workspaceId: string,
+        organisationId: string,
         oldPath: string,
         newPath: string,
         levelDiff = 0,
     ): Promise<void> {
-        const descendants = await this.getDescendants(workspaceId, oldPath);
+        const descendants = await this.getDescendants(organisationId, oldPath);
 
         await Promise.all(
             descendants.map((item) => {
@@ -526,7 +526,7 @@ export class FolderService extends Service implements IService {
                         ? item.data.level + levelDiff // ← read from data
                         : item.data.level;
 
-                const PK = item.SK.startsWith('FOLDER#') ? `WS#${workspaceId}#FOLDER` : `WS#${workspaceId}#MEDIA`;
+                const PK = item.SK.startsWith('FOLDER#') ? `WS#${organisationId}#FOLDER` : `WS#${organisationId}#MEDIA`;
 
                 return this.DB_Client.send(
                     new PutCommand({
@@ -552,7 +552,7 @@ export class FolderService extends Service implements IService {
      * Update the item_count / subfolder_count of the folder
      */
     private async updateCount(
-        workspaceId: string,
+        organisationId: string,
         folderId: string,
         field: 'item_count' | 'subfolder_count',
         delta: 1 | -1,
@@ -575,7 +575,7 @@ export class FolderService extends Service implements IService {
         // SET + if_not_exists is used instead of ADD because ADD does not support
         // nested attributes (fields inside 'data'). This approach is safe for
         // sequential calls but has a small race condition window for concurrent
-        // updates to the same folder. For high-concurrency workspaces, consider
+        // updates to the same folder. For high-concurrency organisations, consider
         // moving item_count and subfolder_count to top-level attributes to
         // enable true atomic ADD operations.
 
@@ -583,7 +583,7 @@ export class FolderService extends Service implements IService {
             new UpdateCommand({
                 TableName: this.tableName,
                 Key: {
-                    PK: `WS#${workspaceId}#FOLDER`,
+                    PK: `WS#${organisationId}#FOLDER`,
                     SK: `FOLDER#${folderId}`,
                 },
                 UpdateExpression: 'SET #data.#field = if_not_exists(#data.#field, :zero) + :delta',
@@ -612,7 +612,7 @@ export class FolderService extends Service implements IService {
         const data = item.data;
         return {
             id: data.id,
-            workspace_id: data.workspace_id,
+            organisation_id: data.organisation_id,
             parent_id: data.parent_id,
             name: data.name,
             path: data.path,

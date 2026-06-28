@@ -5,7 +5,7 @@
   "private": true,
   "workspaces": [
     "auth",
-    "workspace",
+    "organisation",
     "crm",
     "media",
     "blocks",
@@ -13,12 +13,12 @@
   ],
   "scripts": {
     "nx": "nx",
-    "build": "nx run-many -t compile --projects=auth,workspace,crm",
-    "bundle": "nx run-many -t bundle --projects=auth,workspace,crm",
-    "lint": "nx run-many -t lint --projects=auth,workspace,crm",
-    "test": "nx run-many -t test --projects=auth,workspace,crm",
+    "build": "nx run-many -t compile --projects=auth,organisation,crm",
+    "bundle": "nx run-many -t bundle --projects=auth,organisation,crm",
+    "lint": "nx run-many -t lint --projects=auth,organisation,crm",
+    "test": "nx run-many -t test --projects=auth,organisation,crm",
     "shared.pack": "nx run shared:shared.pack",
-    "clean": "rimraf node_modules auth/node_modules workspace/node_modules crm/node_modules packages/node_modules .aws-sam"
+    "clean": "rimraf node_modules auth/node_modules organisation/node_modules crm/node_modules packages/node_modules .aws-sam"
   },
   "repository": {
     "type": "git",

@@ -44,11 +44,11 @@ async function processRecord(record: S3Event['Records'][0]): Promise<void> {
         return;
     }
 
-    const workspaceId = parts[1];
+    const organisationId = parts[1];
     const mediaId = parts[2];
     const fileName = parts.slice(3).join('/'); // Handle filenames with slashes
 
-    console.log(`Parsed: workspace=${workspaceId}, media=${mediaId}, file=${fileName}`);
+    console.log(`Parsed: organisation=${organisationId}, media=${mediaId}, file=${fileName}`);
 
     // Get actual file size and metadata from S3
     const headResponse = await s3Client.send(new HeadObjectCommand({
@@ -107,7 +107,7 @@ async function processRecord(record: S3Event['Records'][0]): Promise<void> {
         await dbClient.send(new UpdateCommand({
             TableName: TABLE_NAME,
             Key: {
-                pk: `WS#${workspaceId}`,
+                pk: `WS#${organisationId}`,
                 sk: `MEDIA#${mediaId}`,
             },
             UpdateExpression: `SET ${updateExpression.join(', ')}`,

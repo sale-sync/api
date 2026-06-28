@@ -2,7 +2,7 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { Controller, IControllerMethods, isAuthorize, UNAUTHORIZE_ERROR } from '@devyethiha/samjs';
 
 import { IContactService } from './contact.service';
-import { getWorkspace, NO_WORKSPACE } from '@sales-sync/shared';
+import { getOrganisation, NO_ORGANISATION } from '@sales-sync/shared';
 import { EditB2BContactDTO, IAddContactItemDto, IEditContactItemDto } from './contact.dto';
 
 class ContactController extends Controller implements IControllerMethods {
@@ -13,19 +13,19 @@ class ContactController extends Controller implements IControllerMethods {
         this.contactService = contactService;
     }
 
-    checkWorkspace(event: APIGatewayProxyEvent) {
+    checkOrganisation(event: APIGatewayProxyEvent) {
         if (!isAuthorize(event)) {
             throw UNAUTHORIZE_ERROR;
         }
-        const workspace = getWorkspace(event);
-        if (!workspace) {
-            throw NO_WORKSPACE;
+        const organisation = getOrganisation(event);
+        if (!organisation) {
+            throw NO_ORGANISATION;
         }
-        return workspace;
+        return organisation;
     }
 
     async get(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
-        this.checkWorkspace(event);
+        this.checkOrganisation(event);
         const params: any = event.queryStringParameters || null;
         if (!params) {
             return {
@@ -58,9 +58,9 @@ class ContactController extends Controller implements IControllerMethods {
         if (!isAuthorize(event)) {
             return UNAUTHORIZE_ERROR;
         }
-        const workspace = getWorkspace(event);
-        if (!workspace) {
-            return NO_WORKSPACE;
+        const organisation = getOrganisation(event);
+        if (!organisation) {
+            return NO_ORGANISATION;
         }
         const bodyStr: any = event.body;
         if (!bodyStr) {
@@ -73,7 +73,7 @@ class ContactController extends Controller implements IControllerMethods {
 
         // Refractor: need to validate data with actural dto created with zod
         const data: IAddContactItemDto = {
-            workspace_uuid: workspace.uuid,
+            organisation_uuid: organisation.uuid,
             ...body,
         };
         const contact_id = data?.contact_id;
@@ -93,7 +93,7 @@ class ContactController extends Controller implements IControllerMethods {
     }
 
     async patch(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
-        const workspace = this.checkWorkspace(event);
+        const organisation = this.checkOrganisation(event);
 
         const bodyStr: any = event.body;
         if (!bodyStr) {
@@ -107,7 +107,7 @@ class ContactController extends Controller implements IControllerMethods {
         dto.validate(body);
         // Refractor: need to validate data with actural dto created with zod
         const data: IEditContactItemDto = {
-            workspace_uuid: workspace.uuid,
+            organisation_uuid: organisation.uuid,
             ...body,
         };
         const contact_id = data?.contact_id;

@@ -36,7 +36,7 @@ async function main(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult>
             '/media',
         );
 
-        return router.handle();
+        return await router.handle();
     } catch (err) {
         console.error('Media API Error:', err);
         return {
@@ -51,4 +51,5 @@ export const lambdaHandler = withCORS(main, [
     'https://staging.salesync.biz',
     'http://localhost:3000',
     'http://127.0.0.1:3000',
+    'https://app.salesync.local',
 ]);

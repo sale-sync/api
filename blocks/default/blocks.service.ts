@@ -24,13 +24,13 @@ export class BlocksService extends Service implements IService {
 
     // ─── Fetch ────────────────────────────────
 
-    async findAll(workspaceId: string): Promise<Block[]> {
+    async findAll(organisationId: string): Promise<Block[]> {
         const result = await this.docClient.send(
             new QueryCommand({
                 TableName: process.env.BLOCK_TABLE_NAME,
                 KeyConditionExpression: 'pk = :pk AND begins_with(sk, :sk_prefix)',
                 ExpressionAttributeValues: {
-                    ':pk': `WORKSPACE#${workspaceId}#BLOCK`,
+                    ':pk': `ORGANISATION#${organisationId}#BLOCK`,
                     ':sk_prefix': 'BLOCK#',
                 },
             }),
@@ -38,12 +38,12 @@ export class BlocksService extends Service implements IService {
         return (result.Items ?? []).map((item) => item.data as Block);
     }
 
-    async findById(workspaceId: string, id: string): Promise<Block | undefined> {
+    async findById(organisationId: string, id: string): Promise<Block | undefined> {
         const result = await this.docClient.send(
             new GetCommand({
                 TableName: process.env.BLOCK_TABLE_NAME,
                 Key: {
-                    pk: `WORKSPACE#${workspaceId}#BLOCK`,
+                    pk: `ORGANISATION#${organisationId}#BLOCK`,
                     sk: `BLOCK#${id}`,
                 },
             }),
@@ -53,8 +53,8 @@ export class BlocksService extends Service implements IService {
 
     // ─── Validate stored block ─────────────────
 
-    async validateById(workspaceId: string, id: string): Promise<{ id: string } & ValidationResult> {
-        const block = await this.findById(workspaceId, id);
+    async validateById(organisationId: string, id: string): Promise<{ id: string } & ValidationResult> {
+        const block = await this.findById(organisationId, id);
         if (!block) {
             throw Object.assign(new Error('Block not found'), { statusCode: 404 });
         }
@@ -64,7 +64,7 @@ export class BlocksService extends Service implements IService {
 
     // ─── Mutate ───────────────────────────────
 
-    async create(workspaceId: string, payload: CreateBlockDto): Promise<Block> {
+    async create(organisationId: string, payload: CreateBlockDto): Promise<Block> {
         const id = randomUUID();
         const now = new Date().toISOString();
 
@@ -88,7 +88,7 @@ export class BlocksService extends Service implements IService {
             new PutCommand({
                 TableName: process.env.BLOCK_TABLE_NAME,
                 Item: {
-                    pk: `WORKSPACE#${workspaceId}#BLOCK`,
+                    pk: `ORGANISATION#${organisationId}#BLOCK`,
                     sk: `BLOCK#${id}`,
                     data: block,
                     created_at: now,
@@ -100,8 +100,8 @@ export class BlocksService extends Service implements IService {
         return block;
     }
 
-    async update(workspaceId: string, id: string, payload: UpdateBlockDto): Promise<Block> {
-        const existing = await this.findById(workspaceId, id);
+    async update(organisationId: string, id: string, payload: UpdateBlockDto): Promise<Block> {
+        const existing = await this.findById(organisationId, id);
         if (!existing) {
             throw Object.assign(new Error('Block not found'), { statusCode: 404 });
         }
@@ -120,7 +120,7 @@ export class BlocksService extends Service implements IService {
             new UpdateCommand({
                 TableName: process.env.BLOCK_TABLE_NAME,
                 Key: {
-                    pk: `WORKSPACE#${workspaceId}#BLOCK`,
+                    pk: `ORGANISATION#${organisationId}#BLOCK`,
                     sk: `BLOCK#${id}`,
                 },
                 UpdateExpression: 'SET #data = :data, updated_at = :updated_at',
@@ -135,8 +135,8 @@ export class BlocksService extends Service implements IService {
         return updated;
     }
 
-    async delete(workspaceId: string, id: string): Promise<void> {
-        const existing = await this.findById(workspaceId, id);
+    async delete(organisationId: string, id: string): Promise<void> {
+        const existing = await this.findById(organisationId, id);
         if (!existing) {
             throw Object.assign(new Error('Block not found'), { statusCode: 404 });
         }
@@ -144,7 +144,7 @@ export class BlocksService extends Service implements IService {
             new DeleteCommand({
                 TableName: process.env.BLOCK_TABLE_NAME,
                 Key: {
-                    pk: `WORKSPACE#${workspaceId}#BLOCK`,
+                    pk: `ORGANISATION#${organisationId}#BLOCK`,
                     sk: `BLOCK#${id}`,
                 },
             }),

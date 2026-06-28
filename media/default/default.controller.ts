@@ -8,7 +8,7 @@ import {
     NO_USER,
     ValidationError,
 } from '@devyethiha/samjs';
-import { getWorkspace, NO_WORKSPACE } from '@sales-sync/shared';
+import { getOrganisation, NO_ORGANISATION } from '@sales-sync/shared';
 import { MediaService } from '../services/media.service';
 import { FolderService } from '../services/folder.service';
 import { ListContentsDTO } from '../dtos/media.dto';
@@ -30,7 +30,7 @@ export default class DefaultController extends Controller implements IController
      * Query params:
      * - folder_id (optional, default: 'root')
      *
-     * Workspace context from Workspace cookie JWT
+     * Organisation context from Organisation cookie JWT
      */
     async get(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
         if (!isAuthorize(event)) {
@@ -42,9 +42,9 @@ export default class DefaultController extends Controller implements IController
             return NO_USER;
         }
 
-        const workspace = getWorkspace(event);
-        if (!workspace) {
-            return NO_WORKSPACE;
+        const organisation = getOrganisation(event);
+        if (!organisation) {
+            return NO_ORGANISATION;
         }
 
         try {
@@ -52,30 +52,30 @@ export default class DefaultController extends Controller implements IController
             const params = dto.validate(event.queryStringParameters || {});
 
             const { folder_id } = params;
-            const workspace_id = workspace.uuid;
+            const organisation_id = organisation.uuid;
 
             // Ensure root folder exists
-            // ⚠️ TODO: Move this to workspace creation flow in the future.
+            // ⚠️ TODO: Move this to organisation creation flow in the future.
             // This currently runs a GetCommand on every GET request to check if root
-            // exists, which is unnecessary after the workspace is fully set up.
-            // Root folder should be created once during workspace provisioning instead.
+            // exists, which is unnecessary after the organisation is fully set up.
+            // Root folder should be created once during organisation provisioning instead.
             // Ensure root folder exists
-            await this.folderService.ensureRootFolder(workspace_id, user.id);
+            await this.folderService.ensureRootFolder(organisation_id, user.id);
 
             // Get the folder
-            const folder = await this.folderService.getFolderById(workspace_id, folder_id);
+            const folder = await this.folderService.getFolderById(organisation_id, folder_id);
             if (!folder) {
                 throw new ItemNotFoundError('folder', folder_id);
             }
 
             // Get breadcrumbs
-            const breadcrumbs = await this.folderService.getBreadcrumbs(workspace_id, folder_id);
+            const breadcrumbs = await this.folderService.getBreadcrumbs(organisation_id, folder_id);
 
             // List folders in this folder
-            const folders = await this.folderService.listFoldersInParent(workspace_id, folder_id);
+            const folders = await this.folderService.listFoldersInParent(organisation_id, folder_id);
 
             // List media in this folder
-            const media = await this.mediaService.listMediaInFolder(workspace_id, folder_id);
+            const media = await this.mediaService.listMediaInFolder(organisation_id, folder_id);
 
             return {
                 statusCode: 200,

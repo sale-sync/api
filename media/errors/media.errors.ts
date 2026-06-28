@@ -123,11 +123,11 @@ export class CannotModifyRootError extends Error {
 // ============================================================================
 
 export class AccessDeniedError extends Error {
-    workspaceId: string;
+    organisationId: string;
 
-    constructor(workspaceId: string) {
-        super(`Access denied to workspace '${workspaceId}'`);
+    constructor(organisationId: string) {
+        super(`Access denied to organisation '${organisationId}'`);
         this.name = 'AccessDeniedError';
-        this.workspaceId = workspaceId;
+        this.organisationId = organisationId;
     }
 }

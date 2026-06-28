@@ -100,12 +100,12 @@ Resources:
                         Method: ANY
 
     # -------------------------------------------------------------------------
-    # Workspace Lambdas
+    # Organisation Lambdas
     # -------------------------------------------------------------------------
-    WorkspaceFunction:
+    OrganisationFunction:
         Type: AWS::Serverless::Function
         Properties:
-            CodeUri: workspace/bundle
+            CodeUri: organisation/bundle
             Handler: app.lambdaHandler
             Runtime: nodejs22.x
             Architectures: [x86_64]
@@ -117,13 +117,13 @@ Resources:
                     Type: Api
                     Properties:
                         RestApiId: !Ref SalesSyncApi
-                        Path: /workspace/{proxy+}
+                        Path: /organisations/{proxy+}
                         Method: ANY
 
-    WorkspaceDefaultFunction:
+    OrganisationDefaultFunction:
         Type: AWS::Serverless::Function
         Properties:
-            CodeUri: workspace/bundle
+            CodeUri: organisation/bundle
             Handler: app.lambdaHandler
             Runtime: nodejs22.x
             Architectures: [x86_64]
@@ -135,7 +135,7 @@ Resources:
                     Type: Api
                     Properties:
                         RestApiId: !Ref SalesSyncApi
-                        Path: /workspace
+                        Path: /organisations
                         Method: ANY
 
     # -------------------------------------------------------------------------
@@ -288,9 +288,9 @@ Outputs:
         Description: Auth Lambda Function ARN
         Value: !GetAtt AuthFunction.Arn
 
-    WorkspaceFunctionArn:
-        Description: Workspace Lambda Function ARN
-        Value: !GetAtt WorkspaceFunction.Arn
+    OrganisationFunctionArn:
+        Description: Organisation Lambda Function ARN
+        Value: !GetAtt OrganisationFunction.Arn
 
     CRMFunctionArn:
         Description: CRM Lambda Function ARN

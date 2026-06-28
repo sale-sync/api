@@ -8,7 +8,7 @@ import {
     NO_USER,
     ValidationError,
 } from '@devyethiha/samjs';
-import { getWorkspace, NO_WORKSPACE } from '@sales-sync/shared';
+import { getOrganisation, NO_ORGANISATION } from '@sales-sync/shared';
 import { MediaService } from '../services/media.service';
 import { FolderService } from '../services/folder.service';
 import { S3Service } from '../services/s3.service';
@@ -36,7 +36,7 @@ export default class UploadController extends Controller implements IControllerM
      * - mime_type (required)
      * - size (required)
      *
-     * Workspace context from Workspace cookie JWT
+     * Organisation context from Organisation cookie JWT
      */
     async post(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
         if (!isAuthorize(event)) {
@@ -48,10 +48,10 @@ export default class UploadController extends Controller implements IControllerM
             return NO_USER;
         }
 
-        const workspace = getWorkspace(event);
-        console.log({ workspace });
-        if (!workspace) {
-            return NO_WORKSPACE;
+        const organisation = getOrganisation(event);
+        console.log({ organisation });
+        if (!organisation) {
+            return NO_ORGANISATION;
         }
 
         try {
@@ -62,18 +62,18 @@ export default class UploadController extends Controller implements IControllerM
             const { folder_id: raw_folder_id, file_name, mime_type } = params;
             const folder_id = raw_folder_id ?? 'root';
 
-            const workspace_id = workspace.uuid;
+            const organisation_id = organisation.uuid;
 
             console.log({
-                workspace,
+                organisation,
                 user,
             });
 
             // Ensure root folder exists
-            await this.folderService.ensureRootFolder(workspace_id, user.id);
+            await this.folderService.ensureRootFolder(organisation_id, user.id);
 
             // Verify target folder exists
-            const folder = await this.folderService.getFolderById(workspace_id, folder_id);
+            const folder = await this.folderService.getFolderById(organisation_id, folder_id);
             if (!folder) {
                 throw new ItemNotFoundError('folder', folder_id);
             }
@@ -81,7 +81,7 @@ export default class UploadController extends Controller implements IControllerM
             // Create media record (pending status)
             const media = await this.mediaService.createMedia(
                 {
-                    workspace_id,
+                    organisation_id,
                     folder_id,
                     file_name,
                     mime_type,

@@ -7,7 +7,7 @@ import { IFormObj } from '@sales-sync/shared';
 
 export interface IFormService {
     createForm: (param: ICreateFormDto) => Promise<IFormObj>;
-    getForms: (workspace_uuid: string) => Promise<IFormObj[]>;
+    getForms: (organisation_uuid: string) => Promise<IFormObj[]>;
 }
 
 export class FormService extends Service implements IFormService {
@@ -29,7 +29,7 @@ export class FormService extends Service implements IFormService {
                 new PutCommand({
                     TableName: 'sales-sync-crm',
                     Item: {
-                        pk: `WORKSPACE#${param.workspace_uuid}#FORM`,
+                        pk: `ORGANISATION#${param.organisation_uuid}#FORM`,
                         sk: `FORM#${data.id}`,
                         data: JSON.stringify(data),
                     },
@@ -42,13 +42,13 @@ export class FormService extends Service implements IFormService {
         }
     }
 
-    public async getForms(workspace_uuid: string): Promise<IFormObj[]> {
+    public async getForms(organisation_uuid: string): Promise<IFormObj[]> {
         try {
             const command = new QueryCommand({
                 TableName: 'sales-sync-crm',
                 KeyConditionExpression: 'pk = :pk AND begins_with(sk, :skPrefix)',
                 ExpressionAttributeValues: {
-                    ':pk': `WORKSPACE#${workspace_uuid}#FORM`,
+                    ':pk': `ORGANISATION#${organisation_uuid}#FORM`,
                     ':skPrefix': 'FORM#',
                 },
             });

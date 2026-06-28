@@ -2,4 +2,4 @@
 
 export * from "./contact";
 export * from "./form";
-export * from "./workspace";
+export * from "./organisation";

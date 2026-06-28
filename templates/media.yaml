@@ -119,6 +119,7 @@ Resources:
                           - HEAD
                       AllowedOrigins:
                           - https://app.salesync.biz
+                          - https://app.salesync.local
                           - https://staging.salesync.biz
                           - http://localhost:3000
                           - http://127.0.0.1:3000
