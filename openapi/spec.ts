@@ -40,6 +40,18 @@ export const document = createDocument({
                 bearerFormat: 'JWT',
                 description: 'Access token from /auth/login callback',
             },
+            authenticationCookie: {
+                type: 'apiKey',
+                in: 'cookie',
+                name: 'Authentication',
+                description: 'Authentication JWT cookie — checked by isAuthorize()',
+            },
+            identifierCookie: {
+                type: 'apiKey',
+                in: 'cookie',
+                name: 'Identifier',
+                description: 'Identifier JWT cookie — read by getUser() to resolve id, name, email',
+            },
             organisationAuth: {
                 type: 'apiKey',
                 in: 'cookie',

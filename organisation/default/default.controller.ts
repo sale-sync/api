@@ -1,5 +1,3 @@
-// organisation/default/default.controller.ts
-
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import {
     Controller,
@@ -30,9 +28,7 @@ class DefaultController extends Controller implements IControllerMethods {
             return NO_USER;
         }
 
-        const data = await this.organisationService.getOrganisationsByUserId(user.id, {
-            hydrate: true,
-        });
+        const data = await this.organisationService.getOrganisationsByUserId(user.id);
 
         return {
             statusCode: 200,
@@ -54,9 +50,14 @@ class DefaultController extends Controller implements IControllerMethods {
             const body = dto.validate(JSON.parse(event.body || '{}'));
 
             await this.organisationService.createOrganisation({
+                user_id: user.id,
+                user_email: user.email,
                 organisation_id: body.organisation_id,
                 organisation_name: body.organisation_name,
-                user_id: user.id,
+                business_category: body.business_category,
+                template_id: body.template_id,
+                plan_id: body.plan_id,
+                description: body.description,
             });
 
             return {

@@ -1,15 +1,20 @@
-// organisation/services/organisation.service.ts
-
-import { ConditionalCheckFailedException, DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { BatchGetCommand, PutCommand, QueryCommand } from '@aws-sdk/lib-dynamodb';
+import { ConditionalCheckFailedException, DynamoDBClient, TransactionCanceledException } from '@aws-sdk/client-dynamodb';
+import { BatchGetCommand, GetCommand, PutCommand, QueryCommand, TransactWriteCommand } from '@aws-sdk/lib-dynamodb';
 import { Service } from '@devyethiha/samjs';
-import type { Organisation } from '@sales-sync/shared/src/types';
+import type { BusinessCategory, Organisation, OrganisationUser } from '@sales-sync/shared/src/types';
 import { v4 as uuidv4 } from 'uuid';
+
+const TABLE = 'sale-sync-organisation';
 
 type CreateOrganisationParam = {
     user_id: string;
+    user_email: string;
     organisation_id: string;
     organisation_name: string;
+    business_category: BusinessCategory;
+    template_id: string;
+    plan_id: string;
+    description?: string;
 };
 
 export class OrganisationAlreadyExistsError extends Error {
@@ -28,93 +33,197 @@ export class OrganisationService extends Service {
     }
 
     public async createOrganisation(param: CreateOrganisationParam): Promise<void> {
-        const data: Organisation = {
+        const org: Organisation = {
             uuid: uuidv4(),
             id: param.organisation_id,
             name: param.organisation_name,
+            status: 'pending',
+            image: null,
+            business_category: param.business_category,
+            template_id: param.template_id,
+            plan_id: param.plan_id,
+            created_at: new Date().toISOString(),
+            ...(param.description && { description: param.description }),
+        };
+
+        const membership: OrganisationUser = {
+            role: 'owner',
+            joined_date: org.created_at,
         };
 
         try {
             await this.DB_Client.send(
-                new PutCommand({
-                    TableName: 'sale-sync-organisation',
-                    Item: {
-                        PK: 'ORG',
-                        SK: 'META#' + data.id,
-                        data: JSON.stringify(data),
-                    },
-                    ConditionExpression: 'attribute_not_exists(PK) AND attribute_not_exists(SK)',
+                new TransactWriteCommand({
+                    TransactItems: [
+                        // Organisation metadata — PK=ORG, SK=META#{uuid}
+                        {
+                            Put: {
+                                TableName: TABLE,
+                                Item: {
+                                    PK: 'ORG',
+                                    SK: `META#${org.uuid}`,
+                                    data: JSON.stringify(org),
+                                },
+                                ConditionExpression: 'attribute_not_exists(PK) AND attribute_not_exists(SK)',
+                            },
+                        },
+                        // Organisation ID uniqueness / slug→uuid lookup — PK=ORG#ID#${id}, SK=META
+                        {
+                            Put: {
+                                TableName: TABLE,
+                                Item: {
+                                    PK: `ORG#ID#${org.id}`,
+                                    SK: 'META',
+                                    uuid: org.uuid,
+                                },
+                                ConditionExpression: 'attribute_not_exists(PK) AND attribute_not_exists(SK)',
+                            },
+                        },
+                        // Organisation membership — PK=ORG#{uuid}, SK=USER#{user_id}
+                        {
+                            Put: {
+                                TableName: TABLE,
+                                Item: {
+                                    PK: `ORG#${org.uuid}`,
+                                    SK: `USER#${param.user_id}`,
+                                    data: JSON.stringify(membership),
+                                },
+                            },
+                        },
+                        // User email lookup — PK=USER#{email}, SK=META
+                        {
+                            Put: {
+                                TableName: TABLE,
+                                Item: {
+                                    PK: `USER#${param.user_email}`,
+                                    SK: 'META',
+                                    user_id: param.user_id,
+                                },
+                            },
+                        },
+                        // User email↔user_id mapping for inverted-index — PK=USER#{email}, SK=USER#{user_id}
+                        {
+                            Put: {
+                                TableName: TABLE,
+                                Item: {
+                                    PK: `USER#${param.user_email}`,
+                                    SK: `USER#${param.user_id}`,
+                                },
+                            },
+                        },
+                    ],
                 }),
             );
-        } catch (error) {
-            if (error instanceof ConditionalCheckFailedException) {
+        } catch (error: unknown) {
+            if (
+                error instanceof TransactionCanceledException &&
+                error.CancellationReasons?.some((r) => r.Code === 'ConditionalCheckFailed')
+            ) {
                 throw new OrganisationAlreadyExistsError(param.organisation_id);
             }
             throw error;
         }
-
-        await this.DB_Client.send(
-            new PutCommand({
-                TableName: 'sale-sync-organisation',
-                Item: {
-                    PK: 'ORG#' + data.id,
-                    SK: 'USER#' + param.user_id,
-                },
-            }),
-        );
     }
 
-    /**
-     * Get all organisations a user belongs to
-     * Uses GSI with SK as the HASH key -> query by "USER#<userId>"
-     * Optionally hydrate organisation metadata via BatchGet
-     */
-    public async getOrganisationsByUserId(userId: string, options?: { hydrate?: boolean }) {
-        const skUser = `USER#${userId}`;
-
+    // List all organisations a user belongs to (inverted-index, SK=USER#{userId})
+    public async getOrganisationsByUserId(userId: string): Promise<Organisation[]> {
         const res = await this.DB_Client.send(
             new QueryCommand({
-                TableName: 'sale-sync-organisation',
+                TableName: TABLE,
                 IndexName: 'inverted-index',
-                KeyConditionExpression: 'SK = :skUser AND begins_with(PK, :orgPrefix)',
+                KeyConditionExpression: 'SK = :sk AND begins_with(PK, :prefix)',
                 ExpressionAttributeValues: {
-                    ':skUser': skUser,
-                    ':orgPrefix': 'ORG#',
+                    ':sk': `USER#${userId}`,
+                    ':prefix': 'ORG#',
                 },
             }),
         );
 
-        const organisationIds = res.Items?.map((it) => String(it.PK).replace('ORG#', '')) ?? [];
-
-        if (!options?.hydrate || organisationIds.length === 0) {
-            return { userId, organisations: organisationIds };
-        }
-
-        const keys = organisationIds.map((id) => ({
-            PK: 'ORG',
-            SK: `META#${id}`,
-        }));
+        const orgUuids = res.Items?.map((it: Record<string, unknown>) => String(it.PK).replace('ORG#', '')) ?? [];
+        if (orgUuids.length === 0) return [];
 
         const batch = await this.DB_Client.send(
             new BatchGetCommand({
                 RequestItems: {
-                    'sale-sync-organisation': {
-                        Keys: keys,
+                    [TABLE]: {
+                        Keys: orgUuids.map((uuid) => ({ PK: 'ORG', SK: `META#${uuid}` })),
                     },
                 },
             }),
         );
 
-        const items = batch.Responses?.['sale-sync-organisation'] ?? [];
+        return (batch.Responses?.[TABLE] ?? []).map((item: Record<string, unknown>) => JSON.parse(item.data as string) as Organisation);
+    }
 
-        const organisations = items.map((item: any) => {
-            try {
-                return item.data ? JSON.parse(item.data) : { id: String(item.SK).replace('META#', '') };
-            } catch {
-                return { id: String(item.SK).replace('META#', '') };
-            }
-        });
+    // Lookup organisation by human-readable id (slug) — PK=ORG#ID#${id}, SK=META
+    public async getOrganisationById(orgId: string): Promise<Organisation | null> {
+        const lookup = await this.DB_Client.send(
+            new GetCommand({
+                TableName: TABLE,
+                Key: { PK: `ORG#ID#${orgId}`, SK: 'META' },
+            }),
+        );
 
-        return organisations;
+        if (!lookup.Item) return null;
+
+        const meta = await this.DB_Client.send(
+            new GetCommand({
+                TableName: TABLE,
+                Key: { PK: 'ORG', SK: `META#${lookup.Item.uuid}` },
+            }),
+        );
+
+        return meta.Item ? (JSON.parse(meta.Item.data) as Organisation) : null;
+    }
+
+    // List all users in an organisation — PK=ORG#{uuid}, SK begins_with USER#
+    public async getUsersByOrganisationUuid(
+        orgUuid: string,
+    ): Promise<Array<{ user_id: string; membership: OrganisationUser }>> {
+        const res = await this.DB_Client.send(
+            new QueryCommand({
+                TableName: TABLE,
+                KeyConditionExpression: 'PK = :pk AND begins_with(SK, :prefix)',
+                ExpressionAttributeValues: {
+                    ':pk': `ORG#${orgUuid}`,
+                    ':prefix': 'USER#',
+                },
+            }),
+        );
+
+        return (res.Items ?? []).map((item: Record<string, unknown>) => ({
+            user_id: String(item.SK).replace('USER#', ''),
+            membership: JSON.parse(item.data as string) as OrganisationUser,
+        }));
+    }
+
+    // Lookup user by email — PK=USER#{email}, SK=META
+    public async getUserByEmail(email: string): Promise<{ user_id: string } | null> {
+        const res = await this.DB_Client.send(
+            new GetCommand({
+                TableName: TABLE,
+                Key: { PK: `USER#${email}`, SK: 'META' },
+            }),
+        );
+
+        return res.Item ? { user_id: res.Item.user_id as string } : null;
+    }
+
+    // Lookup user by user_id via inverted-index — SK=USER#{userId}, PK begins_with USER#
+    public async getUserById(userId: string): Promise<{ email: string } | null> {
+        const res = await this.DB_Client.send(
+            new QueryCommand({
+                TableName: TABLE,
+                IndexName: 'inverted-index',
+                KeyConditionExpression: 'SK = :sk AND begins_with(PK, :prefix)',
+                ExpressionAttributeValues: {
+                    ':sk': `USER#${userId}`,
+                    ':prefix': 'USER#',
+                },
+            }),
+        );
+
+        const item = res.Items?.[0] as Record<string, unknown> | undefined;
+        return item ? { email: String(item.PK).replace('USER#', '') } : null;
     }
 }

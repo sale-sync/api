@@ -1,8 +1,8 @@
-// organisation/app.ts
-
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { Router, withCORS } from '@devyethiha/samjs';
 import DefaultController from './default/default.controller';
+import ByIdController from './by-id/by-id.controller';
+import UsersController from './users/users.controller';
 import { OrganisationService } from './services/organisation.service';
 
 async function main(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
@@ -11,7 +11,11 @@ async function main(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult>
         const router = new Router(
             event,
             region,
-            [{ controller: DefaultController, services: [OrganisationService] }],
+            [
+                { controller: DefaultController, services: [OrganisationService] },
+                { controller: ByIdController, services: [OrganisationService] },
+                { controller: UsersController, services: [OrganisationService] },
+            ],
             '/organisations',
         );
 
