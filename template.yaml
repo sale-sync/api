@@ -231,6 +231,84 @@ Resources:
                         Method: ANY
 
     # -------------------------------------------------------------------------
+    # Template Catalogue Lambdas
+    # -------------------------------------------------------------------------
+    TemplateCatalogueFunction:
+        Type: AWS::Serverless::Function
+        Properties:
+            CodeUri: template/bundle
+            Handler: app.lambdaHandler
+            Runtime: nodejs22.x
+            Architectures: [x86_64]
+            Policies:
+                - AWSLambdaBasicExecutionRole
+                - arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess
+            Events:
+                ApiRouter:
+                    Type: Api
+                    Properties:
+                        RestApiId: !Ref SalesSyncApi
+                        Path: /templates/{proxy+}
+                        Method: ANY
+
+    TemplateCatalogueDefaultFunction:
+        Type: AWS::Serverless::Function
+        Properties:
+            CodeUri: template/bundle
+            Handler: app.lambdaHandler
+            Runtime: nodejs22.x
+            Architectures: [x86_64]
+            Policies:
+                - AWSLambdaBasicExecutionRole
+                - arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess
+            Events:
+                ApiRouter:
+                    Type: Api
+                    Properties:
+                        RestApiId: !Ref SalesSyncApi
+                        Path: /templates
+                        Method: ANY
+
+    # -------------------------------------------------------------------------
+    # Plan Lambdas
+    # -------------------------------------------------------------------------
+    PlanFunction:
+        Type: AWS::Serverless::Function
+        Properties:
+            CodeUri: plan/bundle
+            Handler: app.lambdaHandler
+            Runtime: nodejs22.x
+            Architectures: [x86_64]
+            Policies:
+                - AWSLambdaBasicExecutionRole
+                - arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess
+            Events:
+                ApiRouter:
+                    Type: Api
+                    Properties:
+                        RestApiId: !Ref SalesSyncApi
+                        Path: /plans/{proxy+}
+                        Method: ANY
+
+    PlanDefaultFunction:
+        Type: AWS::Serverless::Function
+        Properties:
+            CodeUri: plan/bundle
+            Handler: app.lambdaHandler
+            Runtime: nodejs22.x
+            Architectures: [x86_64]
+            Policies:
+                - AWSLambdaBasicExecutionRole
+                - arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess
+            Events:
+                ApiRouter:
+                    Type: Api
+                    Properties:
+                        RestApiId: !Ref SalesSyncApi
+                        Path: /plans
+                        Method: ANY
+
+    # -------------------------------------------------------------------------
     # Blocks Lambdas
     # -------------------------------------------------------------------------
     BlocksFunction:
@@ -303,6 +381,10 @@ Outputs:
     BlocksFunctionArn:
         Description: Blocks Lambda Function ARN
         Value: !GetAtt BlocksFunction.Arn
+
+    TemplateCatalogueFunctionArn:
+        Description: Template Catalogue Lambda Function ARN
+        Value: !GetAtt TemplateCatalogueFunction.Arn
 
     MediaBucketName:
         Description: S3 Bucket for media storage

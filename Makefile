@@ -1,15 +1,17 @@
-.PHONY: help clean shared.pack bundle bundle.s3-event build start deploy dev deps deps.all deps.auth deps.organisation deps.crm deps.media deps.blocks docs
+.PHONY: help clean shared.pack bundle bundle.s3-event build start deploy dev deps deps.all deps.auth deps.organisation deps.crm deps.media deps.blocks deps.template docs
 
 # Default target
 .DEFAULT_GOAL := help
 
 # === Shared package paths ===
-SHARED_PKG_DIR := packages
-AUTH_VENDOR    := auth/vendor
-ORG_VENDOR     := organisation/vendor
-CRM_VENDOR     := crm/vendor
-MEDIA_VENDOR   := media/vendor
-BLOCKS_VENDOR  := blocks/vendor
+SHARED_PKG_DIR   := packages
+AUTH_VENDOR      := auth/vendor
+ORG_VENDOR       := organisation/vendor
+CRM_VENDOR       := crm/vendor
+MEDIA_VENDOR     := media/vendor
+BLOCKS_VENDOR    := blocks/vendor
+TEMPLATE_VENDOR  := template/vendor
+PLAN_VENDOR      := plan/vendor
 
 # === Dev mode ===
 dev:
@@ -51,7 +53,7 @@ define REINSTALL_SHARED
 	  echo "   ✓ $(1) done"
 endef
 
-deps.all: deps.auth deps.organisation deps.crm deps.media deps.blocks
+deps.all: deps.auth deps.organisation deps.crm deps.media deps.blocks deps.template deps.plan
 	@echo "==> Reinstalled @sales-sync/shared in all workspaces"
 
 deps.auth:
@@ -69,6 +71,12 @@ deps.media:
 deps.blocks:
 	$(call REINSTALL_SHARED,blocks)
 
+deps.template:
+	$(call REINSTALL_SHARED,template)
+
+deps.plan:
+	$(call REINSTALL_SHARED,plan)
+
 deps:
 	@echo "==> Reinstalling all Lambda deps to pick up updated shared.tgz"
 	npm install -w ./auth --prefer-offline --no-audit --no-fund
@@ -76,6 +84,8 @@ deps:
 	npm install -w ./crm --prefer-offline --no-audit --no-fund
 	npm install -w ./media --prefer-offline --no-audit --no-fund
 	npm install -w ./blocks --prefer-offline --no-audit --no-fund
+	npm install -w ./template --prefer-offline --no-audit --no-fund
+	npm install -w ./plan --prefer-offline --no-audit --no-fund
 
 # === Shared package tarball creation ===
 shared.pack:
@@ -84,14 +94,16 @@ shared.pack:
 	@cd "$(SHARED_PKG_DIR)" && npm run build
 	@cd "$(SHARED_PKG_DIR)" && TARBALL=$$(npm pack --json | node -e "let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>console.log(JSON.parse(d)[0].filename))"); \
 		echo "==> Tarball: $$TARBALL"; \
-		mkdir -p "../$(AUTH_VENDOR)" "../$(ORG_VENDOR)" "../$(CRM_VENDOR)" "../$(MEDIA_VENDOR)" "../$(BLOCKS_VENDOR)"; \
+		mkdir -p "../$(AUTH_VENDOR)" "../$(ORG_VENDOR)" "../$(CRM_VENDOR)" "../$(MEDIA_VENDOR)" "../$(BLOCKS_VENDOR)" "../$(TEMPLATE_VENDOR)" "../$(PLAN_VENDOR)"; \
 		cp "$$TARBALL" "../$(AUTH_VENDOR)/shared.tgz"; \
 		cp "$$TARBALL" "../$(ORG_VENDOR)/shared.tgz"; \
 		cp "$$TARBALL" "../$(CRM_VENDOR)/shared.tgz"; \
 		cp "$$TARBALL" "../$(MEDIA_VENDOR)/shared.tgz"; \
 		cp "$$TARBALL" "../$(BLOCKS_VENDOR)/shared.tgz"; \
+		cp "$$TARBALL" "../$(TEMPLATE_VENDOR)/shared.tgz"; \
+		cp "$$TARBALL" "../$(PLAN_VENDOR)/shared.tgz"; \
 		rm -f "$$TARBALL"
-	@echo "==> Updated vendor tarballs: $(AUTH_VENDOR)/shared.tgz, $(CRM_VENDOR)/shared.tgz, $(ORG_VENDOR)/shared.tgz $(MEDIA_VENDOR)/shared.tgz $(BLOCKS_VENDOR)/shared.tgz"
+	@echo "==> Updated vendor tarballs: $(AUTH_VENDOR)/shared.tgz, $(CRM_VENDOR)/shared.tgz, $(ORG_VENDOR)/shared.tgz $(MEDIA_VENDOR)/shared.tgz $(BLOCKS_VENDOR)/shared.tgz $(TEMPLATE_VENDOR)/shared.tgz $(PLAN_VENDOR)/shared.tgz"
 	@$(MAKE) deps
 
 # === Bundle each Lambda with esbuild ===
@@ -106,6 +118,10 @@ bundle: shared.pack
 	npm run -w ./media bundle
 	@echo "==> Bundling blocks Lambda"
 	npm run -w ./blocks bundle
+	@echo "==> Bundling template Lambda"
+	npm run -w ./template bundle
+	@echo "==> Bundling plan Lambda"
+	npm run -w ./plan bundle
 	@echo "==> Bundling completed"
 
 # === Bundle S3 event Lambda (only needed for deploy) ===

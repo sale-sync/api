@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { CreateOrganisationSchema } from '@sales-sync/shared';
+import { AddTeamMemberSchema, CreateOrganisationSchema } from '@sales-sync/shared';
 
 const security: Array<Record<string, string[]>> = [{ authenticationCookie: [], identifierCookie: [] }];
 
@@ -16,7 +16,7 @@ const OrganisationSchema = z.object({
     name: z.string(),
     status: z.enum(['pending', 'active']),
     image: ImageSchema.nullable(),
-    business_category: z.enum(['fitness', 'real-estate', 'service-business', 'restaurant', 'barber']),
+    business_category: z.enum(['fitness', 'real-estate', 'service-business', 'restaurant', 'haircut-and-salon']),
     template_id: z.string().uuid(),
     plan_id: z.string().uuid(),
     created_at: z.string().datetime(),
@@ -128,6 +128,47 @@ export const organisationPaths = {
                         'application/json': { schema: z.object({ message: z.string() }) },
                     },
                 },
+            },
+        },
+    },
+
+    '/organisations/team': {
+        post: {
+            tags: ['Organisation'],
+            summary: 'Add team member(s) by email',
+            description: [
+                'Adds one or more users to an organisation by email address.',
+                '',
+                'The `user_id` is resolved from the Cognito account via the `USER#{email}` lookup item (`PK=USER#{email}, SK=META`).',
+                '',
+                '- **Registered user** — membership item is written as `PK=ORG#{uuid}, SK=USER#{user_id}` with role `staff`.',
+                '- **Unregistered user** — pending invite is written as `PK=ORG#{uuid}, SK=USER#{email}` with status `pending`.',
+                '',
+                'Returns two arrays: `added` (registered users) and `pending` (unregistered users).',
+            ].join('\n'),
+            security,
+            requestBody: {
+                required: true,
+                content: { 'application/json': { schema: AddTeamMemberSchema } },
+            },
+            responses: {
+                '201': {
+                    description: 'Team member(s) added',
+                    content: {
+                        'application/json': {
+                            schema: z.object({
+                                message: z.string(),
+                                added: z.array(z.string().email()).meta({ description: 'Registered users that were added as members' }),
+                                pending: z.array(z.string().email()).meta({ description: 'Unregistered users stored as pending invites' }),
+                            }),
+                        },
+                    },
+                },
+                '400': {
+                    description: 'Validation error',
+                    content: { 'application/json': { schema: z.object({ message: z.string(), issues: z.array(z.unknown()) }) } },
+                },
+                '401': { description: 'Unauthorized' },
             },
         },
     },

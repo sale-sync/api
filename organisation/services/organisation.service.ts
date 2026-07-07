@@ -1,7 +1,7 @@
 import { ConditionalCheckFailedException, DynamoDBClient, TransactionCanceledException } from '@aws-sdk/client-dynamodb';
-import { BatchGetCommand, GetCommand, PutCommand, QueryCommand, TransactWriteCommand } from '@aws-sdk/lib-dynamodb';
+import { BatchGetCommand, BatchWriteCommand, GetCommand, PutCommand, QueryCommand, TransactWriteCommand } from '@aws-sdk/lib-dynamodb';
 import { Service } from '@devyethiha/samjs';
-import type { BusinessCategory, Organisation, OrganisationUser } from '@sales-sync/shared/src/types';
+import type { BusinessCategory, Organisation, OrganisationUser, PendingUser } from '@sales-sync/shared/src/types';
 import { v4 as uuidv4 } from 'uuid';
 
 const TABLE = 'sale-sync-organisation';
@@ -225,5 +225,58 @@ export class OrganisationService extends Service {
 
         const item = res.Items?.[0] as Record<string, unknown> | undefined;
         return item ? { email: String(item.PK).replace('USER#', '') } : null;
+    }
+
+    // Add team members by email — PK=USER#{email}, SK=META to resolve user_id
+    // Registered users  → PK=ORG#{orgUuid}, SK=USER#{user_id}, data=OrganisationUser
+    // Unregistered users → PK=ORG#{orgUuid}, SK=USER#{email},   data=PendingUser
+    public async addTeamMembers(
+        orgUuid: string,
+        emails: string[],
+    ): Promise<{ added: string[]; pending: string[] }> {
+        const batchGet = await this.DB_Client.send(
+            new BatchGetCommand({
+                RequestItems: {
+                    [TABLE]: {
+                        Keys: emails.map((email) => ({ PK: `USER#${email}`, SK: 'META' })),
+                    },
+                },
+            }),
+        );
+
+        const registeredMap = new Map<string, string>();
+        for (const item of (batchGet.Responses?.[TABLE] ?? []) as Record<string, unknown>[]) {
+            const email = String(item.PK).replace('USER#', '');
+            registeredMap.set(email, item.user_id as string);
+        }
+
+        const now = new Date().toISOString();
+        const writeRequests = emails.map((email) => {
+            const userId = registeredMap.get(email);
+            if (userId) {
+                const membership: OrganisationUser = { role: 'staff', joined_date: now };
+                return {
+                    PutRequest: {
+                        Item: { PK: `ORG#${orgUuid}`, SK: `USER#${userId}`, data: JSON.stringify(membership) },
+                    },
+                };
+            } else {
+                const pending: PendingUser = { status: 'pending' };
+                return {
+                    PutRequest: {
+                        Item: { PK: `ORG#${orgUuid}`, SK: `USER#${email}`, data: JSON.stringify(pending) },
+                    },
+                };
+            }
+        });
+
+        await this.DB_Client.send(
+            new BatchWriteCommand({ RequestItems: { [TABLE]: writeRequests } }),
+        );
+
+        return {
+            added: emails.filter((e) => registeredMap.has(e)),
+            pending: emails.filter((e) => !registeredMap.has(e)),
+        };
     }
 }

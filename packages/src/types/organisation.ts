@@ -1,4 +1,4 @@
-export type BusinessCategory = 'fitness' | 'real-estate' | 'service-business' | 'restaurant' | 'barber'
+export type BusinessCategory = 'fitness' | 'real-estate' | 'service-business' | 'restaurant' | 'haircut-and-salon'
 
 export type Image = {
   name: string

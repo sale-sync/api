@@ -45,7 +45,7 @@ This document describes the single-table DynamoDB design for a multi-tenant SaaS
 ##### BusinessCategory
 
 ```ts
-export type BusinessCategory = 'fitness' | 'real-estate' | 'service-business' | 'restaurant' | 'barber'
+export type BusinessCategory = 'fitness' | 'real-estate' | 'service-business' | 'restaurant' | 'haircut-and-salon'
 ```
 
 

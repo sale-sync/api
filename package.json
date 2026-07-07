@@ -9,6 +9,8 @@
     "crm",
     "media",
     "blocks",
+    "template",
+    "plan",
     "packages",
     "openapi"
   ],

@@ -3,7 +3,11 @@ import { Router, withCORS } from '@devyethiha/samjs';
 import DefaultController from './default/default.controller';
 import ByIdController from './by-id/by-id.controller';
 import UsersController from './users/users.controller';
+import TeamController from './team/team.controller';
+import TemplatesController from './templates/templates.controller';
+import ThemeController from './templates/theme/theme.controller';
 import { OrganisationService } from './services/organisation.service';
+import { TemplateService } from './services/template.service';
 
 async function main(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
     const region = 'ap-southeast-2';
@@ -15,6 +19,9 @@ async function main(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult>
                 { controller: DefaultController, services: [OrganisationService] },
                 { controller: ByIdController, services: [OrganisationService] },
                 { controller: UsersController, services: [OrganisationService] },
+                { controller: TeamController, services: [OrganisationService] },
+                { controller: TemplatesController, services: [TemplateService] },
+                { controller: ThemeController, services: [TemplateService] },
             ],
             '/organisations',
         );
