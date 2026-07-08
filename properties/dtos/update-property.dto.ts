@@ -1,5 +1,5 @@
 import { DTO } from '@devyethiha/samjs';
-import { UpdatePropertySchema, UpdatePropertyInput } from '@sales-sync/shared';
+import { UpdatePropertySchema, UpdatePropertyInput } from '@sale-sync/shared';
 
 export type { UpdatePropertyInput };
 

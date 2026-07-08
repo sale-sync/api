@@ -3,6 +3,11 @@ Transform: AWS::Serverless-2016-10-31
 
 Description: Sale Sync Images Infrastructure (S3)
 
+Parameters:
+    ResourcePrefix:
+        Type: String
+        Default: ''
+
 Resources:
     # -------------------------------------------------------------------------
     # S3 Bucket for Access Logs
@@ -24,7 +29,7 @@ Resources:
                     - S3_BUCKET_LOGGING_ENABLED
                     - S3_BUCKET_VERSIONING_ENABLED
         Properties:
-            BucketName: !Sub sale-sync-images-logs-${AWS::AccountId}-${AWS::Region}
+            BucketName: !Sub '${ResourcePrefix}sale-sync-images-logs'
             PublicAccessBlockConfiguration:
                 BlockPublicAcls: true
                 BlockPublicPolicy: true
@@ -35,7 +40,7 @@ Resources:
                     - ServerSideEncryptionByDefault:
                           SSEAlgorithm: AES256
             LoggingConfiguration:
-                DestinationBucketName: !Sub sale-sync-images-logs-${AWS::AccountId}-${AWS::Region}
+                DestinationBucketName: !Sub '${ResourcePrefix}sale-sync-images-logs'
                 LogFilePrefix: self-logs/
             LifecycleConfiguration:
                 Rules:
@@ -61,12 +66,12 @@ Resources:
                       Principal:
                           Service: logging.s3.amazonaws.com
                       Action: s3:PutObject
-                      Resource: !Sub arn:aws:s3:::sale-sync-images-logs-${AWS::AccountId}-${AWS::Region}/*
+                      Resource: !Sub 'arn:aws:s3:::${ResourcePrefix}sale-sync-images-logs/*'
                       Condition:
                           ArnLike:
                               aws:SourceArn:
-                                  - !Sub arn:aws:s3:::sale-sync-images-${AWS::AccountId}-${AWS::Region}
-                                  - !Sub arn:aws:s3:::sale-sync-images-logs-${AWS::AccountId}-${AWS::Region}
+                                  - !Sub 'arn:aws:s3:::${ResourcePrefix}sale-sync-images'
+                                  - !Sub 'arn:aws:s3:::${ResourcePrefix}sale-sync-images-logs'
                           StringEquals:
                               aws:SourceAccount: !Ref AWS::AccountId
                     - Sid: DenyNonSSLRequests
@@ -74,8 +79,8 @@ Resources:
                       Principal: '*'
                       Action: s3:*
                       Resource:
-                          - !Sub arn:aws:s3:::sale-sync-images-logs-${AWS::AccountId}-${AWS::Region}
-                          - !Sub arn:aws:s3:::sale-sync-images-logs-${AWS::AccountId}-${AWS::Region}/*
+                          - !Sub 'arn:aws:s3:::${ResourcePrefix}sale-sync-images-logs'
+                          - !Sub 'arn:aws:s3:::${ResourcePrefix}sale-sync-images-logs/*'
                       Condition:
                           Bool:
                               aws:SecureTransport: 'false'
@@ -98,7 +103,7 @@ Resources:
                     - S3_BUCKET_SSL_REQUESTS_ONLY
                     - S3_BUCKET_VERSIONING_ENABLED
         Properties:
-            BucketName: !Sub sale-sync-images-${AWS::AccountId}-${AWS::Region}
+            BucketName: !Sub '${ResourcePrefix}sale-sync-images'
             LoggingConfiguration:
                 DestinationBucketName: !Ref ImageBucketLogs
                 LogFilePrefix: images-access-logs/

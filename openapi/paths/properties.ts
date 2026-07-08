@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { CreatePropertySchema, UpdatePropertySchema, DeletePropertySchema } from '@sales-sync/shared';
+import { CreatePropertySchema, UpdatePropertySchema, DeletePropertySchema } from '@sale-sync/shared';
 
 const security: Array<Record<string, string[]>> = [{ authenticationCookie: [], identifierCookie: [] }];
 

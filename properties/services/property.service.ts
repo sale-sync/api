@@ -1,8 +1,8 @@
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DeleteCommand, GetCommand, PutCommand, QueryCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import { Service } from '@devyethiha/samjs';
-import type { Organisation, Property, PropertyType, Unit } from '@sales-sync/shared/src/types';
-import type { CreatePropertyInput, UpdatePropertyInput } from '@sales-sync/shared/src/dtos';
+import type { Organisation, Property, PropertyType, Unit } from '@sale-sync/shared/src/types';
+import type { CreatePropertyInput, UpdatePropertyInput } from '@sale-sync/shared/src/dtos';
 import { v4 as uuidv4 } from 'uuid';
 
 const TABLE = process.env.PROPERTY_TABLE_NAME || 'sale-sync-properties';

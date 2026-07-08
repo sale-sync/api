@@ -1,5 +1,5 @@
 import { DTO } from '@devyethiha/samjs';
-import { SetActiveTemplateSchema, SetActiveTemplateInput } from '@sales-sync/shared';
+import { SetActiveTemplateSchema, SetActiveTemplateInput } from '@sale-sync/shared';
 
 export type { SetActiveTemplateInput };
 

@@ -1,10 +1,10 @@
 import { ConditionalCheckFailedException, DynamoDBClient, TransactionCanceledException } from '@aws-sdk/client-dynamodb';
 import { BatchGetCommand, BatchWriteCommand, GetCommand, PutCommand, QueryCommand, TransactWriteCommand } from '@aws-sdk/lib-dynamodb';
 import { Service } from '@devyethiha/samjs';
-import type { BusinessCategory, Organisation, OrganisationUser, PendingUser } from '@sales-sync/shared/src/types';
+import type { BusinessCategory, Organisation, OrganisationUser, PendingUser } from '@sale-sync/shared/src/types';
 import { v4 as uuidv4 } from 'uuid';
 
-const TABLE = 'sale-sync-organisation';
+const TABLE = process.env.ORGANISATION_TABLE_NAME || 'sale-sync-organisation';
 
 type CreateOrganisationParam = {
     user_id: string;

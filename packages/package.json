@@ -1,5 +1,5 @@
 {
-    "name": "@sales-sync/shared",
+    "name": "@sale-sync/shared",
     "version": "0.1.3-dev.1760988392.0",
     "private": true,
     "main": "dist/index.js",

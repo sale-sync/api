@@ -1,0 +1,52 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+
+Description: Sale Sync Organisation Infrastructure (DynamoDB)
+
+Parameters:
+    ResourcePrefix:
+        Type: String
+        Default: ''
+
+Resources:
+    # -------------------------------------------------------------------------
+    # DynamoDB Table for Organisation (org/user/template/plan single-table design)
+    # See docs/dynamodb/access-patterns/organisation.md for the full key-schema rationale.
+    # -------------------------------------------------------------------------
+    OrganisationTable:
+        Type: AWS::DynamoDB::Table
+        DeletionPolicy: Retain
+        UpdateReplacePolicy: Retain
+        Properties:
+            TableName: !Sub '${ResourcePrefix}sale-sync-organisation'
+            BillingMode: PAY_PER_REQUEST
+            SSESpecification:
+                SSEEnabled: true
+            AttributeDefinitions:
+                - AttributeName: pk
+                  AttributeType: S
+                - AttributeName: sk
+                  AttributeType: S
+            KeySchema:
+                - AttributeName: pk
+                  KeyType: HASH
+                - AttributeName: sk
+                  KeyType: RANGE
+            GlobalSecondaryIndexes:
+                - IndexName: inverted-index
+                  KeySchema:
+                      - AttributeName: sk
+                        KeyType: HASH
+                      - AttributeName: pk
+                        KeyType: RANGE
+                  Projection:
+                      ProjectionType: ALL
+
+Outputs:
+    OrganisationTableName:
+        Description: DynamoDB table for organisation/user/template/plan data
+        Value: !Ref OrganisationTable
+
+    OrganisationTableArn:
+        Description: DynamoDB table ARN for organisation/user/template/plan data
+        Value: !GetAtt OrganisationTable.Arn

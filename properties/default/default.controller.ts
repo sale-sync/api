@@ -4,7 +4,7 @@ import { OrganisationNotFoundError, PropertyCategoryNotAllowedError, PropertyNot
 import { CreatePropertyDTO } from '../dtos/create-property.dto';
 import { UpdatePropertyDTO } from '../dtos/update-property.dto';
 import { DeletePropertyDTO } from '../dtos/delete-property.dto';
-import type { PropertyType } from '@sales-sync/shared/src/types';
+import type { PropertyType } from '@sale-sync/shared/src/types';
 
 class DefaultController extends Controller implements IControllerMethods {
     private propertyService: PropertyService;

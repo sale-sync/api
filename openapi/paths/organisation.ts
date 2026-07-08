@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { AddTeamMemberSchema, CreateOrganisationSchema } from '@sales-sync/shared';
+import { AddTeamMemberSchema, CreateOrganisationSchema } from '@sale-sync/shared';
 
 const security: Array<Record<string, string[]>> = [{ authenticationCookie: [], identifierCookie: [] }];
 

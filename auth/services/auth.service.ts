@@ -45,7 +45,7 @@ export class AuthService extends Service implements IAuthService {
             data: JSON.stringify(param),
         };
         const command = new PutCommand({
-            TableName: 'sales-sync-auth',
+            TableName: process.env.AUTH_TABLE_NAME || 'sale-sync-auth',
             Item,
         });
         const { COGNITO_CALLBACK_URL } = process.env;
@@ -79,7 +79,7 @@ export class AuthService extends Service implements IAuthService {
     public async getNonce(state: string): Promise<NoncePair | null> {
         try {
             const command = new GetCommand({
-                TableName: 'sales-sync-auth',
+                TableName: process.env.AUTH_TABLE_NAME || 'sale-sync-auth',
                 Key: {
                     pk: 'NONCE-STATE#' + state,
                     sk: state,

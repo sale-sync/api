@@ -8,7 +8,7 @@ import {
     NO_USER,
     ValidationError,
 } from '@devyethiha/samjs';
-import { getOrganisation, NO_ORGANISATION } from '@sales-sync/shared';
+import { getOrganisation, NO_ORGANISATION } from '@sale-sync/shared';
 import { MediaService } from '../services/media.service';
 import { FolderService } from '../services/folder.service';
 import { S3Service } from '../services/s3.service';

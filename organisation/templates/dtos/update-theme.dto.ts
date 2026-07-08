@@ -1,5 +1,5 @@
 import { DTO } from '@devyethiha/samjs';
-import { UpdateThemeSchema, UpdateThemeInput } from '@sales-sync/shared';
+import { UpdateThemeSchema, UpdateThemeInput } from '@sale-sync/shared';
 
 export type { UpdateThemeInput };
 

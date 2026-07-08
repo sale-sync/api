@@ -1,12 +1,11 @@
 {
-  "name": "sales-sync-api",
+  "name": "sale-sync-api",
   "version": "1.0.0",
   "description": "",
   "private": true,
   "workspaces": [
     "auth",
     "organisation",
-    "crm",
     "media",
     "blocks",
     "template",
@@ -17,13 +16,13 @@
   ],
   "scripts": {
     "nx": "nx",
-    "build": "nx run-many -t compile --projects=auth,organisation,crm",
-    "bundle": "nx run-many -t bundle --projects=auth,organisation,crm",
-    "lint": "nx run-many -t lint --projects=auth,organisation,crm",
-    "test": "nx run-many -t test --projects=auth,organisation,crm",
+    "build": "nx run-many -t compile --projects=auth,organisation",
+    "bundle": "nx run-many -t bundle --projects=auth,organisation",
+    "lint": "nx run-many -t lint --projects=auth,organisation",
+    "test": "nx run-many -t test --projects=auth,organisation",
     "shared.pack": "nx run shared:shared.pack",
     "samconfig:sync": "node scripts/sync-samconfig.js prod",
-    "clean": "rimraf node_modules auth/node_modules organisation/node_modules crm/node_modules packages/node_modules .aws-sam"
+    "clean": "rimraf node_modules auth/node_modules organisation/node_modules packages/node_modules .aws-sam"
   },
   "repository": {
     "type": "git",

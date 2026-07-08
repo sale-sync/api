@@ -44,7 +44,7 @@ export class MediaService extends Service implements IService {
     constructor(DB_Client: DynamoDBClient) {
         super('media');
         this.DB_Client = DB_Client;
-        this.tableName = process?.env.MEDIA_TABLE_NAME || 'sales-sync-media';
+        this.tableName = process?.env.MEDIA_TABLE_NAME || 'sale-sync-media';
     }
 
     /**

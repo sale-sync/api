@@ -14,7 +14,7 @@ import {
     DeleteItemInput,
     GetItemSchema,
     GetItemParam,
-} from '@sales-sync/shared';
+} from '@sale-sync/shared';
 
 export type {
     ListContentsInput,

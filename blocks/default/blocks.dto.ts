@@ -8,7 +8,7 @@ import {
     ValidateBlockDto,
     validateBatchSchema,
     ValidateBatchDto,
-} from '@sales-sync/shared';
+} from '@sale-sync/shared';
 
 export type { CreateBlockDto, UpdateBlockDto, ValidateBlockDto, ValidateBatchDto };
 export { validateBatchSchema };

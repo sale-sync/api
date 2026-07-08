@@ -7,7 +7,7 @@ import {
     MoveItemSchema,
     RenameItemSchema,
     DeleteItemSchema,
-} from '@sales-sync/shared';
+} from '@sale-sync/shared';
 
 const security: Array<Record<string, string[]>> = [{ bearerAuth: [] }, { organisationAuth: [] }];
 

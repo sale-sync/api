@@ -18,11 +18,15 @@ const envPath = path.join(ROOT, `env.${envName}.json`);
 const tomlPath = path.join(ROOT, "samconfig.toml");
 
 // Keep in sync with the `Parameters:` block in template.yaml
+// NOTE: ORGANISATION_TABLE_NAME (org table), AUTH_TABLE_NAME (auth table),
+// MEDIA_TABLE_NAME (media table), and S3_BUCKET_NAME (media bucket) are all
+// intentionally absent here — they're CloudFormation-managed resources
+// (OrganisationInfraStack / AuthInfraStack / MediaInfraStack), not
+// parameters. They're still read from env.*.json directly for local
+// `sam local` runs.
 const PARAM_KEY_MAP = {
-  TABLE_NAME: "TableName",
-  MEDIA_TABLE_NAME: "MediaTableName",
+  RESOURCE_PREFIX: "ResourcePrefix",
   BLOCK_TABLE_NAME: "BlockTableName",
-  S3_BUCKET_NAME: "S3BucketName",
   COGNITO_URL: "CognitoUrl",
   CLIENT_ID: "ClientId",
   CLIENT_SECRET: "ClientSecret",

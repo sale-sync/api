@@ -1,14 +1,14 @@
 {
-    "name": "@sales-sync/openapi",
+    "name": "@sale-sync/openapi",
     "version": "1.0.0",
-    "description": "OpenAPI documentation server for Sales Sync API",
+    "description": "OpenAPI documentation server for Sale Sync API",
     "main": "app.ts",
     "scripts": {
         "start": "ts-node app.ts",
         "dev": "ts-node-dev --respawn app.ts"
     },
     "dependencies": {
-        "@sales-sync/shared": "file:../packages",
+        "@sale-sync/shared": "file:../packages",
         "@scalar/express-api-reference": "^0.4.17",
         "express": "^4.21.0",
         "zod": "^4.1.13",

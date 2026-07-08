@@ -1,0 +1,42 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+
+Description: Sale Sync Auth Infrastructure (DynamoDB)
+
+Parameters:
+    ResourcePrefix:
+        Type: String
+        Default: ''
+
+Resources:
+    # -------------------------------------------------------------------------
+    # DynamoDB Table for Auth (OIDC nonce/state)
+    # -------------------------------------------------------------------------
+    AuthTable:
+        Type: AWS::DynamoDB::Table
+        DeletionPolicy: Retain
+        UpdateReplacePolicy: Retain
+        Properties:
+            TableName: !Sub '${ResourcePrefix}sale-sync-auth'
+            BillingMode: PAY_PER_REQUEST
+            SSESpecification:
+                SSEEnabled: true
+            AttributeDefinitions:
+                - AttributeName: pk
+                  AttributeType: S
+                - AttributeName: sk
+                  AttributeType: S
+            KeySchema:
+                - AttributeName: pk
+                  KeyType: HASH
+                - AttributeName: sk
+                  KeyType: RANGE
+
+Outputs:
+    AuthTableName:
+        Description: DynamoDB table for auth nonce/state
+        Value: !Ref AuthTable
+
+    AuthTableArn:
+        Description: DynamoDB table ARN for auth nonce/state
+        Value: !GetAtt AuthTable.Arn

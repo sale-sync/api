@@ -1,7 +1,7 @@
 {
-  "name": "@sales-sync-api/blocks",
+  "name": "@sale-sync-api/blocks",
   "version": "1.0.0",
-  "description": "Sales Sync api for blocks",
+  "description": "Sale Sync api for blocks",
   "main": "app.js",
   "author": "SAM CLI",
   "license": "MIT",
@@ -17,7 +17,7 @@
     "@aws-sdk/client-dynamodb": "^3.893.0",
     "@aws-sdk/lib-dynamodb": "^3.893.0",
     "@devyethiha/samjs": "^0.1.18",
-    "@sales-sync/shared": "file:vendor/shared.tgz",
+    "@sale-sync/shared": "file:vendor/shared.tgz",
     "crypto": "^1.0.1",
     "esbuild": "^0.14.14",
     "install": "^0.13.0",

@@ -1,7 +1,7 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { Controller, IControllerMethods, isAuthorize, UNAUTHORIZE_ERROR } from '@devyethiha/samjs';
 import { TemplateService } from '../services/template.service';
-import type { BusinessCategory } from '@sales-sync/shared/src/types';
+import type { BusinessCategory } from '@sale-sync/shared/src/types';
 
 const VALID_CATEGORIES: BusinessCategory[] = ['fitness', 'real-estate', 'service-business', 'restaurant', 'haircut-and-salon'];
 

@@ -4,7 +4,7 @@
 ````md
 # Nx Integration – Developer Setup Guide
 
-Sales Sync API uses **Nx** as a lightweight orchestration and caching layer **on top of** the existing Makefile + npm workspaces.  
+Sale Sync API uses **Nx** as a lightweight orchestration and caching layer **on top of** the existing Makefile + npm workspaces.  
 Nx does **not** replace SAM, the Makefile, or your existing folder structure. It simply provides:
 
 - Faster builds via smart caching  
@@ -37,7 +37,7 @@ Nx treats each service as its own project:
 auth/        → Auth Lambda
 workspace/   → Workspace Lambda
 crm/         → CRM Lambda
-packages/    → Shared library (@sales-sync/shared)
+packages/    → Shared library (@sale-sync/shared)
 ```
 
 Each folder gets a corresponding `project.json` for Nx.
@@ -249,7 +249,7 @@ Example final structure:
 ```jsonc
 {
   "$schema": "./node_modules/nx/schemas/nx-schema.json",
-  "npmScope": "sales-sync",
+  "npmScope": "sale-sync",
   "tasksRunnerOptions": {
     "default": {
       "runner": "nx/tasks-runners/default",

@@ -1,22 +1,19 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
 
-Description: Sales Sync API
+Description: Sale Sync API
 
 # =============================================================================
 # NOTE: Lambda functions must be in the same template as the API Gateway.
 # SAM requires RestApiId to reference an AWS::Serverless::Api in the same template.
-# Infrastructure (S3, DynamoDB) can be in nested stacks under ./templates/
+# Infrastructure (S3, DynamoDB) can be in nested stacks under ./infra/
 # =============================================================================
 
 Parameters:
-    TableName:
+    ResourcePrefix:
         Type: String
-    MediaTableName:
-        Type: String
+        Default: ''
     BlockTableName:
-        Type: String
-    S3BucketName:
         Type: String
     CognitoUrl:
         Type: String
@@ -32,10 +29,8 @@ Globals:
         Timeout: 10
         Environment:
             Variables:
-                TABLE_NAME: !Ref TableName
-                MEDIA_TABLE_NAME: !Ref MediaTableName
+                ORGANISATION_TABLE_NAME: !GetAtt OrganisationInfraStack.Outputs.OrganisationTableName
                 BLOCK_TABLE_NAME: !Ref BlockTableName
-                S3_BUCKET_NAME: !Ref S3BucketName
                 COGNITO_URL: !Ref CognitoUrl
                 CLIENT_ID: !Ref ClientId
                 CLIENT_SECRET: !Ref ClientSecret
@@ -62,7 +57,9 @@ Resources:
         DeletionPolicy: Retain
         UpdateReplacePolicy: Retain
         Properties:
-            Location: ./templates/media.yaml
+            Location: ./infra/media.yaml
+            Parameters:
+                ResourcePrefix: !Ref ResourcePrefix
 
     # -------------------------------------------------------------------------
     # Image Infrastructure (S3 + DynamoDB)
@@ -72,7 +69,9 @@ Resources:
         DeletionPolicy: Retain
         UpdateReplacePolicy: Retain
         Properties:
-            Location: ./templates/images.yaml
+            Location: ./infra/images.yaml
+            Parameters:
+                ResourcePrefix: !Ref ResourcePrefix
 
     # -------------------------------------------------------------------------
     # Properties Infrastructure (DynamoDB)
@@ -82,7 +81,33 @@ Resources:
         DeletionPolicy: Retain
         UpdateReplacePolicy: Retain
         Properties:
-            Location: ./templates/properties.yaml
+            Location: ./infra/properties.yaml
+            Parameters:
+                ResourcePrefix: !Ref ResourcePrefix
+
+    # -------------------------------------------------------------------------
+    # Auth Infrastructure (DynamoDB)
+    # -------------------------------------------------------------------------
+    AuthInfraStack:
+        Type: AWS::Serverless::Application
+        DeletionPolicy: Retain
+        UpdateReplacePolicy: Retain
+        Properties:
+            Location: ./infra/auth.yaml
+            Parameters:
+                ResourcePrefix: !Ref ResourcePrefix
+
+    # -------------------------------------------------------------------------
+    # Organisation Infrastructure (DynamoDB)
+    # -------------------------------------------------------------------------
+    OrganisationInfraStack:
+        Type: AWS::Serverless::Application
+        DeletionPolicy: Retain
+        UpdateReplacePolicy: Retain
+        Properties:
+            Location: ./infra/organisation.yaml
+            Parameters:
+                ResourcePrefix: !Ref ResourcePrefix
 
     # =========================================================================
     # Lambda Functions
@@ -98,9 +123,13 @@ Resources:
             Handler: app.lambdaHandler
             Runtime: nodejs22.x
             Architectures: [x86_64]
+            Environment:
+                Variables:
+                    AUTH_TABLE_NAME: !GetAtt AuthInfraStack.Outputs.AuthTableName
             Policies:
                 - AWSLambdaBasicExecutionRole
-                - arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess
+                - DynamoDBCrudPolicy:
+                      TableName: !GetAtt AuthInfraStack.Outputs.AuthTableName
             Events:
                 ApiRouter:
                     Type: Api
@@ -121,7 +150,8 @@ Resources:
             Architectures: [x86_64]
             Policies:
                 - AWSLambdaBasicExecutionRole
-                - arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess
+                - DynamoDBCrudPolicy:
+                      TableName: !GetAtt OrganisationInfraStack.Outputs.OrganisationTableName
             Events:
                 ApiRouter:
                     Type: Api
@@ -139,52 +169,14 @@ Resources:
             Architectures: [x86_64]
             Policies:
                 - AWSLambdaBasicExecutionRole
-                - arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess
+                - DynamoDBCrudPolicy:
+                      TableName: !GetAtt OrganisationInfraStack.Outputs.OrganisationTableName
             Events:
                 ApiRouter:
                     Type: Api
                     Properties:
                         RestApiId: !Ref SalesSyncApi
                         Path: /organisations
-                        Method: ANY
-
-    # -------------------------------------------------------------------------
-    # CRM Lambdas
-    # -------------------------------------------------------------------------
-    CRMFunction:
-        Type: AWS::Serverless::Function
-        Properties:
-            CodeUri: crm/bundle
-            Handler: app.lambdaHandler
-            Runtime: nodejs22.x
-            Architectures: [x86_64]
-            Policies:
-                - AWSLambdaBasicExecutionRole
-                - arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess
-            Events:
-                ApiRouter:
-                    Type: Api
-                    Properties:
-                        RestApiId: !Ref SalesSyncApi
-                        Path: /crm/{proxy+}
-                        Method: ANY
-
-    CRMDefaultFunction:
-        Type: AWS::Serverless::Function
-        Properties:
-            CodeUri: crm/bundle
-            Handler: app.lambdaHandler
-            Runtime: nodejs22.x
-            Architectures: [x86_64]
-            Policies:
-                - AWSLambdaBasicExecutionRole
-                - arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess
-            Events:
-                ApiRouter:
-                    Type: Api
-                    Properties:
-                        RestApiId: !Ref SalesSyncApi
-                        Path: /crm
                         Method: ANY
 
     # -------------------------------------------------------------------------
@@ -201,12 +193,14 @@ Resources:
             Timeout: 30
             Environment:
                 Variables:
-                    TABLE_NAME: !GetAtt MediaInfraStack.Outputs.MediaTableName
-                    S3_BUCKET_NAME: !GetAtt MediaInfraStack.Outputs.MediaBucketName
+                    MEDIA_TABLE_NAME: !GetAtt MediaInfraStack.Outputs.MediaTableName
+                    MEDIA_BUCKET_NAME: !GetAtt MediaInfraStack.Outputs.MediaBucketName
             Policies:
                 - AWSLambdaBasicExecutionRole
-                - arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess
-                - arn:aws:iam::aws:policy/AmazonS3FullAccess
+                - DynamoDBCrudPolicy:
+                      TableName: !GetAtt MediaInfraStack.Outputs.MediaTableName
+                - S3CrudPolicy:
+                      BucketName: !GetAtt MediaInfraStack.Outputs.MediaBucketName
             Events:
                 ApiRouter:
                     Type: Api
@@ -226,12 +220,14 @@ Resources:
             Timeout: 30
             Environment:
                 Variables:
-                    TABLE_NAME: !GetAtt MediaInfraStack.Outputs.MediaTableName
-                    S3_BUCKET_NAME: !GetAtt MediaInfraStack.Outputs.MediaBucketName
+                    MEDIA_TABLE_NAME: !GetAtt MediaInfraStack.Outputs.MediaTableName
+                    MEDIA_BUCKET_NAME: !GetAtt MediaInfraStack.Outputs.MediaBucketName
             Policies:
                 - AWSLambdaBasicExecutionRole
-                - arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess
-                - arn:aws:iam::aws:policy/AmazonS3FullAccess
+                - DynamoDBCrudPolicy:
+                      TableName: !GetAtt MediaInfraStack.Outputs.MediaTableName
+                - S3CrudPolicy:
+                      BucketName: !GetAtt MediaInfraStack.Outputs.MediaBucketName
             Events:
                 ApiRouter:
                     Type: Api
@@ -252,7 +248,8 @@ Resources:
             Architectures: [x86_64]
             Policies:
                 - AWSLambdaBasicExecutionRole
-                - arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess
+                - DynamoDBCrudPolicy:
+                      TableName: !GetAtt OrganisationInfraStack.Outputs.OrganisationTableName
             Events:
                 ApiRouter:
                     Type: Api
@@ -270,7 +267,8 @@ Resources:
             Architectures: [x86_64]
             Policies:
                 - AWSLambdaBasicExecutionRole
-                - arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess
+                - DynamoDBCrudPolicy:
+                      TableName: !GetAtt OrganisationInfraStack.Outputs.OrganisationTableName
             Events:
                 ApiRouter:
                     Type: Api
@@ -291,7 +289,8 @@ Resources:
             Architectures: [x86_64]
             Policies:
                 - AWSLambdaBasicExecutionRole
-                - arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess
+                - DynamoDBCrudPolicy:
+                      TableName: !GetAtt OrganisationInfraStack.Outputs.OrganisationTableName
             Events:
                 ApiRouter:
                     Type: Api
@@ -309,7 +308,8 @@ Resources:
             Architectures: [x86_64]
             Policies:
                 - AWSLambdaBasicExecutionRole
-                - arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess
+                - DynamoDBCrudPolicy:
+                      TableName: !GetAtt OrganisationInfraStack.Outputs.OrganisationTableName
             Events:
                 ApiRouter:
                     Type: Api
@@ -372,13 +372,12 @@ Resources:
             Environment:
                 Variables:
                     PROPERTY_TABLE_NAME: !GetAtt PropertiesInfraStack.Outputs.PropertyTableName
-                    ORGANISATION_TABLE_NAME: !Ref TableName
             Policies:
                 - AWSLambdaBasicExecutionRole
                 - DynamoDBCrudPolicy:
                       TableName: !GetAtt PropertiesInfraStack.Outputs.PropertyTableName
                 - DynamoDBReadPolicy:
-                      TableName: !Ref TableName
+                      TableName: !GetAtt OrganisationInfraStack.Outputs.OrganisationTableName
             Events:
                 ApiRouter:
                     Type: Api
@@ -397,13 +396,12 @@ Resources:
             Environment:
                 Variables:
                     PROPERTY_TABLE_NAME: !GetAtt PropertiesInfraStack.Outputs.PropertyTableName
-                    ORGANISATION_TABLE_NAME: !Ref TableName
             Policies:
                 - AWSLambdaBasicExecutionRole
                 - DynamoDBCrudPolicy:
                       TableName: !GetAtt PropertiesInfraStack.Outputs.PropertyTableName
                 - DynamoDBReadPolicy:
-                      TableName: !Ref TableName
+                      TableName: !GetAtt OrganisationInfraStack.Outputs.OrganisationTableName
             Events:
                 ApiRouter:
                     Type: Api
@@ -433,10 +431,6 @@ Outputs:
         Description: Organisation Lambda Function ARN
         Value: !GetAtt OrganisationFunction.Arn
 
-    CRMFunctionArn:
-        Description: CRM Lambda Function ARN
-        Value: !GetAtt CRMFunction.Arn
-
     MediaFunctionArn:
         Description: Media Lambda Function ARN
         Value: !GetAtt MediaFunction.Arn
@@ -464,3 +458,11 @@ Outputs:
     PropertyTableName:
         Description: DynamoDB Table for property listings
         Value: !GetAtt PropertiesInfraStack.Outputs.PropertyTableName
+
+    AuthTableName:
+        Description: DynamoDB Table for auth nonce/state
+        Value: !GetAtt AuthInfraStack.Outputs.AuthTableName
+
+    OrganisationTableName:
+        Description: DynamoDB Table for organisation/user/template/plan data
+        Value: !GetAtt OrganisationInfraStack.Outputs.OrganisationTableName

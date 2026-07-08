@@ -1,5 +1,5 @@
 import { DTO } from '@devyethiha/samjs';
-import { CreateOrganisationSchema, CreateOrganisationInput } from '@sales-sync/shared';
+import { CreateOrganisationSchema, CreateOrganisationInput } from '@sale-sync/shared';
 
 export type { CreateOrganisationInput };
 

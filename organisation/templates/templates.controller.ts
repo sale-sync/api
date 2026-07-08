@@ -4,7 +4,7 @@ import { ActiveTemplateRemovalError, OrganisationNotFoundError, TemplateNotFound
 import { AddTemplateDTO } from './dtos/add-template.dto';
 import { RemoveTemplateDTO } from './dtos/remove-template.dto';
 import { SetActiveTemplateDTO } from './dtos/set-active-template.dto';
-import type { BusinessCategory } from '@sales-sync/shared/src/types';
+import type { BusinessCategory } from '@sale-sync/shared/src/types';
 
 class TemplatesController extends Controller implements IControllerMethods {
     private templateService: TemplateService;

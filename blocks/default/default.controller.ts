@@ -1,7 +1,7 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { Controller, IControllerMethods } from '@devyethiha/samjs';
 import { isAuthorize, getUser, UNAUTHORIZE_ERROR, NO_USER } from '@devyethiha/samjs';
-import { getOrganisation, NO_ORGANISATION } from '@sales-sync/shared';
+import { getOrganisation, NO_ORGANISATION } from '@sale-sync/shared';
 import { BlocksService } from './blocks.service';
 import { CreateBlockDTO, UpdateBlockDTO, ValidateBlockDTO, validateBatchSchema } from './blocks.dto';
 

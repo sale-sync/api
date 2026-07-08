@@ -8,5 +8,5 @@ const PORT = 1778;
 app.use('/', apiReference({ spec: { content: document }, darkMode: false }));
 
 app.listen(PORT, () => {
-    console.log(`Sales Sync API docs running at http://localhost:${PORT}`);
+    console.log(`Sale Sync API docs running at http://localhost:${PORT}`);
 });

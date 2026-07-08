@@ -182,6 +182,9 @@
   },
   "active": "16b358353b7bdd1e",
   "lastOpenFiles": [
+    "infra/domains.md",
+    "infra/README.md",
+    "infra",
     "market-behaviour.md",
     "dynamodb/access-patterns/properties.md.tmp.80987.e3d9fb2a46ab",
     "dynamodb/tables.md",

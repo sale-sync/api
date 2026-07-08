@@ -3,7 +3,6 @@
 import { createDocument } from 'zod-openapi';
 import { authPaths } from './paths/auth';
 import { organisationPaths } from './paths/organisation';
-import { crmPaths } from './paths/crm';
 import { mediaPaths } from './paths/media';
 import { blocksPaths } from './paths/blocks';
 import { templatePaths } from './paths/template';
@@ -13,15 +12,19 @@ import { propertiesPaths } from './paths/properties';
 export const document = createDocument({
     openapi: '3.1.0',
     info: {
-        title: 'Sales Sync API',
+        title: 'Sale Sync API',
         version: '1.0.0',
         description:
-            'API Gateway documentation for the Sales Sync platform. Protected routes require a Bearer JWT (from /auth/login) and an Organisation cookie.',
+            'API Gateway documentation for the Sale Sync platform. Protected routes require a Bearer JWT (from /auth/login) and an Organisation cookie.',
     },
     servers: [
         {
             url: 'http://localhost:8080/Prod',
-            description: 'Local SAM (sam local start-api)',
+            description: 'Local SAM (sam local start-api) — staging resources by default, make start.prod for production',
+        },
+        {
+            url: 'https://staging-api.salesync.biz/Prod',
+            description: 'Staging',
         },
         {
             url: 'https://api.salesync.biz/Prod',
@@ -31,7 +34,6 @@ export const document = createDocument({
     paths: {
         ...authPaths,
         ...organisationPaths,
-        ...crmPaths,
         ...mediaPaths,
         ...blocksPaths,
         ...templatePaths,

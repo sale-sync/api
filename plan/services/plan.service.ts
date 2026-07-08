@@ -1,9 +1,9 @@
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { GetCommand, QueryCommand } from '@aws-sdk/lib-dynamodb';
 import { Service } from '@devyethiha/samjs';
-import type { Plan } from '@sales-sync/shared/src/types';
+import type { Plan } from '@sale-sync/shared/src/types';
 
-const TABLE = 'sale-sync-organisation';
+const TABLE = process.env.ORGANISATION_TABLE_NAME || 'sale-sync-organisation';
 
 export class PlanService extends Service {
     private DB_Client: DynamoDBClient;

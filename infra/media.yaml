@@ -1,7 +1,12 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
 
-Description: Sales Sync Media Infrastructure (S3 + DynamoDB)
+Description: Sale Sync Media Infrastructure (S3 + DynamoDB)
+
+Parameters:
+    ResourcePrefix:
+        Type: String
+        Default: ''
 
 Resources:
     # -------------------------------------------------------------------------
@@ -24,7 +29,7 @@ Resources:
                     - S3_BUCKET_LOGGING_ENABLED
                     - S3_BUCKET_VERSIONING_ENABLED
         Properties:
-            BucketName: !Sub sales-sync-media-logs-${AWS::AccountId}-${AWS::Region}
+            BucketName: !Sub '${ResourcePrefix}sale-sync-media-logs'
             PublicAccessBlockConfiguration:
                 BlockPublicAcls: true
                 BlockPublicPolicy: true
@@ -35,7 +40,7 @@ Resources:
                     - ServerSideEncryptionByDefault:
                           SSEAlgorithm: AES256
             LoggingConfiguration:
-                DestinationBucketName: !Sub sales-sync-media-logs-${AWS::AccountId}-${AWS::Region}
+                DestinationBucketName: !Sub '${ResourcePrefix}sale-sync-media-logs'
                 LogFilePrefix: self-logs/
             LifecycleConfiguration:
                 Rules:
@@ -61,12 +66,12 @@ Resources:
                       Principal:
                           Service: logging.s3.amazonaws.com
                       Action: s3:PutObject
-                      Resource: !Sub arn:aws:s3:::sales-sync-media-logs-${AWS::AccountId}-${AWS::Region}/*
+                      Resource: !Sub 'arn:aws:s3:::${ResourcePrefix}sale-sync-media-logs/*'
                       Condition:
                           ArnLike:
                               aws:SourceArn:
-                                  - !Sub arn:aws:s3:::sales-sync-media-${AWS::AccountId}-${AWS::Region}
-                                  - !Sub arn:aws:s3:::sales-sync-media-logs-${AWS::AccountId}-${AWS::Region}
+                                  - !Sub 'arn:aws:s3:::${ResourcePrefix}sale-sync-media'
+                                  - !Sub 'arn:aws:s3:::${ResourcePrefix}sale-sync-media-logs'
                           StringEquals:
                               aws:SourceAccount: !Ref AWS::AccountId
                     - Sid: DenyNonSSLRequests
@@ -74,8 +79,8 @@ Resources:
                       Principal: '*'
                       Action: s3:*
                       Resource:
-                          - !Sub arn:aws:s3:::sales-sync-media-logs-${AWS::AccountId}-${AWS::Region}
-                          - !Sub arn:aws:s3:::sales-sync-media-logs-${AWS::AccountId}-${AWS::Region}/*
+                          - !Sub 'arn:aws:s3:::${ResourcePrefix}sale-sync-media-logs'
+                          - !Sub 'arn:aws:s3:::${ResourcePrefix}sale-sync-media-logs/*'
                       Condition:
                           Bool:
                               aws:SecureTransport: 'false'
@@ -99,7 +104,7 @@ Resources:
                     - S3_BUCKET_SSL_REQUESTS_ONLY
                     - S3_BUCKET_VERSIONING_ENABLED
         Properties:
-            BucketName: !Sub sales-sync-media-${AWS::AccountId}-${AWS::Region}
+            BucketName: !Sub '${ResourcePrefix}sale-sync-media'
             LoggingConfiguration:
                 DestinationBucketName: !Ref MediaBucketLogs
                 LogFilePrefix: media-access-logs/
@@ -187,7 +192,7 @@ Resources:
         DeletionPolicy: Retain
         UpdateReplacePolicy: Retain
         Properties:
-            TableName: sales-sync-media
+            TableName: !Sub '${ResourcePrefix}sale-sync-media'
             BillingMode: PAY_PER_REQUEST
             SSESpecification:
                 SSEEnabled: true
@@ -258,7 +263,7 @@ Resources:
                         Action:
                             - s3:GetObject
                             - s3:HeadObject
-                        Resource: !Sub arn:aws:s3:::sales-sync-media-${AWS::AccountId}-${AWS::Region}/*
+                        Resource: !Sub '${MediaBucket.Arn}/*'
 
     # -------------------------------------------------------------------------
     # Lambda Permission - Allow S3 to invoke the function
@@ -270,7 +275,7 @@ Resources:
             Action: lambda:InvokeFunction
             Principal: s3.amazonaws.com
             SourceAccount: !Ref AWS::AccountId
-            SourceArn: !Sub arn:aws:s3:::sales-sync-media-${AWS::AccountId}-${AWS::Region}
+            SourceArn: !GetAtt MediaBucket.Arn
 
 Outputs:
     MediaBucketName:

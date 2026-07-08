@@ -1,5 +1,5 @@
 import { DTO } from '@devyethiha/samjs';
-import { AddTeamMemberSchema, AddTeamMemberInput } from '@sales-sync/shared';
+import { AddTeamMemberSchema, AddTeamMemberInput } from '@sale-sync/shared';
 
 export type { AddTeamMemberInput };
 

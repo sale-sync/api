@@ -1,5 +1,5 @@
 import { DTO } from '@devyethiha/samjs';
-import { DeletePropertySchema, DeletePropertyInput } from '@sales-sync/shared';
+import { DeletePropertySchema, DeletePropertyInput } from '@sale-sync/shared';
 
 export type { DeletePropertyInput };
 

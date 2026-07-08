@@ -1,10 +1,10 @@
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DeleteCommand, GetCommand, PutCommand, QueryCommand, TransactWriteCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import { Service } from '@devyethiha/samjs';
-import type { BusinessCategory, Organisation, OrganisationTemplate, Template, ThemeBrandColor, ThemeConfig, ThemeFont } from '@sales-sync/shared/src/types';
-import type { UpdateThemeInput } from '@sales-sync/shared/src/dtos';
+import type { BusinessCategory, Organisation, OrganisationTemplate, Template, ThemeBrandColor, ThemeConfig, ThemeFont } from '@sale-sync/shared/src/types';
+import type { UpdateThemeInput } from '@sale-sync/shared/src/dtos';
 
-const TABLE = 'sale-sync-organisation';
+const TABLE = process.env.ORGANISATION_TABLE_NAME || 'sale-sync-organisation';
 
 const DEFAULT_BRAND_COLOR: ThemeBrandColor = 'blue';
 const DEFAULT_FONT: ThemeFont = 'sans';

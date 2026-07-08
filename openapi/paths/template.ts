@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { AddTemplateSchema, RemoveTemplateSchema, SetActiveTemplateSchema, UpdateThemeSchema } from '@sales-sync/shared';
+import { AddTemplateSchema, RemoveTemplateSchema, SetActiveTemplateSchema, UpdateThemeSchema } from '@sale-sync/shared';
 
 const security: Array<Record<string, string[]>> = [{ authenticationCookie: [], identifierCookie: [] }];
 

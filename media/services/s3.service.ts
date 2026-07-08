@@ -39,7 +39,7 @@ export class S3Service extends Service implements IService {
         super('s3');
         this.region = process.env.AWS_REGION || 'ap-southeast-2';
         this.s3Client = new S3Client({ region: this.region });
-        this.bucketName = process.env.S3_BUCKET_NAME || 'sales-sync-media-bucket';
+        this.bucketName = process.env.MEDIA_BUCKET_NAME || 'sale-sync-media';
     }
 
     /**
