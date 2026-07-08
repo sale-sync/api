@@ -11,6 +11,7 @@
     "blocks",
     "template",
     "plan",
+    "properties",
     "packages",
     "openapi"
   ],
@@ -21,6 +22,7 @@
     "lint": "nx run-many -t lint --projects=auth,organisation,crm",
     "test": "nx run-many -t test --projects=auth,organisation,crm",
     "shared.pack": "nx run shared:shared.pack",
+    "samconfig:sync": "node scripts/sync-samconfig.js prod",
     "clean": "rimraf node_modules auth/node_modules organisation/node_modules crm/node_modules packages/node_modules .aws-sam"
   },
   "repository": {

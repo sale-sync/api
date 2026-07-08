@@ -1,6 +1,6 @@
 # DynamoDB Tables
 
-This API uses **5 DynamoDB tables** across all Lambda services.
+This API uses **6 DynamoDB tables** across all Lambda services.
 
 | Table | Name | Services |
 |---|---|---|
@@ -9,12 +9,13 @@ This API uses **5 DynamoDB tables** across all Lambda services.
 | CRM | `sales-sync-crm` | CRM (contacts, forms) |
 | Media | env var `TABLE_NAME` (from `MediaInfraStack`) | Media, media-s3-event |
 | Blocks | env var `BLOCK_TABLE_NAME` | Blocks |
+| Properties | env var `PROPERTY_TABLE_NAME` (from `PropertiesInfraStack`) | Properties |
 
 ---
 
 ## `sale-sync-organisation`
 
-The primary single-table design shared across multiple services. All organisation, user, template, plan, and theme data lives here.
+The primary single-table design shared across multiple services. All organisation, user, template, and plan data lives here.
 
 See the individual access-pattern docs for the key schema:
 
@@ -56,3 +57,15 @@ The table name is injected at deploy time via the `BLOCK_TABLE_NAME` environment
 Used by `blocks/default/blocks.service.ts`.
 
 See [Blocks access patterns](./access-patterns/blocks.md) for the key schema.
+
+---
+
+## Properties table
+
+Provisioned by the `PropertiesInfraStack` nested stack (`templates/properties.yaml`), including its 3 GSIs (`property-area-index`, `property-type-index`, `property-region-index`). The table name is injected at deploy time via the `PROPERTY_TABLE_NAME` environment variable on the Properties Lambda.
+
+The Properties Lambda also gets a scoped `DynamoDBReadPolicy` on `sale-sync-organisation` (env var `ORGANISATION_TABLE_NAME`), used only to check an org's `business_category` before allowing property CRUD.
+
+Used by `properties/services/property.service.ts`.
+
+See [Property access patterns](./access-patterns/properties.md) for the key schema.

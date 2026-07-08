@@ -13,12 +13,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "dynamodb/tables.md",
+                "file": "dynamodb/access-patterns/properties.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "tables"
+              "title": "properties"
             }
           }
         ]
@@ -182,8 +182,11 @@
   },
   "active": "16b358353b7bdd1e",
   "lastOpenFiles": [
-    "dynamodb/access-patterns/template.md",
+    "market-behaviour.md",
+    "dynamodb/access-patterns/properties.md.tmp.80987.e3d9fb2a46ab",
     "dynamodb/tables.md",
+    "dynamodb/access-patterns/properties.md",
+    "dynamodb/access-patterns/template.md",
     "dynamodb/access-patterns/plan.md",
     "dynamodb/access-patterns/media.md",
     "dynamodb/access-patterns/blocks.md",

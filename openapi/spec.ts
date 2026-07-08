@@ -8,6 +8,7 @@ import { mediaPaths } from './paths/media';
 import { blocksPaths } from './paths/blocks';
 import { templatePaths } from './paths/template';
 import { planPaths } from './paths/plan';
+import { propertiesPaths } from './paths/properties';
 
 export const document = createDocument({
     openapi: '3.1.0',
@@ -35,6 +36,7 @@ export const document = createDocument({
         ...blocksPaths,
         ...templatePaths,
         ...planPaths,
+        ...propertiesPaths,
     },
     components: {
         securitySchemes: {

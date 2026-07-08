@@ -1,4 +1,4 @@
-.PHONY: help clean shared.pack bundle bundle.s3-event build start deploy dev deps deps.all deps.auth deps.organisation deps.crm deps.media deps.blocks deps.template docs
+.PHONY: help clean shared.pack bundle bundle.s3-event build start deploy dev deps deps.all deps.auth deps.organisation deps.crm deps.media deps.blocks deps.template deps.properties docs
 
 # Default target
 .DEFAULT_GOAL := help
@@ -12,6 +12,7 @@ MEDIA_VENDOR     := media/vendor
 BLOCKS_VENDOR    := blocks/vendor
 TEMPLATE_VENDOR  := template/vendor
 PLAN_VENDOR      := plan/vendor
+PROPERTIES_VENDOR := properties/vendor
 
 # === Dev mode ===
 dev:
@@ -22,6 +23,7 @@ dev:
 	  -w crm \
 	  -w media \
 	  -w blocks \
+	  -w properties \
 	  -w packages/src \
 	  -w template.yaml \
 	  -i auth/bundle \
@@ -29,6 +31,7 @@ dev:
 	  -i crm/bundle \
 	  -i media/bundle \
 	  -i blocks/bundle \
+	  -i properties/bundle \
 	  -i .aws-sam \
 	  -i node_modules \
 	  -i 'auth/vendor' \
@@ -36,6 +39,7 @@ dev:
 	  -i 'crm/vendor' \
 	  -i 'media/vendor' \
 	  -i 'blocks/vendor' \
+	  -i 'properties/vendor' \
 	  --delay 700ms \
 	  -x "make start"
 
@@ -53,7 +57,7 @@ define REINSTALL_SHARED
 	  echo "   ✓ $(1) done"
 endef
 
-deps.all: deps.auth deps.organisation deps.crm deps.media deps.blocks deps.template deps.plan
+deps.all: deps.auth deps.organisation deps.crm deps.media deps.blocks deps.template deps.plan deps.properties
 	@echo "==> Reinstalled @sales-sync/shared in all workspaces"
 
 deps.auth:
@@ -77,6 +81,9 @@ deps.template:
 deps.plan:
 	$(call REINSTALL_SHARED,plan)
 
+deps.properties:
+	$(call REINSTALL_SHARED,properties)
+
 deps:
 	@echo "==> Reinstalling all Lambda deps to pick up updated shared.tgz"
 	npm install -w ./auth --prefer-offline --no-audit --no-fund
@@ -86,6 +93,7 @@ deps:
 	npm install -w ./blocks --prefer-offline --no-audit --no-fund
 	npm install -w ./template --prefer-offline --no-audit --no-fund
 	npm install -w ./plan --prefer-offline --no-audit --no-fund
+	npm install -w ./properties --prefer-offline --no-audit --no-fund
 
 # === Shared package tarball creation ===
 shared.pack:
@@ -94,7 +102,7 @@ shared.pack:
 	@cd "$(SHARED_PKG_DIR)" && npm run build
 	@cd "$(SHARED_PKG_DIR)" && TARBALL=$$(npm pack --json | node -e "let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>console.log(JSON.parse(d)[0].filename))"); \
 		echo "==> Tarball: $$TARBALL"; \
-		mkdir -p "../$(AUTH_VENDOR)" "../$(ORG_VENDOR)" "../$(CRM_VENDOR)" "../$(MEDIA_VENDOR)" "../$(BLOCKS_VENDOR)" "../$(TEMPLATE_VENDOR)" "../$(PLAN_VENDOR)"; \
+		mkdir -p "../$(AUTH_VENDOR)" "../$(ORG_VENDOR)" "../$(CRM_VENDOR)" "../$(MEDIA_VENDOR)" "../$(BLOCKS_VENDOR)" "../$(TEMPLATE_VENDOR)" "../$(PLAN_VENDOR)" "../$(PROPERTIES_VENDOR)"; \
 		cp "$$TARBALL" "../$(AUTH_VENDOR)/shared.tgz"; \
 		cp "$$TARBALL" "../$(ORG_VENDOR)/shared.tgz"; \
 		cp "$$TARBALL" "../$(CRM_VENDOR)/shared.tgz"; \
@@ -102,8 +110,9 @@ shared.pack:
 		cp "$$TARBALL" "../$(BLOCKS_VENDOR)/shared.tgz"; \
 		cp "$$TARBALL" "../$(TEMPLATE_VENDOR)/shared.tgz"; \
 		cp "$$TARBALL" "../$(PLAN_VENDOR)/shared.tgz"; \
+		cp "$$TARBALL" "../$(PROPERTIES_VENDOR)/shared.tgz"; \
 		rm -f "$$TARBALL"
-	@echo "==> Updated vendor tarballs: $(AUTH_VENDOR)/shared.tgz, $(CRM_VENDOR)/shared.tgz, $(ORG_VENDOR)/shared.tgz $(MEDIA_VENDOR)/shared.tgz $(BLOCKS_VENDOR)/shared.tgz $(TEMPLATE_VENDOR)/shared.tgz $(PLAN_VENDOR)/shared.tgz"
+	@echo "==> Updated vendor tarballs: $(AUTH_VENDOR)/shared.tgz, $(CRM_VENDOR)/shared.tgz, $(ORG_VENDOR)/shared.tgz $(MEDIA_VENDOR)/shared.tgz $(BLOCKS_VENDOR)/shared.tgz $(TEMPLATE_VENDOR)/shared.tgz $(PLAN_VENDOR)/shared.tgz $(PROPERTIES_VENDOR)/shared.tgz"
 	@$(MAKE) deps
 
 # === Bundle each Lambda with esbuild ===
@@ -122,6 +131,8 @@ bundle: shared.pack
 	npm run -w ./template bundle
 	@echo "==> Bundling plan Lambda"
 	npm run -w ./plan bundle
+	@echo "==> Bundling properties Lambda"
+	npm run -w ./properties bundle
 	@echo "==> Bundling completed"
 
 # === Bundle S3 event Lambda (only needed for deploy) ===
@@ -151,7 +162,7 @@ deploy: bundle bundle.s3-event
 # === Cleanup ===
 clean:
 	@echo "==> Cleaning build artifacts"
-	rm -rf .aws-sam auth/bundle organisation/bundle crm/bundle media/bundle media-s3-event/bundle blocks/bundle
+	rm -rf .aws-sam auth/bundle organisation/bundle crm/bundle media/bundle media-s3-event/bundle blocks/bundle template/bundle plan/bundle properties/bundle
 
 # === OpenAPI docs server ===
 docs:

@@ -1,0 +1,36 @@
+{
+  "name": "properties",
+  "root": "properties",
+  "sourceRoot": "properties",
+  "projectType": "application",
+  "targets": {
+    "compile": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "npm run compile",
+        "cwd": "properties"
+      }
+    },
+    "bundle": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "npm run bundle",
+        "cwd": "properties"
+      }
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "npm test",
+        "cwd": "properties"
+      }
+    },
+    "lint": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "npm run lint",
+        "cwd": "properties"
+      }
+    }
+  }
+}

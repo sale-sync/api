@@ -74,6 +74,16 @@ Resources:
         Properties:
             Location: ./templates/images.yaml
 
+    # -------------------------------------------------------------------------
+    # Properties Infrastructure (DynamoDB)
+    # -------------------------------------------------------------------------
+    PropertiesInfraStack:
+        Type: AWS::Serverless::Application
+        DeletionPolicy: Retain
+        UpdateReplacePolicy: Retain
+        Properties:
+            Location: ./templates/properties.yaml
+
     # =========================================================================
     # Lambda Functions
     # =========================================================================
@@ -349,6 +359,59 @@ Resources:
                         Path: /blocks
                         Method: ANY
 
+    # -------------------------------------------------------------------------
+    # Properties Lambdas (uses infrastructure from PropertiesInfraStack)
+    # -------------------------------------------------------------------------
+    PropertiesFunction:
+        Type: AWS::Serverless::Function
+        Properties:
+            CodeUri: properties/bundle
+            Handler: app.lambdaHandler
+            Runtime: nodejs22.x
+            Architectures: [x86_64]
+            Environment:
+                Variables:
+                    PROPERTY_TABLE_NAME: !GetAtt PropertiesInfraStack.Outputs.PropertyTableName
+                    ORGANISATION_TABLE_NAME: !Ref TableName
+            Policies:
+                - AWSLambdaBasicExecutionRole
+                - DynamoDBCrudPolicy:
+                      TableName: !GetAtt PropertiesInfraStack.Outputs.PropertyTableName
+                - DynamoDBReadPolicy:
+                      TableName: !Ref TableName
+            Events:
+                ApiRouter:
+                    Type: Api
+                    Properties:
+                        RestApiId: !Ref SalesSyncApi
+                        Path: /properties/{proxy+}
+                        Method: ANY
+
+    PropertiesDefaultFunction:
+        Type: AWS::Serverless::Function
+        Properties:
+            CodeUri: properties/bundle
+            Handler: app.lambdaHandler
+            Runtime: nodejs22.x
+            Architectures: [x86_64]
+            Environment:
+                Variables:
+                    PROPERTY_TABLE_NAME: !GetAtt PropertiesInfraStack.Outputs.PropertyTableName
+                    ORGANISATION_TABLE_NAME: !Ref TableName
+            Policies:
+                - AWSLambdaBasicExecutionRole
+                - DynamoDBCrudPolicy:
+                      TableName: !GetAtt PropertiesInfraStack.Outputs.PropertyTableName
+                - DynamoDBReadPolicy:
+                      TableName: !Ref TableName
+            Events:
+                ApiRouter:
+                    Type: Api
+                    Properties:
+                        RestApiId: !Ref SalesSyncApi
+                        Path: /properties
+                        Method: ANY
+
 Outputs:
     SalesSyncApiId:
         Description: API Gateway RestApi ID
@@ -386,6 +449,10 @@ Outputs:
         Description: Template Catalogue Lambda Function ARN
         Value: !GetAtt TemplateCatalogueFunction.Arn
 
+    PropertiesFunctionArn:
+        Description: Properties Lambda Function ARN
+        Value: !GetAtt PropertiesFunction.Arn
+
     MediaBucketName:
         Description: S3 Bucket for media storage
         Value: !GetAtt MediaInfraStack.Outputs.MediaBucketName
@@ -393,3 +460,7 @@ Outputs:
     MediaTableName:
         Description: DynamoDB Table for media metadata
         Value: !GetAtt MediaInfraStack.Outputs.MediaTableName
+
+    PropertyTableName:
+        Description: DynamoDB Table for property listings
+        Value: !GetAtt PropertiesInfraStack.Outputs.PropertyTableName
