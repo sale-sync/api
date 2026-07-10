@@ -1,4 +1,4 @@
-.PHONY: help clean shared.pack bundle bundle.s3-event build start start.prod deploy deploy.staging deploy.prod dev dev.prod deps deps.all deps.auth deps.organisation deps.media deps.blocks deps.templates deps.properties docs check.staging check.prod check.both
+.PHONY: help clean shared.pack bundle build start start.prod deploy.staging deploy.prod dev dev.prod deps deps.all deps.auth deps.organisation deps.media deps.blocks deps.templates deps.properties docs check.staging check.prod check.both
 
 # Default target
 .DEFAULT_GOAL := help
@@ -134,11 +134,6 @@ bundle: shared.pack
 	npm run -w ./properties bundle
 	@echo "==> Bundling completed"
 
-# === Bundle S3 event Lambda (only needed for deploy) ===
-bundle.s3-event:
-	@echo "==> Bundling media-s3-event Lambda"
-	cd media-s3-event && npm install --prefer-offline --no-audit --no-fund && npm run bundle
-
 # === SAM build & deploy commands ===
 build: bundle
 	@echo "==> SAM build (zipping pre-bundled Lambdas)"
@@ -155,27 +150,10 @@ start.prod: build
 	@echo "==> Starting local API (PRODUCTION resources — read/write against real data, use sparingly)"
 	sam local start-api --port 8080 --env-vars env.prod.json
 
-# Deploy needs s3-event bundled before SAM build.
-# Syncs env.prod.json into samconfig.toml first so parameter_overrides can
-# never go stale relative to what's actually in env.prod.json.
-# NOTE: this targets the legacy stack "sales-sync-api" (pre-rebrand, manages
-# its own DynamoDB tables outside CFN). Kept as-is until that stack is
-# manually retired — see `make deploy.prod` for the new CFN-managed stack.
-deploy: bundle bundle.s3-event
-	@echo "==> Syncing env.prod.json into samconfig.toml"
-	npm run samconfig:sync
-	@echo "==> SAM build (zipping pre-bundled Lambdas)"
-	sam build
-	@echo "==> Deploying to AWS"
-	sam deploy \
-	  --stack-name sales-sync-api \
-	  --capabilities CAPABILITY_IAM CAPABILITY_AUTO_EXPAND \
-	  --resolve-s3 \
-
 # Deploy to the staging stack (staging-sale-sync-api). Syncs env.staging.json
 # into samconfig.toml's [staging.deploy.parameters] section first so
 # parameter_overrides can never go stale relative to env.staging.json.
-deploy.staging: bundle bundle.s3-event
+deploy.staging: bundle
 	@echo "==> Syncing env.staging.json into samconfig.toml [staging.deploy.parameters]"
 	npm run samconfig:sync:staging
 	@echo "==> SAM build (zipping pre-bundled Lambdas)"
@@ -186,7 +164,7 @@ deploy.staging: bundle bundle.s3-event
 # Deploy to the production stack (sale-sync-api). Syncs env.prod.json into
 # samconfig.toml's [prod.deploy.parameters] section first so
 # parameter_overrides can never go stale relative to env.prod.json.
-deploy.prod: bundle bundle.s3-event
+deploy.prod: bundle
 	@echo "==> Syncing env.prod.json into samconfig.toml [prod.deploy.parameters]"
 	npm run samconfig:sync:prod
 	@echo "==> SAM build (zipping pre-bundled Lambdas)"
@@ -207,7 +185,7 @@ check.both:
 # === Cleanup ===
 clean:
 	@echo "==> Cleaning build artifacts"
-	rm -rf .aws-sam auth/bundle organisation/bundle media/bundle media-s3-event/bundle blocks/bundle templates/bundle plan/bundle properties/bundle
+	rm -rf .aws-sam auth/bundle organisation/bundle media/bundle blocks/bundle templates/bundle plan/bundle properties/bundle
 
 # === OpenAPI docs server ===
 docs:
@@ -223,13 +201,11 @@ help:
 	@echo "  make shared.pack   - Build & pack shared module tarballs (and reinstall workspaces)"
 	@echo "  make deps.all      - Reinstall @sale-sync/shared in all services from vendor tarballs"
 	@echo "  make bundle        - Bundle API Lambdas with esbuild (auth, organisation, media, blocks)"
-	@echo "  make bundle.s3-event - Bundle S3 event Lambda (only needed for deploy)"
 	@echo "  make build         - Bundle + SAM build (no rebuild inside SAM)"
 	@echo "  make start         - Run local API after build (staging resources)"
 	@echo "  make start.prod    - Run local API against PRODUCTION resources (use sparingly)"
-	@echo "  make deploy        - Build + bundle S3 event + deploy to AWS (legacy stack: sales-sync-api)"
-	@echo "  make deploy.staging - Build + bundle S3 event + deploy to AWS (staging stack: staging-sale-sync-api)"
-	@echo "  make deploy.prod   - Build + bundle S3 event + deploy to AWS (prod stack: sale-sync-api)"
+	@echo "  make deploy.staging - Build + deploy to AWS (staging stack: staging-sale-sync-api)"
+	@echo "  make deploy.prod   - Build + deploy to AWS (prod stack: sale-sync-api)"
 	@echo "  make check.staging - List staging CloudFormation/DynamoDB/S3/Lambda resources (read-only)"
 	@echo "  make check.prod    - List production CloudFormation/DynamoDB/S3/Lambda resources (read-only)"
 	@echo "  make check.both    - Run check.staging + check.prod"

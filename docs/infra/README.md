@@ -8,8 +8,9 @@
 > [`ss/infra/docs/runbook.md`](../../../infra/docs/runbook.md) for the
 > migration procedure and current source of truth, and
 > [`ss/infra/docs/migration.md`](../../../infra/docs/migration.md) for the
-> "why". `infra/*.yaml` is kept in this repo only as a reference/rollback
-> aid during the transition — don't add new resources to it.
+> "why". The migration is fully verified in both staging and prod, and
+> `infra/` has been deleted from this repo — `ss/infra/template.yaml` is now
+> the only copy of these resource definitions. Don't recreate `infra/` here.
 
 See [`docs/infra/domains.md`](./domains.md) for how this maps to actual
 environments (local/staging/production) and API domains.

@@ -7,8 +7,7 @@ Description: Sale Sync API
 # NOTE: Lambda functions must be in the same template as the API Gateway.
 # SAM requires RestApiId to reference an AWS::Serverless::Api in the same template.
 # Shared infra (S3, DynamoDB) lives in the standalone ss/infra stack instead
-# of a nested stack here — see ss/infra/docs/runbook.md. ./infra/*.yaml is
-# kept only as a reference/rollback aid during the migration.
+# of a nested stack here — see ss/infra/docs/runbook.md.
 # =============================================================================
 
 Parameters:
@@ -65,9 +64,9 @@ Resources:
     # Lambda Functions
     #
     # Shared infra (DynamoDB tables, S3 buckets) used to live here as nested
-    # stacks (AWS::Serverless::Application, ./infra/*.yaml). It's now owned
-    # by the standalone ss/infra stack instead — see
-    # ss/infra/docs/runbook.md — and referenced below via plain Parameters.
+    # stacks (AWS::Serverless::Application). It's now owned by the standalone
+    # ss/infra stack instead — see ss/infra/docs/runbook.md — and referenced
+    # below via plain Parameters.
     # =========================================================================
 
     # -------------------------------------------------------------------------

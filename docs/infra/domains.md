@@ -9,7 +9,12 @@ Three environments, each with its own API domain and resource set:
 | Staging | `staging-api.salesync.biz` | Staging (`ResourcePrefix: staging-`) | `make deploy.staging` → stack `staging-sale-sync-api` |
 | Production | `api.salesync.biz` | Production (`ResourcePrefix: ''`) | `make deploy.prod` → stack `sale-sync-api` |
 
-Note: `make deploy` (no suffix) still exists and targets the **legacy** `sales-sync-api` stack (pre-rebrand, manages its own DynamoDB tables outside CloudFormation — see [`docs/infra/README.md`](./README.md)). It's kept as-is until that stack is manually retired; `make deploy.staging`/`make deploy.prod` are the new CFN-managed stacks described above.
+The **legacy** `sales-sync-api` stack (pre-rebrand, plural naming, managed its
+own DynamoDB tables outside CloudFormation) has been retired — the stack and
+its orphaned `MediaInfraStack`/`ImageInfraStack` resources (a table and 4
+buckets, all `DeletionPolicy: Retain`) were deleted manually. The `make
+deploy` (no-suffix) target that used to deploy it has been removed;
+`make deploy.staging`/`make deploy.prod` are the only deploy targets now.
 
 ## Local: staging by default, production only on demand
 
