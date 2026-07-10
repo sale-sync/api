@@ -40,6 +40,12 @@ This document describes the single-table DynamoDB design for a multi-tenant SaaS
 
 
 
+### Key Design Notes
+
+- **`org_uuid` is resolved from the `Organisation` cookie, not a client-supplied parameter** — `List all users in an organisation` (`GET /organisations/users`, default when no `email`/`userId` query param) and adding team members (`POST /organisations/team`) never take `org_uuid` from the request. `organisation/users/users.controller.ts` and `organisation/team/team.controller.ts` decode it from the `Organisation` cookie JWT (`getOrganisation()` in `@sale-sync/shared`) and return a 404 (`NO_ORGANISATION`) if it's missing or invalid — the same pattern `media.md`'s API and `properties.md`/`template.md` use. `AddTeamMemberSchema` (`packages/src/dtos/organisation.ts`) has no `org_uuid` field as a result. `Lookup organisation by id` (`GET /organisations/by-id`) is unaffected — it looks up an arbitrary org by its own id, not "the currently selected org," so it keeps `id` as an explicit query parameter.
+
+
+
 ### Typescript Type 
 
 ##### BusinessCategory

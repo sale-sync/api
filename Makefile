@@ -1,4 +1,4 @@
-.PHONY: help clean shared.pack bundle bundle.s3-event build start start.prod deploy dev dev.prod deps deps.all deps.auth deps.organisation deps.media deps.blocks deps.template deps.properties docs
+.PHONY: help clean shared.pack bundle bundle.s3-event build start start.prod deploy deploy.staging deploy.prod dev dev.prod deps deps.all deps.auth deps.organisation deps.media deps.blocks deps.templates deps.properties docs check.staging check.prod check.both
 
 # Default target
 .DEFAULT_GOAL := help
@@ -9,7 +9,7 @@ AUTH_VENDOR      := auth/vendor
 ORG_VENDOR       := organisation/vendor
 MEDIA_VENDOR     := media/vendor
 BLOCKS_VENDOR    := blocks/vendor
-TEMPLATE_VENDOR  := template/vendor
+TEMPLATE_VENDOR  := templates/vendor
 PLAN_VENDOR      := plan/vendor
 PROPERTIES_VENDOR := properties/vendor
 
@@ -63,7 +63,7 @@ define REINSTALL_SHARED
 	  echo "   ✓ $(1) done"
 endef
 
-deps.all: deps.auth deps.organisation deps.media deps.blocks deps.template deps.plan deps.properties
+deps.all: deps.auth deps.organisation deps.media deps.blocks deps.templates deps.plan deps.properties
 	@echo "==> Reinstalled @sale-sync/shared in all workspaces"
 
 deps.auth:
@@ -78,8 +78,8 @@ deps.media:
 deps.blocks:
 	$(call REINSTALL_SHARED,blocks)
 
-deps.template:
-	$(call REINSTALL_SHARED,template)
+deps.templates:
+	$(call REINSTALL_SHARED,templates)
 
 deps.plan:
 	$(call REINSTALL_SHARED,plan)
@@ -93,7 +93,7 @@ deps:
 	npm install -w ./organisation --prefer-offline --no-audit --no-fund
 	npm install -w ./media --prefer-offline --no-audit --no-fund
 	npm install -w ./blocks --prefer-offline --no-audit --no-fund
-	npm install -w ./template --prefer-offline --no-audit --no-fund
+	npm install -w ./templates --prefer-offline --no-audit --no-fund
 	npm install -w ./plan --prefer-offline --no-audit --no-fund
 	npm install -w ./properties --prefer-offline --no-audit --no-fund
 
@@ -126,8 +126,8 @@ bundle: shared.pack
 	npm run -w ./media bundle
 	@echo "==> Bundling blocks Lambda"
 	npm run -w ./blocks bundle
-	@echo "==> Bundling template Lambda"
-	npm run -w ./template bundle
+	@echo "==> Bundling templates Lambda"
+	npm run -w ./templates bundle
 	@echo "==> Bundling plan Lambda"
 	npm run -w ./plan bundle
 	@echo "==> Bundling properties Lambda"
@@ -158,6 +158,9 @@ start.prod: build
 # Deploy needs s3-event bundled before SAM build.
 # Syncs env.prod.json into samconfig.toml first so parameter_overrides can
 # never go stale relative to what's actually in env.prod.json.
+# NOTE: this targets the legacy stack "sales-sync-api" (pre-rebrand, manages
+# its own DynamoDB tables outside CFN). Kept as-is until that stack is
+# manually retired — see `make deploy.prod` for the new CFN-managed stack.
 deploy: bundle bundle.s3-event
 	@echo "==> Syncing env.prod.json into samconfig.toml"
 	npm run samconfig:sync
@@ -169,10 +172,42 @@ deploy: bundle bundle.s3-event
 	  --capabilities CAPABILITY_IAM CAPABILITY_AUTO_EXPAND \
 	  --resolve-s3 \
 
+# Deploy to the staging stack (staging-sale-sync-api). Syncs env.staging.json
+# into samconfig.toml's [staging.deploy.parameters] section first so
+# parameter_overrides can never go stale relative to env.staging.json.
+deploy.staging: bundle bundle.s3-event
+	@echo "==> Syncing env.staging.json into samconfig.toml [staging.deploy.parameters]"
+	npm run samconfig:sync:staging
+	@echo "==> SAM build (zipping pre-bundled Lambdas)"
+	sam build
+	@echo "==> Deploying to AWS (staging)"
+	sam deploy --config-env staging
+
+# Deploy to the production stack (sale-sync-api). Syncs env.prod.json into
+# samconfig.toml's [prod.deploy.parameters] section first so
+# parameter_overrides can never go stale relative to env.prod.json.
+deploy.prod: bundle bundle.s3-event
+	@echo "==> Syncing env.prod.json into samconfig.toml [prod.deploy.parameters]"
+	npm run samconfig:sync:prod
+	@echo "==> SAM build (zipping pre-bundled Lambdas)"
+	sam build
+	@echo "==> Deploying to AWS (production)"
+	sam deploy --config-env prod
+
+# === Resource audit (CloudFormation/DynamoDB/S3/Lambda, read-only) ===
+check.staging:
+	@./scripts/check-resources.sh staging
+
+check.prod:
+	@./scripts/check-resources.sh prod
+
+check.both:
+	@./scripts/check-resources.sh both
+
 # === Cleanup ===
 clean:
 	@echo "==> Cleaning build artifacts"
-	rm -rf .aws-sam auth/bundle organisation/bundle media/bundle media-s3-event/bundle blocks/bundle template/bundle plan/bundle properties/bundle
+	rm -rf .aws-sam auth/bundle organisation/bundle media/bundle media-s3-event/bundle blocks/bundle templates/bundle plan/bundle properties/bundle
 
 # === OpenAPI docs server ===
 docs:
@@ -192,7 +227,12 @@ help:
 	@echo "  make build         - Bundle + SAM build (no rebuild inside SAM)"
 	@echo "  make start         - Run local API after build (staging resources)"
 	@echo "  make start.prod    - Run local API against PRODUCTION resources (use sparingly)"
-	@echo "  make deploy        - Build + bundle S3 event + deploy to AWS"
+	@echo "  make deploy        - Build + bundle S3 event + deploy to AWS (legacy stack: sales-sync-api)"
+	@echo "  make deploy.staging - Build + bundle S3 event + deploy to AWS (staging stack: staging-sale-sync-api)"
+	@echo "  make deploy.prod   - Build + bundle S3 event + deploy to AWS (prod stack: sale-sync-api)"
+	@echo "  make check.staging - List staging CloudFormation/DynamoDB/S3/Lambda resources (read-only)"
+	@echo "  make check.prod    - List production CloudFormation/DynamoDB/S3/Lambda resources (read-only)"
+	@echo "  make check.both    - Run check.staging + check.prod"
 	@echo "  make clean         - Remove .aws-sam and bundle folders"
 	@echo "  make docs          - Start OpenAPI documentation server on :1778"
 	@echo ""

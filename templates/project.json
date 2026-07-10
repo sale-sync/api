@@ -1,35 +1,35 @@
 {
-  "name": "template",
-  "root": "template",
-  "sourceRoot": "template",
+  "name": "templates",
+  "root": "templates",
+  "sourceRoot": "templates",
   "projectType": "application",
   "targets": {
     "compile": {
       "executor": "nx:run-commands",
       "options": {
         "command": "npm run compile",
-        "cwd": "template"
+        "cwd": "templates"
       }
     },
     "bundle": {
       "executor": "nx:run-commands",
       "options": {
         "command": "npm run bundle",
-        "cwd": "template"
+        "cwd": "templates"
       }
     },
     "test": {
       "executor": "nx:run-commands",
       "options": {
         "command": "npm test",
-        "cwd": "template"
+        "cwd": "templates"
       }
     },
     "lint": {
       "executor": "nx:run-commands",
       "options": {
         "command": "npm run lint",
-        "cwd": "template"
+        "cwd": "templates"
       }
     }
   }

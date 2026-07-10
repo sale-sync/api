@@ -1,5 +1,6 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { Controller, IControllerMethods, isAuthorize, UNAUTHORIZE_ERROR } from '@devyethiha/samjs';
+import { getOrganisation, NO_ORGANISATION } from '@sale-sync/shared';
 import { OrganisationService } from '../services/organisation.service';
 
 class UsersController extends Controller implements IControllerMethods {
@@ -10,7 +11,7 @@ class UsersController extends Controller implements IControllerMethods {
         this.organisationService = organisationService;
     }
 
-    // GET /organisations/users?orgUuid={uuid}   → list all users in an organisation
+    // GET /organisations/users                  → list all users in the organisation (from the Organisation cookie)
     // GET /organisations/users?email={email}    → lookup user by email
     // GET /organisations/users?userId={userId}  → lookup user by user_id
     async get(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
@@ -18,15 +19,7 @@ class UsersController extends Controller implements IControllerMethods {
             return UNAUTHORIZE_ERROR;
         }
 
-        const { orgUuid, email, userId } = event.queryStringParameters ?? {};
-
-        if (orgUuid) {
-            const users = await this.organisationService.getUsersByOrganisationUuid(orgUuid);
-            return {
-                statusCode: 200,
-                body: JSON.stringify(users),
-            };
-        }
+        const { email, userId } = event.queryStringParameters ?? {};
 
         if (email) {
             const user = await this.organisationService.getUserByEmail(email);
@@ -56,9 +49,15 @@ class UsersController extends Controller implements IControllerMethods {
             };
         }
 
+        const organisation = getOrganisation(event);
+        if (!organisation) {
+            return NO_ORGANISATION;
+        }
+
+        const users = await this.organisationService.getUsersByOrganisationUuid(organisation.uuid);
         return {
-            statusCode: 400,
-            body: JSON.stringify({ message: 'Provide one of: orgUuid, email, userId' }),
+            statusCode: 200,
+            body: JSON.stringify(users),
         };
     }
 }

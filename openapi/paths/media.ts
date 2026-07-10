@@ -7,6 +7,8 @@ import {
     MoveItemSchema,
     RenameItemSchema,
     DeleteItemSchema,
+    UploadPropertyImageSchema,
+    DeletePropertyImageSchema,
 } from '@sale-sync/shared';
 
 const security: Array<Record<string, string[]>> = [{ bearerAuth: [] }, { organisationAuth: [] }];
@@ -184,6 +186,65 @@ export const mediaPaths = {
                 '401': { description: 'Unauthorized' },
                 '403': { description: 'No organisation context' },
                 '404': { description: 'Item not found' },
+            },
+        },
+    },
+    '/media/properties': {
+        post: {
+            tags: ['Media'],
+            summary: 'Get a presigned upload URL for a property image',
+            description:
+                'Stores property images separately from the Folder/Media library: no DynamoDB record is created. Returns a presigned S3 PUT URL for direct upload and a durable CDN URL to store on the Property record.',
+            security,
+            requestBody: {
+                content: {
+                    'application/json': { schema: UploadPropertyImageSchema },
+                },
+            },
+            responses: {
+                '201': {
+                    description: 'Presigned upload URL and durable image URL',
+                    content: {
+                        'application/json': {
+                            schema: z.object({
+                                image_url: z.string(),
+                                upload_url: z.string(),
+                                s3_key: z.string(),
+                                expires_at: z.string(),
+                            }),
+                        },
+                    },
+                },
+                '400': { description: 'Validation error' },
+                '401': { description: 'Unauthorized' },
+                '403': { description: 'No organisation context' },
+            },
+        },
+        delete: {
+            tags: ['Media'],
+            summary: 'Delete a property image',
+            description: 'Deletes the S3 object for a property image. No DynamoDB record exists for it.',
+            security,
+            requestBody: {
+                content: {
+                    'application/json': { schema: DeletePropertyImageSchema },
+                },
+            },
+            responses: {
+                '200': {
+                    description: 'Property image deleted',
+                    content: {
+                        'application/json': {
+                            schema: z.object({
+                                message: z.string(),
+                                s3_key: z.string(),
+                            }),
+                        },
+                    },
+                },
+                '400': { description: 'Validation error' },
+                '401': { description: 'Unauthorized' },
+                '403': { description: 'No organisation context, or s3_key outside caller\'s org/properties scope' },
             },
         },
     },

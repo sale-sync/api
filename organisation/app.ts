@@ -4,6 +4,7 @@ import DefaultController from './default/default.controller';
 import ByIdController from './by-id/by-id.controller';
 import UsersController from './users/users.controller';
 import TeamController from './team/team.controller';
+import TeamMemberController from './team-member/team-member.controller';
 import TemplatesController from './templates/templates.controller';
 import ThemeController from './templates/theme/theme.controller';
 import { OrganisationService } from './services/organisation.service';
@@ -20,6 +21,7 @@ async function main(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult>
                 { controller: ByIdController, services: [OrganisationService] },
                 { controller: UsersController, services: [OrganisationService] },
                 { controller: TeamController, services: [OrganisationService] },
+                { controller: TeamMemberController, services: [OrganisationService] },
                 { controller: TemplatesController, services: [TemplateService] },
                 { controller: ThemeController, services: [TemplateService] },
             ],

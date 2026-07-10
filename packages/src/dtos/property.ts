@@ -23,7 +23,6 @@ const UnitInputSchema = z.object({
 });
 
 export const CreatePropertySchema = z.object({
-    org_uuid: z.string().uuid(),
     title: z.string(),
     typeLabel: z.string(),
     postedLabel: z.string(),
@@ -50,7 +49,6 @@ export const CreatePropertySchema = z.object({
 export type CreatePropertyInput = z.infer<typeof CreatePropertySchema>;
 
 export const UpdatePropertySchema = z.object({
-    org_uuid: z.string().uuid(),
     property_uuid: z.string().uuid(),
     title: z.string().optional(),
     typeLabel: z.string().optional(),
@@ -78,7 +76,6 @@ export const UpdatePropertySchema = z.object({
 export type UpdatePropertyInput = z.infer<typeof UpdatePropertySchema>;
 
 export const DeletePropertySchema = z.object({
-    org_uuid: z.string().uuid(),
     property_uuid: z.string().uuid(),
 });
 

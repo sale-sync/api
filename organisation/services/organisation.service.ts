@@ -279,4 +279,47 @@ export class OrganisationService extends Service {
             pending: emails.filter((e) => !registeredMap.has(e)),
         };
     }
+
+    // Add team members by user_id — for users who already have a Cognito account (resolved via a
+    // prior GET /organisations/users?email= lookup, for example) but aren't yet a member of this org.
+    // Existence is checked via the inverted-index (SK=USER#{userId}), same as getUserById.
+    // PK=ORG#{orgUuid}, SK=USER#{userId}, data=OrganisationUser
+    public async addTeamMembersByUserId(
+        orgUuid: string,
+        userIds: string[],
+    ): Promise<{ added: string[]; not_found: string[] }> {
+        const lookups = await Promise.all(
+            userIds.map((userId) =>
+                this.DB_Client.send(
+                    new QueryCommand({
+                        TableName: TABLE,
+                        IndexName: 'inverted-index',
+                        KeyConditionExpression: 'SK = :sk AND begins_with(PK, :prefix)',
+                        ExpressionAttributeValues: { ':sk': `USER#${userId}`, ':prefix': 'USER#' },
+                        Limit: 1,
+                    }),
+                ),
+            ),
+        );
+
+        const found = new Set(userIds.filter((_, i) => (lookups[i].Items?.length ?? 0) > 0));
+        const added = userIds.filter((id) => found.has(id));
+        const notFound = userIds.filter((id) => !found.has(id));
+
+        if (added.length > 0) {
+            const now = new Date().toISOString();
+            const writeRequests = added.map((userId) => {
+                const membership: OrganisationUser = { role: 'staff', joined_date: now };
+                return {
+                    PutRequest: {
+                        Item: { PK: `ORG#${orgUuid}`, SK: `USER#${userId}`, data: JSON.stringify(membership) },
+                    },
+                };
+            });
+
+            await this.DB_Client.send(new BatchWriteCommand({ RequestItems: { [TABLE]: writeRequests } }));
+        }
+
+        return { added, not_found: notFound };
+    }
 }

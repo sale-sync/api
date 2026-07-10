@@ -154,12 +154,12 @@ Resources:
             NotificationConfiguration:
                 LambdaConfigurations:
                     - Event: s3:ObjectCreated:*
-                      Function: !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:sales-sync-media-s3-event
+                      Function: !Sub 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${ResourcePrefix}sale-sync-media-s3-event'
                       Filter:
                           S3Key:
                               Rules:
                                   - Name: prefix
-                                    Value: workspaces/
+                                    Value: cdn/
 
     # -------------------------------------------------------------------------
     # Bucket Policy for MediaBucket
@@ -197,9 +197,9 @@ Resources:
             SSESpecification:
                 SSEEnabled: true
             AttributeDefinitions:
-                - AttributeName: pk
+                - AttributeName: PK
                   AttributeType: S
-                - AttributeName: sk
+                - AttributeName: SK
                   AttributeType: S
                 - AttributeName: GSI1PK
                   AttributeType: S
@@ -210,9 +210,9 @@ Resources:
                 - AttributeName: GSI2SK
                   AttributeType: S
             KeySchema:
-                - AttributeName: pk
+                - AttributeName: PK
                   KeyType: HASH
-                - AttributeName: sk
+                - AttributeName: SK
                   KeyType: RANGE
             GlobalSecondaryIndexes:
                 - IndexName: folder-contents-index
@@ -235,7 +235,7 @@ Resources:
     # -------------------------------------------------------------------------
     # S3 Event Lambda - Updates media status after upload
     #
-    # Triggered when files are uploaded to workspaces/ prefix.
+    # Triggered when files are uploaded to cdn/ prefix.
     # Updates the corresponding media record status from 'pending' to 'ready'.
     #
     # NOTE: We use manual NotificationConfiguration + Permission instead of
@@ -243,8 +243,16 @@ Resources:
     # -------------------------------------------------------------------------
     MediaS3EventFunction:
         Type: AWS::Serverless::Function
+        # NOTE: Retain (unlike other resources in this file, this was
+        # previously missing) so this Lambda survives if MediaInfraStack is
+        # ever detached/torn down as part of the ss/infra migration — see
+        # ss/infra/docs/runbook.md Step 0. Without this, tearing down the
+        # nested stack would delete the live function outright instead of
+        # orphaning it, breaking the S3-triggered media-ready promotion flow.
+        DeletionPolicy: Retain
+        UpdateReplacePolicy: Retain
         Properties:
-            FunctionName: sales-sync-media-s3-event
+            FunctionName: !Sub '${ResourcePrefix}sale-sync-media-s3-event'
             CodeUri: ../media-s3-event/bundle
             Handler: s3-event.lambdaHandler
             Runtime: nodejs22.x
@@ -260,22 +268,34 @@ Resources:
                       TableName: !Ref MediaTable
                 - Statement:
                       - Effect: Allow
+                        Action: dynamodb:TransactWriteItems
+                        Resource: !GetAtt MediaTable.Arn
+                - Statement:
+                      - Effect: Allow
                         Action:
                             - s3:GetObject
                             - s3:HeadObject
-                        Resource: !Sub '${MediaBucket.Arn}/*'
+                        # Predictable ARN string (not !GetAtt MediaBucket.Arn) to avoid a
+                        # circular dependency: MediaBucket -> MediaS3EventPermission ->
+                        # MediaS3EventFunction -> MediaBucket.
+                        Resource: !Sub 'arn:aws:s3:::${ResourcePrefix}sale-sync-media/*'
 
     # -------------------------------------------------------------------------
     # Lambda Permission - Allow S3 to invoke the function
     # -------------------------------------------------------------------------
     MediaS3EventPermission:
         Type: AWS::Lambda::Permission
+        # NOTE: Retain for the same reason as MediaS3EventFunction above.
+        DeletionPolicy: Retain
+        UpdateReplacePolicy: Retain
         Properties:
             FunctionName: !GetAtt MediaS3EventFunction.Arn
             Action: lambda:InvokeFunction
             Principal: s3.amazonaws.com
             SourceAccount: !Ref AWS::AccountId
-            SourceArn: !GetAtt MediaBucket.Arn
+            # Predictable ARN string (not !GetAtt MediaBucket.Arn) to avoid a
+            # circular dependency: MediaBucket -> MediaS3EventPermission -> MediaBucket.
+            SourceArn: !Sub 'arn:aws:s3:::${ResourcePrefix}sale-sync-media'
 
 Outputs:
     MediaBucketName:

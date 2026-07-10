@@ -1,5 +1,6 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { Controller, IControllerMethods, isAuthorize, UNAUTHORIZE_ERROR, ValidationError } from '@devyethiha/samjs';
+import { getOrganisation, NO_ORGANISATION } from '@sale-sync/shared';
 import { OrganisationNotFoundError, PropertyCategoryNotAllowedError, PropertyNotFoundError, PropertyService } from '../services/property.service';
 import { CreatePropertyDTO } from '../dtos/create-property.dto';
 import { UpdatePropertyDTO } from '../dtos/update-property.dto';
@@ -14,20 +15,22 @@ class DefaultController extends Controller implements IControllerMethods {
         this.propertyService = propertyService;
     }
 
-    // GET /properties?orgUuid={uuid}&propertyUuid={uuid}   → get one
-    // GET /properties?orgUuid={uuid}&country={c}&areaKey={a} → list by area within a country
-    // GET /properties?orgUuid={uuid}&country={c}&region={r} → list by region within a country
-    // GET /properties?orgUuid={uuid}&country={c}           → list by country
-    // GET /properties?orgUuid={uuid}&type={t}              → list by type
-    // GET /properties?orgUuid={uuid}                       → list all (build-time export)
+    // GET /properties?propertyUuid={uuid}   → get one
+    // GET /properties?country={c}&areaKey={a} → list by area within a country
+    // GET /properties?country={c}&region={r} → list by region within a country
+    // GET /properties?country={c}           → list by country
+    // GET /properties?type={t}              → list by type
+    // GET /properties                       → list all (build-time export)
+    //
+    // Organisation context comes from the Organisation cookie JWT.
     async get(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
         if (!isAuthorize(event)) return UNAUTHORIZE_ERROR;
 
-        const { orgUuid, propertyUuid, country, region, areaKey, type } = event.queryStringParameters ?? {};
+        const organisation = getOrganisation(event);
+        if (!organisation) return NO_ORGANISATION;
+        const orgUuid = organisation.uuid;
 
-        if (!orgUuid) {
-            return { statusCode: 400, body: JSON.stringify({ message: 'Missing required query parameter: orgUuid' }) };
-        }
+        const { propertyUuid, country, region, areaKey, type } = event.queryStringParameters ?? {};
 
         if (propertyUuid) {
             const property = await this.propertyService.getPropertyById(orgUuid, propertyUuid);
@@ -60,12 +63,16 @@ class DefaultController extends Controller implements IControllerMethods {
     }
 
     // POST /properties → create a property listing
+    // Organisation context comes from the Organisation cookie JWT.
     async post(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
         if (!isAuthorize(event)) return UNAUTHORIZE_ERROR;
 
+        const organisation = getOrganisation(event);
+        if (!organisation) return NO_ORGANISATION;
+
         try {
-            const { org_uuid, ...input } = new CreatePropertyDTO().validate(JSON.parse(event.body || '{}'));
-            const property = await this.propertyService.createProperty(org_uuid, input);
+            const input = new CreatePropertyDTO().validate(JSON.parse(event.body || '{}'));
+            const property = await this.propertyService.createProperty(organisation.uuid, input);
             return { statusCode: 201, body: JSON.stringify(property) };
         } catch (error) {
             if (error instanceof ValidationError) {
@@ -82,12 +89,16 @@ class DefaultController extends Controller implements IControllerMethods {
     }
 
     // PATCH /properties → update a property listing
+    // Organisation context comes from the Organisation cookie JWT.
     async patch(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
         if (!isAuthorize(event)) return UNAUTHORIZE_ERROR;
 
+        const organisation = getOrganisation(event);
+        if (!organisation) return NO_ORGANISATION;
+
         try {
-            const { org_uuid, property_uuid, ...updates } = new UpdatePropertyDTO().validate(JSON.parse(event.body || '{}'));
-            const property = await this.propertyService.updateProperty(org_uuid, property_uuid, updates);
+            const { property_uuid, ...updates } = new UpdatePropertyDTO().validate(JSON.parse(event.body || '{}'));
+            const property = await this.propertyService.updateProperty(organisation.uuid, property_uuid, updates);
             return { statusCode: 200, body: JSON.stringify(property) };
         } catch (error) {
             if (error instanceof ValidationError) {
@@ -101,12 +112,16 @@ class DefaultController extends Controller implements IControllerMethods {
     }
 
     // DELETE /properties → delete a property listing
+    // Organisation context comes from the Organisation cookie JWT.
     async delete(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
         if (!isAuthorize(event)) return UNAUTHORIZE_ERROR;
 
+        const organisation = getOrganisation(event);
+        if (!organisation) return NO_ORGANISATION;
+
         try {
             const body = new DeletePropertyDTO().validate(JSON.parse(event.body || '{}'));
-            await this.propertyService.deleteProperty(body.org_uuid, body.property_uuid);
+            await this.propertyService.deleteProperty(organisation.uuid, body.property_uuid);
             return { statusCode: 200, body: JSON.stringify({ message: 'Property deleted' }) };
         } catch (error) {
             if (error instanceof ValidationError) {

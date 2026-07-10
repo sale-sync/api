@@ -6,8 +6,10 @@ Three environments, each with its own API domain and resource set:
 |---|---|---|---|
 | Local | `api.salesync.local` (conceptual — actually `http://localhost:8080`) | Staging by default | `make start` / `make dev` |
 | Local (prod override) | same as above | **Production** | `make start.prod` / `make dev.prod` |
-| Staging | `staging-api.salesync.biz` | Staging (`ResourcePrefix: staging-`) | deployed via a separate `staging` stack (not yet stood up — see [`docs/infra/README.md`](./README.md)) |
-| Production | `api.salesync.biz` | Production (`ResourcePrefix: ''`) | deployed via `make deploy` |
+| Staging | `staging-api.salesync.biz` | Staging (`ResourcePrefix: staging-`) | `make deploy.staging` → stack `staging-sale-sync-api` |
+| Production | `api.salesync.biz` | Production (`ResourcePrefix: ''`) | `make deploy.prod` → stack `sale-sync-api` |
+
+Note: `make deploy` (no suffix) still exists and targets the **legacy** `sales-sync-api` stack (pre-rebrand, manages its own DynamoDB tables outside CloudFormation — see [`docs/infra/README.md`](./README.md)). It's kept as-is until that stack is manually retired; `make deploy.staging`/`make deploy.prod` are the new CFN-managed stacks described above.
 
 ## Local: staging by default, production only on demand
 

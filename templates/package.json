@@ -1,5 +1,5 @@
 {
-    "name": "@sale-sync-api/template",
+    "name": "@sale-sync-api/templates",
     "version": "1.0.0",
     "description": "Sale Sync api for template catalogue",
     "main": "app.js",

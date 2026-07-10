@@ -19,15 +19,15 @@ export const document = createDocument({
     },
     servers: [
         {
-            url: 'http://localhost:8080/Prod',
-            description: 'Local SAM (sam local start-api) — staging resources by default, make start.prod for production',
+            url: 'http://localhost:8080',
+            description: 'Local SAM (sam local start-api) — staging resources by default, make start.prod for production. Note: sam local start-api ignores the StageName (Prod) and serves routes at the root, unlike the deployed API.',
         },
         {
-            url: 'https://staging-api.salesync.biz/Prod',
+            url: 'https://staging-api.salesync.biz',
             description: 'Staging',
         },
         {
-            url: 'https://api.salesync.biz/Prod',
+            url: 'https://api.salesync.biz',
             description: 'Production',
         },
     ],

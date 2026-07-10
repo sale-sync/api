@@ -53,7 +53,7 @@ export class TemplateService extends Service {
                 KeyConditionExpression: 'PK = :pk AND begins_with(SK, :prefix)',
                 ExpressionAttributeValues: {
                     ':pk': 'TEMPLATE',
-                    ':prefix': `CAT#${category}#TEMPLATE#`,
+                    ':prefix': `CATEGORY#${category}#TEMPLATE#`,
                 },
             }),
         );
@@ -68,7 +68,7 @@ export class TemplateService extends Service {
                 TableName: TABLE,
                 Key: {
                     PK: 'TEMPLATE',
-                    SK: `CAT#${category}#TEMPLATE#${uuid}`,
+                    SK: `CATEGORY#${category}#TEMPLATE#${uuid}`,
                 },
             }),
         );

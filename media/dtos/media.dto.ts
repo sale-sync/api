@@ -14,6 +14,10 @@ import {
     DeleteItemInput,
     GetItemSchema,
     GetItemParam,
+    UploadPropertyImageSchema,
+    UploadPropertyImageInput,
+    DeletePropertyImageSchema,
+    DeletePropertyImageInput,
 } from '@sale-sync/shared';
 
 export type {
@@ -24,6 +28,8 @@ export type {
     RenameItemInput,
     DeleteItemInput,
     GetItemParam,
+    UploadPropertyImageInput,
+    DeletePropertyImageInput,
 };
 
 export class ListContentsDTO extends DTO<typeof ListContentsSchema> {
@@ -65,5 +71,17 @@ export class DeleteItemDTO extends DTO<typeof DeleteItemSchema> {
 export class GetItemDTO extends DTO<typeof GetItemSchema> {
     constructor() {
         super(GetItemSchema);
+    }
+}
+
+export class UploadPropertyImageDTO extends DTO<typeof UploadPropertyImageSchema> {
+    constructor() {
+        super(UploadPropertyImageSchema);
+    }
+}
+
+export class DeletePropertyImageDTO extends DTO<typeof DeletePropertyImageSchema> {
+    constructor() {
+        super(DeletePropertyImageSchema);
     }
 }

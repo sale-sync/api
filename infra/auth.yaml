@@ -22,14 +22,14 @@ Resources:
             SSESpecification:
                 SSEEnabled: true
             AttributeDefinitions:
-                - AttributeName: pk
+                - AttributeName: PK
                   AttributeType: S
-                - AttributeName: sk
+                - AttributeName: SK
                   AttributeType: S
             KeySchema:
-                - AttributeName: pk
+                - AttributeName: PK
                   KeyType: HASH
-                - AttributeName: sk
+                - AttributeName: SK
                   KeyType: RANGE
 
 Outputs:

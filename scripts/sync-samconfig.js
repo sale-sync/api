@@ -18,12 +18,14 @@ const envPath = path.join(ROOT, `env.${envName}.json`);
 const tomlPath = path.join(ROOT, "samconfig.toml");
 
 // Keep in sync with the `Parameters:` block in template.yaml
-// NOTE: ORGANISATION_TABLE_NAME (org table), AUTH_TABLE_NAME (auth table),
-// MEDIA_TABLE_NAME (media table), and S3_BUCKET_NAME (media bucket) are all
-// intentionally absent here — they're CloudFormation-managed resources
-// (OrganisationInfraStack / AuthInfraStack / MediaInfraStack), not
-// parameters. They're still read from env.*.json directly for local
-// `sam local` runs.
+// ORGANISATION_TABLE_NAME/AUTH_TABLE_NAME/MEDIA_TABLE_NAME/MEDIA_BUCKET_NAME/
+// PROPERTY_TABLE_NAME used to be intentionally excluded here because they
+// were CloudFormation-managed via nested stacks (OrganisationInfraStack /
+// AuthInfraStack / MediaInfraStack / PropertiesInfraStack), not plain
+// parameters. Those nested stacks are gone — infra now lives in the
+// standalone ss/infra stack (see ss/infra/docs/runbook.md) — and
+// template.yaml takes these as plain Parameters, so they're included below
+// like everything else.
 const PARAM_KEY_MAP = {
   RESOURCE_PREFIX: "ResourcePrefix",
   BLOCK_TABLE_NAME: "BlockTableName",
@@ -31,6 +33,11 @@ const PARAM_KEY_MAP = {
   CLIENT_ID: "ClientId",
   CLIENT_SECRET: "ClientSecret",
   COGNITO_CALLBACK_URL: "CognitoCallbackUrl",
+  AUTH_TABLE_NAME: "AuthTableName",
+  ORGANISATION_TABLE_NAME: "OrganisationTableName",
+  MEDIA_TABLE_NAME: "MediaTableName",
+  MEDIA_BUCKET_NAME: "MediaBucketName",
+  PROPERTY_TABLE_NAME: "PropertyTableName",
 };
 
 function main() {

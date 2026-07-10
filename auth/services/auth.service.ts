@@ -40,8 +40,8 @@ export class AuthService extends Service implements IAuthService {
             state,
         };
         const Item = {
-            pk: 'NONCE-STATE#' + param.state,
-            sk: param.state,
+            PK: 'NONCE-STATE#' + param.state,
+            SK: param.state,
             data: JSON.stringify(param),
         };
         const command = new PutCommand({
@@ -81,8 +81,8 @@ export class AuthService extends Service implements IAuthService {
             const command = new GetCommand({
                 TableName: process.env.AUTH_TABLE_NAME || 'sale-sync-auth',
                 Key: {
-                    pk: 'NONCE-STATE#' + state,
-                    sk: state,
+                    PK: 'NONCE-STATE#' + state,
+                    SK: state,
                 },
             });
 

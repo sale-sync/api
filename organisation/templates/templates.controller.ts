@@ -1,5 +1,6 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { Controller, IControllerMethods, isAuthorize, UNAUTHORIZE_ERROR, ValidationError } from '@devyethiha/samjs';
+import { getOrganisation, NO_ORGANISATION } from '@sale-sync/shared';
 import { ActiveTemplateRemovalError, OrganisationNotFoundError, TemplateNotFoundError, TemplateMembershipNotFoundError, TemplateService } from '../services/template.service';
 import { AddTemplateDTO } from './dtos/add-template.dto';
 import { RemoveTemplateDTO } from './dtos/remove-template.dto';
@@ -15,35 +16,34 @@ class TemplatesController extends Controller implements IControllerMethods {
     }
 
     // GET /organisations/templates?category={category}  → list catalogue by business category
-    // GET /organisations/templates?orgUuid={uuid}       → list org's added templates
+    // GET /organisations/templates                      → list the organisation's added templates (from the Organisation cookie)
     async get(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
         if (!isAuthorize(event)) return UNAUTHORIZE_ERROR;
 
-        const { category, orgUuid } = event.queryStringParameters ?? {};
+        const { category } = event.queryStringParameters ?? {};
 
         if (category) {
             const templates = await this.templateService.listByCategory(category as BusinessCategory);
             return { statusCode: 200, body: JSON.stringify(templates) };
         }
 
-        if (orgUuid) {
-            const templates = await this.templateService.listOrganisationTemplates(orgUuid);
-            return { statusCode: 200, body: JSON.stringify(templates) };
-        }
+        const organisation = getOrganisation(event);
+        if (!organisation) return NO_ORGANISATION;
 
-        return {
-            statusCode: 400,
-            body: JSON.stringify({ message: 'Provide one of: category, orgUuid' }),
-        };
+        const templates = await this.templateService.listOrganisationTemplates(organisation.uuid);
+        return { statusCode: 200, body: JSON.stringify(templates) };
     }
 
     // POST /organisations/templates → add template to org (optionally set as active)
     async post(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
         if (!isAuthorize(event)) return UNAUTHORIZE_ERROR;
 
+        const organisation = getOrganisation(event);
+        if (!organisation) return NO_ORGANISATION;
+
         try {
             const body = new AddTemplateDTO().validate(JSON.parse(event.body || '{}'));
-            await this.templateService.addToOrganisation(body.org_uuid, body.template_uuid, body.set_active);
+            await this.templateService.addToOrganisation(organisation.uuid, body.template_uuid, body.set_active);
             return { statusCode: 201, body: JSON.stringify({ message: 'Template added to organisation' }) };
         } catch (error) {
             if (error instanceof ValidationError) {
@@ -60,9 +60,12 @@ class TemplatesController extends Controller implements IControllerMethods {
     async patch(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
         if (!isAuthorize(event)) return UNAUTHORIZE_ERROR;
 
+        const organisation = getOrganisation(event);
+        if (!organisation) return NO_ORGANISATION;
+
         try {
             const body = new SetActiveTemplateDTO().validate(JSON.parse(event.body || '{}'));
-            await this.templateService.setActive(body.org_uuid, body.template_uuid);
+            await this.templateService.setActive(organisation.uuid, body.template_uuid);
             return { statusCode: 200, body: JSON.stringify({ message: 'Active template updated' }) };
         } catch (error) {
             if (error instanceof ValidationError) {
@@ -79,9 +82,12 @@ class TemplatesController extends Controller implements IControllerMethods {
     async delete(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
         if (!isAuthorize(event)) return UNAUTHORIZE_ERROR;
 
+        const organisation = getOrganisation(event);
+        if (!organisation) return NO_ORGANISATION;
+
         try {
             const body = new RemoveTemplateDTO().validate(JSON.parse(event.body || '{}'));
-            await this.templateService.removeFromOrganisation(body.org_uuid, body.template_uuid);
+            await this.templateService.removeFromOrganisation(organisation.uuid, body.template_uuid);
             return { statusCode: 200, body: JSON.stringify({ message: 'Template removed from organisation' }) };
         } catch (error) {
             if (error instanceof ValidationError) {

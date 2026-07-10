@@ -14,7 +14,6 @@ export const CreateOrganisationSchema = z.object({
 export type CreateOrganisationInput = z.infer<typeof CreateOrganisationSchema>;
 
 export const AddTeamMemberSchema = z.object({
-    org_uuid: z.string().uuid('org_uuid must be a valid UUID'),
     email: z.union([
         z.string().email('email must be a valid email address'),
         z.array(z.string().email('each email must be a valid email address')).min(1, 'email array must not be empty'),
@@ -22,3 +21,12 @@ export const AddTeamMemberSchema = z.object({
 });
 
 export type AddTeamMemberInput = z.infer<typeof AddTeamMemberSchema>;
+
+export const AddTeamMemberByUserIdSchema = z.object({
+    user_id: z.union([
+        z.string().min(1, 'user_id is required'),
+        z.array(z.string().min(1, 'each user_id is required')).min(1, 'user_id array must not be empty'),
+    ]),
+});
+
+export type AddTeamMemberByUserIdInput = z.infer<typeof AddTeamMemberByUserIdSchema>;

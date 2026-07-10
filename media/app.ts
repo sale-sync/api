@@ -4,6 +4,7 @@ import DefaultController from './default/default.controller';
 import UploadController from './upload/upload.controller';
 import FoldersController from './folders/folders.controller';
 import ItemController from './item/item.controller';
+import PropertiesController from './properties/properties.controller';
 import { MediaService } from './services/media.service';
 import { FolderService } from './services/folder.service';
 import { S3Service } from './services/s3.service';
@@ -31,6 +32,10 @@ async function main(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult>
                 {
                     controller: ItemController,
                     services: [MediaService, FolderService, S3Service],
+                },
+                {
+                    controller: PropertiesController,
+                    services: [S3Service],
                 },
             ],
             '/media',

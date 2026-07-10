@@ -106,3 +106,21 @@ export const GetItemSchema = z.object({
 });
 
 export type GetItemParam = z.infer<typeof GetItemSchema>;
+
+export const ALLOWED_PROPERTY_IMAGE_MIME_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+
+export const UploadPropertyImageSchema = z.object({
+    file_name: z.string().min(1, 'file_name is required').max(255, 'file_name must be 255 characters or less'),
+    mime_type: z
+        .string()
+        .min(1, 'mime_type is required')
+        .refine((type) => ALLOWED_PROPERTY_IMAGE_MIME_TYPES.includes(type), 'Unsupported image type'),
+});
+
+export type UploadPropertyImageInput = z.infer<typeof UploadPropertyImageSchema>;
+
+export const DeletePropertyImageSchema = z.object({
+    s3_key: z.string().min(1, 'Missing s3_key param'),
+});
+
+export type DeletePropertyImageInput = z.infer<typeof DeletePropertyImageSchema>;

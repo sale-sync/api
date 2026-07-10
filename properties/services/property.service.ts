@@ -46,7 +46,7 @@ export class PropertyService extends Service {
     }
 
     // Create a property listing. Only orgs with business_category = "real-estate" may do this.
-    public async createProperty(orgUuid: string, input: Omit<CreatePropertyInput, 'org_uuid'>): Promise<Property> {
+    public async createProperty(orgUuid: string, input: CreatePropertyInput): Promise<Property> {
         await this.assertRealEstateOrg(orgUuid);
 
         const now = new Date().toISOString();
@@ -181,7 +181,7 @@ export class PropertyService extends Service {
     }
 
     // Update a property. Rewrites GSI1/GSI2/GSI3 attributes in place if their source fields change.
-    public async updateProperty(orgUuid: string, propertyUuid: string, updates: Omit<UpdatePropertyInput, 'org_uuid' | 'property_uuid'>): Promise<Property> {
+    public async updateProperty(orgUuid: string, propertyUuid: string, updates: Omit<UpdatePropertyInput, 'property_uuid'>): Promise<Property> {
         const existing = await this.getPropertyById(orgUuid, propertyUuid);
         if (!existing) throw new PropertyNotFoundError(propertyUuid);
 

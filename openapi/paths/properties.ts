@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { CreatePropertySchema, UpdatePropertySchema, DeletePropertySchema } from '@sale-sync/shared';
 
-const security: Array<Record<string, string[]>> = [{ authenticationCookie: [], identifierCookie: [] }];
+const security: Array<Record<string, string[]>> = [{ authenticationCookie: [], identifierCookie: [], organisationAuth: [] }];
 
 const PropertyTypeSchema = z.enum(['house', 'condo', 'commercial', 'land']);
 
@@ -61,7 +61,7 @@ export const propertiesPaths = {
             tags: ['Property'],
             summary: 'Get, or list, property listings',
             description: [
-                'Always scoped to one organisation via `orgUuid`. The remaining query parameters are mutually exclusive and select the access pattern:',
+                'Always scoped to one organisation, resolved from the `Organisation` cookie JWT. The remaining query parameters are mutually exclusive and select the access pattern:',
                 '',
                 '- `propertyUuid` — get a single property by ID',
                 '- `country` + `areaKey` — list properties in one area within a country (location dropdown filter)',
@@ -73,7 +73,6 @@ export const propertiesPaths = {
             security,
             requestParams: {
                 query: z.object({
-                    orgUuid: z.string().uuid().meta({ description: 'Organisation UUID (required)' }),
                     propertyUuid: z.string().uuid().optional().meta({ description: 'Property UUID — returns a single property' }),
                     country: z.string().optional().meta({ description: 'ISO 3166-1 alpha-2 country code, e.g. "TH", "AU"' }),
                     region: z.string().optional().meta({ description: 'State/province, e.g. "NSW" — combine with country' }),
@@ -88,11 +87,8 @@ export const propertiesPaths = {
                         'application/json': { schema: z.union([PropertySchema, z.array(PropertySchema)]) },
                     },
                 },
-                '400': {
-                    description: 'Missing required orgUuid query parameter',
-                    content: { 'application/json': { schema: errorSchema } },
-                },
                 '401': { description: 'Unauthorized' },
+                '403': { description: 'No organisation context' },
                 '404': {
                     description: 'Property not found (when propertyUuid was given)',
                     content: { 'application/json': { schema: errorSchema } },
@@ -119,7 +115,7 @@ export const propertiesPaths = {
                 },
                 '401': { description: 'Unauthorized' },
                 '403': {
-                    description: 'Organisation is not a real-estate business',
+                    description: 'No organisation context, or organisation is not a real-estate business',
                     content: { 'application/json': { schema: errorSchema } },
                 },
                 '404': {
@@ -147,6 +143,7 @@ export const propertiesPaths = {
                     content: { 'application/json': { schema: validationErrorSchema } },
                 },
                 '401': { description: 'Unauthorized' },
+                '403': { description: 'No organisation context' },
                 '404': {
                     description: 'Property not found',
                     content: { 'application/json': { schema: errorSchema } },
@@ -171,6 +168,7 @@ export const propertiesPaths = {
                     content: { 'application/json': { schema: validationErrorSchema } },
                 },
                 '401': { description: 'Unauthorized' },
+                '403': { description: 'No organisation context' },
             },
         },
     },

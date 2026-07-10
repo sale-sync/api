@@ -143,6 +143,14 @@ export class S3Service extends Service implements IService {
     }
 
     /**
+     * Durable CDN URL for an S3 key — the bucket sits behind a CloudFront distribution provisioned outside this repo.
+     */
+    getCdnUrl(s3Key: string): string {
+        const domain = process.env.MEDIA_CDN_DOMAIN;
+        return `https://${domain}/${s3Key}`;
+    }
+
+    /**
      * Chunk array into smaller arrays
      */
     private chunkArray<T>(array: T[], size: number): T[][] {

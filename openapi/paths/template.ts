@@ -1,7 +1,8 @@
 import { z } from 'zod';
-import { AddTemplateSchema, RemoveTemplateSchema, SetActiveTemplateSchema, UpdateThemeSchema } from '@sale-sync/shared';
+import { CreateTemplateSchema, AddTemplateSchema, RemoveTemplateSchema, SetActiveTemplateSchema, UpdateThemeSchema } from '@sale-sync/shared';
 
 const security: Array<Record<string, string[]>> = [{ authenticationCookie: [], identifierCookie: [] }];
+const orgSecurity: Array<Record<string, string[]>> = [{ authenticationCookie: [], identifierCookie: [], organisationAuth: [] }];
 
 const BusinessCategorySchema = z.enum(['fitness', 'real-estate', 'service-business', 'restaurant', 'haircut-and-salon']);
 const ThemeBrandColorSchema = z.enum(['red', 'orange', 'blue', 'purple', 'green', 'amber', 'gray', 'stone']);
@@ -56,49 +57,66 @@ export const templatePaths = {
                 '401': { description: 'Unauthorized' },
             },
         },
+        post: {
+            tags: ['Template'],
+            summary: 'Create a template in the global catalogue',
+            description: 'Adds a new template to the global catalogue for a business category. Intended for admin use — currently reachable by any authenticated user until admin tooling exists.',
+            security,
+            requestBody: {
+                required: true,
+                content: { 'application/json': { schema: CreateTemplateSchema } },
+            },
+            responses: {
+                '201': {
+                    description: 'Template created',
+                    content: { 'application/json': { schema: TemplateSchema } },
+                },
+                '400': {
+                    description: 'Validation error',
+                    content: { 'application/json': { schema: z.object({ message: z.string(), issues: z.array(z.unknown()) }) } },
+                },
+                '401': { description: 'Unauthorized' },
+            },
+        },
     },
 
     '/organisations/templates': {
         get: {
             tags: ['Template'],
-            summary: 'List templates — by business category or by organisation',
+            summary: 'List templates — by business category, or the organisation\'s added templates',
             description: [
-                'Accepts one of two mutually exclusive query parameters:',
+                'Accepts an optional `category` query parameter:',
                 '',
                 '- `category` — list the global template catalogue for a business category (used during onboarding)',
-                '- `orgUuid` — list all templates an organisation has added (used in settings)',
+                '- (none) — list all templates the organisation (from the `Organisation` cookie) has added (used in settings)',
             ].join('\n'),
-            security,
+            security: orgSecurity,
             requestParams: {
                 query: z.object({
                     category: BusinessCategorySchema.optional().meta({ description: 'Business category — returns global catalogue for that category' }),
-                    orgUuid: z.string().uuid().optional().meta({ description: 'Organisation UUID — returns all templates the org has added' }),
                 }),
             },
             responses: {
                 '200': {
-                    description: 'Response shape depends on which query parameter was provided',
+                    description: 'Response shape depends on whether `category` was provided',
                     content: {
                         'application/json': {
                             schema: z.union([
                                 z.array(TemplateSchema).meta({ description: 'category → global catalogue' }),
-                                z.array(OrganisationTemplateSchema).meta({ description: 'orgUuid → org template memberships' }),
+                                z.array(OrganisationTemplateSchema).meta({ description: 'default → org template memberships' }),
                             ]),
                         },
                     },
                 },
-                '400': {
-                    description: 'Neither category nor orgUuid provided',
-                    content: { 'application/json': { schema: z.object({ message: z.string() }) } },
-                },
                 '401': { description: 'Unauthorized' },
+                '403': { description: 'No organisation context (only when category is not given)' },
             },
         },
         post: {
             tags: ['Template'],
             summary: 'Add a template to an organisation',
-            description: 'Adds a template from the global catalogue to the organisation. Creates a `TEMPLATE#` membership item and a `THEME#` config item (with defaults) in one transaction. Pass `set_active: true` to also update the organisation\'s active template in the same transaction (used during onboarding).',
-            security,
+            description: 'Adds a template from the global catalogue to the organisation (from the `Organisation` cookie). Creates a `TEMPLATE#` membership item and a `THEME#` config item (with defaults) in one transaction. Pass `set_active: true` to also update the organisation\'s active template in the same transaction (used during onboarding).',
+            security: orgSecurity,
             requestBody: {
                 required: true,
                 content: { 'application/json': { schema: AddTemplateSchema } },
@@ -113,6 +131,7 @@ export const templatePaths = {
                     content: { 'application/json': { schema: z.object({ message: z.string(), issues: z.array(z.unknown()) }) } },
                 },
                 '401': { description: 'Unauthorized' },
+                '403': { description: 'No organisation context' },
                 '404': {
                     description: 'Organisation or template not found',
                     content: { 'application/json': { schema: z.object({ message: z.string() }) } },
@@ -122,8 +141,8 @@ export const templatePaths = {
         patch: {
             tags: ['Template'],
             summary: 'Set the active template for an organisation',
-            description: 'Updates `template_id` on the organisation metadata. The template must already be in the org\'s collection.',
-            security,
+            description: 'Updates `template_id` on the organisation (from the `Organisation` cookie) metadata. The template must already be in the org\'s collection.',
+            security: orgSecurity,
             requestBody: {
                 required: true,
                 content: { 'application/json': { schema: SetActiveTemplateSchema } },
@@ -138,6 +157,7 @@ export const templatePaths = {
                     content: { 'application/json': { schema: z.object({ message: z.string(), issues: z.array(z.unknown()) }) } },
                 },
                 '401': { description: 'Unauthorized' },
+                '403': { description: 'No organisation context' },
                 '404': {
                     description: 'Organisation not found or template not in org collection',
                     content: { 'application/json': { schema: z.object({ message: z.string() }) } },
@@ -147,8 +167,8 @@ export const templatePaths = {
         delete: {
             tags: ['Template'],
             summary: 'Remove a template from an organisation',
-            description: 'Removes a template and its theme config from the organisation in one transaction. Returns 409 if the template is currently active.',
-            security,
+            description: 'Removes a template and its theme config from the organisation (from the `Organisation` cookie) in one transaction. Returns 409 if the template is currently active.',
+            security: orgSecurity,
             requestBody: {
                 required: true,
                 content: { 'application/json': { schema: RemoveTemplateSchema } },
@@ -163,6 +183,7 @@ export const templatePaths = {
                     content: { 'application/json': { schema: z.object({ message: z.string(), issues: z.array(z.unknown()) }) } },
                 },
                 '401': { description: 'Unauthorized' },
+                '403': { description: 'No organisation context' },
                 '404': {
                     description: 'Organisation not found',
                     content: { 'application/json': { schema: z.object({ message: z.string() }) } },
@@ -178,11 +199,11 @@ export const templatePaths = {
     '/organisations/templates/theme': {
         get: {
             tags: ['Template'],
-            summary: 'Get theme config for an org-template pair',
-            security,
+            summary: 'Get theme config for a template in the organisation',
+            description: 'Organisation context comes from the `Organisation` cookie.',
+            security: orgSecurity,
             requestParams: {
                 query: z.object({
-                    orgUuid: z.string().uuid().meta({ description: 'Organisation UUID' }),
                     templateUuid: z.string().uuid().meta({ description: 'Template UUID' }),
                 }),
             },
@@ -192,10 +213,11 @@ export const templatePaths = {
                     content: { 'application/json': { schema: ThemeConfigSchema } },
                 },
                 '400': {
-                    description: 'Missing orgUuid or templateUuid query parameter',
+                    description: 'Missing templateUuid query parameter',
                     content: { 'application/json': { schema: z.object({ message: z.string() }) } },
                 },
                 '401': { description: 'Unauthorized' },
+                '403': { description: 'No organisation context' },
                 '404': {
                     description: 'Theme not found',
                     content: { 'application/json': { schema: z.object({ message: z.string() }) } },
@@ -205,8 +227,8 @@ export const templatePaths = {
         patch: {
             tags: ['Template'],
             summary: 'Update theme config (brand color and/or font)',
-            description: 'Updates the organisation\'s theme configuration for a specific template. Only provided fields are updated.',
-            security,
+            description: 'Updates the theme configuration for a specific template in the organisation (from the `Organisation` cookie). Only provided fields are updated.',
+            security: orgSecurity,
             requestBody: {
                 required: true,
                 content: { 'application/json': { schema: UpdateThemeSchema } },
@@ -221,6 +243,7 @@ export const templatePaths = {
                     content: { 'application/json': { schema: z.object({ message: z.string(), issues: z.array(z.unknown()) }) } },
                 },
                 '401': { description: 'Unauthorized' },
+                '403': { description: 'No organisation context' },
                 '404': {
                     description: 'Template not in org collection',
                     content: { 'application/json': { schema: z.object({ message: z.string() }) } },

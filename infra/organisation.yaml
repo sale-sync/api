@@ -23,21 +23,21 @@ Resources:
             SSESpecification:
                 SSEEnabled: true
             AttributeDefinitions:
-                - AttributeName: pk
+                - AttributeName: PK
                   AttributeType: S
-                - AttributeName: sk
+                - AttributeName: SK
                   AttributeType: S
             KeySchema:
-                - AttributeName: pk
+                - AttributeName: PK
                   KeyType: HASH
-                - AttributeName: sk
+                - AttributeName: SK
                   KeyType: RANGE
             GlobalSecondaryIndexes:
                 - IndexName: inverted-index
                   KeySchema:
-                      - AttributeName: sk
+                      - AttributeName: SK
                         KeyType: HASH
-                      - AttributeName: pk
+                      - AttributeName: PK
                         KeyType: RANGE
                   Projection:
                       ProjectionType: ALL
