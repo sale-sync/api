@@ -55,9 +55,15 @@ class UsersController extends Controller implements IControllerMethods {
         }
 
         const users = await this.organisationService.getUsersByOrganisationUuid(organisation.uuid);
+        const usersWithEmail = await Promise.all(
+            users.map(async (u) => ({
+                ...u,
+                email: (await this.organisationService.getUserById(u.user_id))?.email ?? '',
+            })),
+        );
         return {
             statusCode: 200,
-            body: JSON.stringify(users),
+            body: JSON.stringify(usersWithEmail),
         };
     }
 }

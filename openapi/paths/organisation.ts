@@ -26,6 +26,7 @@ const OrganisationSchema = z.object({
 
 const OrganisationUserSchema = z.object({
     user_id: z.string(),
+    email: z.string().email(),
     membership: z.object({
         role: z.enum(['owner', 'admin', 'manager', 'editor', 'staff', 'guest']),
         position: z.string().optional(),
