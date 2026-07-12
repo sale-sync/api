@@ -114,10 +114,3 @@ export type User = {
 }
 ```
 
-##### Pending User
-
-```ts
-export type PendingUser =  {
-	status: 'pending'
-}
-```

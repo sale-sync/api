@@ -1,7 +1,7 @@
 import { ConditionalCheckFailedException, DynamoDBClient, TransactionCanceledException } from '@aws-sdk/client-dynamodb';
-import { BatchGetCommand, BatchWriteCommand, DeleteCommand, GetCommand, PutCommand, QueryCommand, TransactWriteCommand } from '@aws-sdk/lib-dynamodb';
+import { BatchGetCommand, BatchWriteCommand, DeleteCommand, GetCommand, PutCommand, QueryCommand, TransactWriteCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import { Service } from '@devyethiha/samjs';
-import type { BusinessCategory, Organisation, OrganisationUser, PendingUser } from '@sale-sync/shared/src/types';
+import type { BusinessCategory, Organisation, OrganisationRole, OrganisationUser } from '@sale-sync/shared/src/types';
 import { v4 as uuidv4 } from 'uuid';
 
 const TABLE = process.env.ORGANISATION_TABLE_NAME || 'sale-sync-organisation';
@@ -28,6 +28,20 @@ export class LastOwnerError extends Error {
     constructor() {
         super('Cannot remove the last remaining owner of the organisation');
         this.name = 'LastOwnerError';
+    }
+}
+
+export class InsufficientRoleError extends Error {
+    constructor() {
+        super('Only owner or admin can manage the team');
+        this.name = 'InsufficientRoleError';
+    }
+}
+
+export class OwnerOnlyActionError extends Error {
+    constructor() {
+        super('Only an owner can remove or change the role of another owner');
+        this.name = 'OwnerOnlyActionError';
     }
 }
 
@@ -205,6 +219,29 @@ export class OrganisationService extends Service {
         }));
     }
 
+    // Lookup a single member's own membership — PK=ORG#{orgUuid}, SK=USER#{userId}
+    public async getMembership(orgUuid: string, userId: string): Promise<OrganisationUser | null> {
+        const res = await this.DB_Client.send(
+            new GetCommand({
+                TableName: TABLE,
+                Key: { PK: `ORG#${orgUuid}`, SK: `USER#${userId}` },
+            }),
+        );
+
+        return res.Item ? (JSON.parse(res.Item.data as string) as OrganisationUser) : null;
+    }
+
+    // Only `owner`/`admin` may manage team membership (add/remove/change-role) — `manager` and below
+    // cannot. Returns the caller's own resolved role so call sites needing the owner-only check don't
+    // have to re-fetch it.
+    public async assertCanManageTeam(orgUuid: string, callerUserId: string): Promise<OrganisationRole> {
+        const membership = await this.getMembership(orgUuid, callerUserId);
+        if (!membership || (membership.role !== 'owner' && membership.role !== 'admin')) {
+            throw new InsufficientRoleError();
+        }
+        return membership.role;
+    }
+
     // Lookup user by email — PK=USER#{email}, SK=META
     public async getUserByEmail(email: string): Promise<{ user_id: string } | null> {
         const res = await this.DB_Client.send(
@@ -235,13 +272,17 @@ export class OrganisationService extends Service {
         return item ? { email: String(item.PK).replace('USER#', '') } : null;
     }
 
-    // Add team members by email — PK=USER#{email}, SK=META to resolve user_id
-    // Registered users  → PK=ORG#{orgUuid}, SK=USER#{user_id}, data=OrganisationUser
-    // Unregistered users → PK=ORG#{orgUuid}, SK=USER#{email},   data=PendingUser
+    // Add team members by email — PK=USER#{email}, SK=META to resolve user_id.
+    // Registered users → PK=ORG#{orgUuid}, SK=USER#{user_id}, data=OrganisationUser, added immediately.
+    // Unregistered emails are not written anywhere — reported back in `not_found` so the caller can
+    // ask them to register first (no pending-invite state at this stage).
     public async addTeamMembers(
         orgUuid: string,
         emails: string[],
-    ): Promise<{ added: string[]; pending: string[] }> {
+        callerUserId: string,
+    ): Promise<{ added: string[]; not_found: string[] }> {
+        await this.assertCanManageTeam(orgUuid, callerUserId);
+
         const batchGet = await this.DB_Client.send(
             new BatchGetCommand({
                 RequestItems: {
@@ -260,32 +301,27 @@ export class OrganisationService extends Service {
         }
 
         const now = new Date().toISOString();
-        const writeRequests = emails.map((email) => {
-            const userId = registeredMap.get(email);
-            if (userId) {
+        const registeredEmails = emails.filter((e) => registeredMap.has(e));
+
+        if (registeredEmails.length > 0) {
+            const writeRequests = registeredEmails.map((email) => {
+                const userId = registeredMap.get(email)!;
                 const membership: OrganisationUser = { role: 'staff', joined_date: now };
                 return {
                     PutRequest: {
                         Item: { PK: `ORG#${orgUuid}`, SK: `USER#${userId}`, data: JSON.stringify(membership) },
                     },
                 };
-            } else {
-                const pending: PendingUser = { status: 'pending' };
-                return {
-                    PutRequest: {
-                        Item: { PK: `ORG#${orgUuid}`, SK: `USER#${email}`, data: JSON.stringify(pending) },
-                    },
-                };
-            }
-        });
+            });
 
-        await this.DB_Client.send(
-            new BatchWriteCommand({ RequestItems: { [TABLE]: writeRequests } }),
-        );
+            await this.DB_Client.send(
+                new BatchWriteCommand({ RequestItems: { [TABLE]: writeRequests } }),
+            );
+        }
 
         return {
-            added: emails.filter((e) => registeredMap.has(e)),
-            pending: emails.filter((e) => !registeredMap.has(e)),
+            added: registeredEmails,
+            not_found: emails.filter((e) => !registeredMap.has(e)),
         };
     }
 
@@ -296,7 +332,10 @@ export class OrganisationService extends Service {
     public async addTeamMembersByUserId(
         orgUuid: string,
         userIds: string[],
+        callerUserId: string,
     ): Promise<{ added: string[]; not_found: string[] }> {
+        await this.assertCanManageTeam(orgUuid, callerUserId);
+
         const lookups = await Promise.all(
             userIds.map((userId) =>
                 this.DB_Client.send(
@@ -334,9 +373,15 @@ export class OrganisationService extends Service {
 
     // Remove a team member — PK=ORG#{orgUuid}, SK=USER#{userId}. Rejects removing the org's sole
     // remaining owner (an org must always have at least one).
-    public async removeTeamMember(orgUuid: string, userId: string): Promise<void> {
+    public async removeTeamMember(orgUuid: string, userId: string, callerUserId: string): Promise<void> {
+        const callerRole = await this.assertCanManageTeam(orgUuid, callerUserId);
+
         const members = await this.getUsersByOrganisationUuid(orgUuid);
         const target = members.find((m) => m.user_id === userId);
+
+        if (target?.membership.role === 'owner' && callerRole !== 'owner') {
+            throw new OwnerOnlyActionError();
+        }
 
         if (target?.membership.role === 'owner') {
             const ownerCount = members.filter((m) => m.membership.role === 'owner').length;
@@ -349,6 +394,43 @@ export class OrganisationService extends Service {
             new DeleteCommand({
                 TableName: TABLE,
                 Key: { PK: `ORG#${orgUuid}`, SK: `USER#${userId}` },
+            }),
+        );
+    }
+
+    // Update a team member's role — PK=ORG#{orgUuid}, SK=USER#{userId}. Rejects demoting the org's
+    // sole remaining owner away from `owner` (an org must always have at least one).
+    public async updateTeamMemberRole(
+        orgUuid: string,
+        userId: string,
+        role: OrganisationRole,
+        callerUserId: string,
+    ): Promise<void> {
+        const callerRole = await this.assertCanManageTeam(orgUuid, callerUserId);
+
+        const members = await this.getUsersByOrganisationUuid(orgUuid);
+        const target = members.find((m) => m.user_id === userId);
+
+        if (target?.membership.role === 'owner' && callerRole !== 'owner') {
+            throw new OwnerOnlyActionError();
+        }
+
+        if (target?.membership.role === 'owner' && role !== 'owner') {
+            const ownerCount = members.filter((m) => m.membership.role === 'owner').length;
+            if (ownerCount <= 1) {
+                throw new LastOwnerError();
+            }
+        }
+
+        const updated: OrganisationUser = { ...target!.membership, role };
+
+        await this.DB_Client.send(
+            new UpdateCommand({
+                TableName: TABLE,
+                Key: { PK: `ORG#${orgUuid}`, SK: `USER#${userId}` },
+                UpdateExpression: 'SET #data = :data',
+                ExpressionAttributeNames: { '#data': 'data' },
+                ExpressionAttributeValues: { ':data': JSON.stringify(updated) },
             }),
         );
     }

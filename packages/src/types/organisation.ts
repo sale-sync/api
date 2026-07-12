@@ -22,7 +22,7 @@ export type Organisation = {
   description?: string
 }
 
-export type OrganisationRole = 'owner' | 'admin' | 'manager' | 'editor' | 'staff'
+export type OrganisationRole = 'owner' | 'admin' | 'manager' | 'editor' | 'staff' | 'guest'
 
 export type OrganisationUser = {
   role: OrganisationRole
@@ -33,8 +33,4 @@ export type OrganisationUser = {
 export type User = {
   status: 'unverified' | 'verified'
   profile: string
-}
-
-export type PendingUser = {
-  status: 'pending'
 }

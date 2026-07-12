@@ -1,7 +1,7 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { Controller, IControllerMethods, isAuthorize, UNAUTHORIZE_ERROR, ValidationError } from '@devyethiha/samjs';
 import { getOrganisation, NO_ORGANISATION } from '@sale-sync/shared';
-import { OrganisationService } from '../services/organisation.service';
+import { InsufficientRoleError, OrganisationService } from '../services/organisation.service';
 import { AddTeamMemberByUserIdDTO } from './dtos/add-team-member-by-user-id.dto';
 
 class TeamMemberController extends Controller implements IControllerMethods {
@@ -24,7 +24,7 @@ class TeamMemberController extends Controller implements IControllerMethods {
         try {
             const body = new AddTeamMemberByUserIdDTO().validate(JSON.parse(event.body || '{}'));
             const userIds = Array.isArray(body.user_id) ? body.user_id : [body.user_id];
-            const result = await this.organisationService.addTeamMembersByUserId(organisation.uuid, userIds);
+            const result = await this.organisationService.addTeamMembersByUserId(organisation.uuid, userIds, organisation.user_id);
             return {
                 statusCode: 201,
                 body: JSON.stringify({ message: 'Team member(s) added', ...result }),
@@ -32,6 +32,9 @@ class TeamMemberController extends Controller implements IControllerMethods {
         } catch (error) {
             if (error instanceof ValidationError) {
                 return { statusCode: 400, body: JSON.stringify({ message: error.message, issues: error.issues }) };
+            }
+            if (error instanceof InsufficientRoleError) {
+                return { statusCode: 403, body: JSON.stringify({ message: error.message }) };
             }
             throw error;
         }

@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { AddTeamMemberSchema, AddTeamMemberByUserIdSchema, CreateOrganisationSchema, RemoveTeamMemberSchema } from '@sale-sync/shared';
+import { AddTeamMemberSchema, AddTeamMemberByUserIdSchema, CreateOrganisationSchema, RemoveTeamMemberSchema, UpdateTeamMemberRoleSchema } from '@sale-sync/shared';
 
 const security: Array<Record<string, string[]>> = [{ authenticationCookie: [], identifierCookie: [] }];
 const orgSecurity: Array<Record<string, string[]>> = [{ authenticationCookie: [], identifierCookie: [], organisationAuth: [] }];
@@ -27,7 +27,7 @@ const OrganisationSchema = z.object({
 const OrganisationUserSchema = z.object({
     user_id: z.string(),
     membership: z.object({
-        role: z.enum(['owner', 'admin', 'manager', 'editor', 'staff']),
+        role: z.enum(['owner', 'admin', 'manager', 'editor', 'staff', 'guest']),
         position: z.string().optional(),
         joined_date: z.string().datetime(),
     }),
@@ -143,9 +143,9 @@ export const organisationPaths = {
                 'The `user_id` is resolved from the Cognito account via the `USER#{email}` lookup item (`PK=USER#{email}, SK=META`).',
                 '',
                 '- **Registered user** — membership item is written as `PK=ORG#{uuid}, SK=USER#{user_id}` with role `staff`.',
-                '- **Unregistered user** — pending invite is written as `PK=ORG#{uuid}, SK=USER#{email}` with status `pending`.',
+                '- **Unregistered user** — nothing is written. No pending-invite state exists at this stage; the caller should ask them to register first, then retry.',
                 '',
-                'Returns two arrays: `added` (registered users) and `pending` (unregistered users).',
+                'Returns two arrays: `added` (registered users that were added) and `not_found` (unregistered emails).',
             ].join('\n'),
             security: orgSecurity,
             requestBody: {
@@ -160,7 +160,7 @@ export const organisationPaths = {
                             schema: z.object({
                                 message: z.string(),
                                 added: z.array(z.string().email()).meta({ description: 'Registered users that were added as members' }),
-                                pending: z.array(z.string().email()).meta({ description: 'Unregistered users stored as pending invites' }),
+                                not_found: z.array(z.string().email()).meta({ description: 'Unregistered emails — nothing was written for these' }),
                             }),
                         },
                     },
@@ -170,7 +170,7 @@ export const organisationPaths = {
                     content: { 'application/json': { schema: z.object({ message: z.string(), issues: z.array(z.unknown()) }) } },
                 },
                 '401': { description: 'Unauthorized' },
-                '403': { description: 'No organisation context' },
+                '403': { description: 'No organisation context, or caller is not owner/admin (only owner/admin may manage the team)' },
             },
         },
         delete: {
@@ -198,9 +198,47 @@ export const organisationPaths = {
                     content: { 'application/json': { schema: z.object({ message: z.string(), issues: z.array(z.unknown()) }) } },
                 },
                 '401': { description: 'Unauthorized' },
-                '403': { description: 'No organisation context' },
+                '403': {
+                    description:
+                        'No organisation context, or caller is not owner/admin (only owner/admin may manage the team), or caller is not an owner (only an owner may remove another owner)',
+                },
                 '409': {
                     description: 'Cannot remove the last remaining owner',
+                    content: { 'application/json': { schema: z.object({ message: z.string() }) } },
+                },
+            },
+        },
+        patch: {
+            tags: ['Organisation'],
+            summary: "Update a team member's role",
+            description: [
+                'Updates the role of a member of the organisation (resolved from the `Organisation` cookie), identified by `user_id`.',
+                '',
+                'Overwrites the `role` field of the membership item `PK=ORG#{uuid}, SK=USER#{user_id}`.',
+                '',
+                "An organisation must always have at least one `owner` — demoting the sole remaining owner away from `owner` is rejected.",
+            ].join('\n'),
+            security: orgSecurity,
+            requestBody: {
+                required: true,
+                content: { 'application/json': { schema: UpdateTeamMemberRoleSchema } },
+            },
+            responses: {
+                '200': {
+                    description: 'Team member role updated',
+                    content: { 'application/json': { schema: z.object({ message: z.string() }) } },
+                },
+                '400': {
+                    description: 'Validation error',
+                    content: { 'application/json': { schema: z.object({ message: z.string(), issues: z.array(z.unknown()) }) } },
+                },
+                '401': { description: 'Unauthorized' },
+                '403': {
+                    description:
+                        "No organisation context, or caller is not owner/admin (only owner/admin may manage the team), or caller is not an owner (only an owner may change another owner's role)",
+                },
+                '409': {
+                    description: 'Cannot demote the last remaining owner',
                     content: { 'application/json': { schema: z.object({ message: z.string() }) } },
                 },
             },
@@ -248,7 +286,7 @@ export const organisationPaths = {
                     content: { 'application/json': { schema: z.object({ message: z.string(), issues: z.array(z.unknown()) }) } },
                 },
                 '401': { description: 'Unauthorized' },
-                '403': { description: 'No organisation context' },
+                '403': { description: 'No organisation context, or caller is not owner/admin (only owner/admin may manage the team)' },
             },
         },
     },
