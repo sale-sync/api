@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { AddTeamMemberSchema, AddTeamMemberByUserIdSchema, CreateOrganisationSchema } from '@sale-sync/shared';
+import { AddTeamMemberSchema, AddTeamMemberByUserIdSchema, CreateOrganisationSchema, RemoveTeamMemberSchema } from '@sale-sync/shared';
 
 const security: Array<Record<string, string[]>> = [{ authenticationCookie: [], identifierCookie: [] }];
 const orgSecurity: Array<Record<string, string[]>> = [{ authenticationCookie: [], identifierCookie: [], organisationAuth: [] }];
@@ -171,6 +171,38 @@ export const organisationPaths = {
                 },
                 '401': { description: 'Unauthorized' },
                 '403': { description: 'No organisation context' },
+            },
+        },
+        delete: {
+            tags: ['Organisation'],
+            summary: 'Remove a team member',
+            description: [
+                'Removes a member from the organisation (resolved from the `Organisation` cookie) by `user_id`.',
+                '',
+                'Deletes the membership item `PK=ORG#{uuid}, SK=USER#{user_id}`.',
+                '',
+                "An organisation must always have at least one `owner` — removing the sole remaining owner is rejected.",
+            ].join('\n'),
+            security: orgSecurity,
+            requestBody: {
+                required: true,
+                content: { 'application/json': { schema: RemoveTeamMemberSchema } },
+            },
+            responses: {
+                '200': {
+                    description: 'Team member removed',
+                    content: { 'application/json': { schema: z.object({ message: z.string() }) } },
+                },
+                '400': {
+                    description: 'Validation error',
+                    content: { 'application/json': { schema: z.object({ message: z.string(), issues: z.array(z.unknown()) }) } },
+                },
+                '401': { description: 'Unauthorized' },
+                '403': { description: 'No organisation context' },
+                '409': {
+                    description: 'Cannot remove the last remaining owner',
+                    content: { 'application/json': { schema: z.object({ message: z.string() }) } },
+                },
             },
         },
     },

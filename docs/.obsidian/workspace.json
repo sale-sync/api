@@ -4,11 +4,11 @@
     "type": "split",
     "children": [
       {
-        "id": "3987a34d25aa9275",
+        "id": "fa396484ce2a5827",
         "type": "tabs",
         "children": [
           {
-            "id": "18a2daa6593ad302",
+            "id": "d965321316b24c82",
             "type": "leaf",
             "state": {
               "type": "empty",
@@ -176,7 +176,7 @@
       "bases:Create new base": false
     }
   },
-  "active": "4bf5bc2acd2dc307",
+  "active": "d965321316b24c82",
   "lastOpenFiles": [
     "dynamodb/access-patterns/properties.md",
     "logs/2026-07-08-pk-sk-casing-mismatch.md",

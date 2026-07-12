@@ -52,6 +52,7 @@ export class PlanService extends Service {
 
         if (!lookup.Item) return null;
 
-        return this.getPlanByUuid(lookup.Item.uuid as string);
+        const { uuid } = JSON.parse(lookup.Item.data as string) as { uuid: string };
+        return this.getPlanByUuid(uuid);
     }
 }

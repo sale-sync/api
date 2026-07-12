@@ -1,5 +1,5 @@
 import { ConditionalCheckFailedException, DynamoDBClient, TransactionCanceledException } from '@aws-sdk/client-dynamodb';
-import { BatchGetCommand, BatchWriteCommand, GetCommand, PutCommand, QueryCommand, TransactWriteCommand } from '@aws-sdk/lib-dynamodb';
+import { BatchGetCommand, BatchWriteCommand, DeleteCommand, GetCommand, PutCommand, QueryCommand, TransactWriteCommand } from '@aws-sdk/lib-dynamodb';
 import { Service } from '@devyethiha/samjs';
 import type { BusinessCategory, Organisation, OrganisationUser, PendingUser } from '@sale-sync/shared/src/types';
 import { v4 as uuidv4 } from 'uuid';
@@ -21,6 +21,13 @@ export class OrganisationAlreadyExistsError extends Error {
     constructor(organisationId: string) {
         super(`Organisation '${organisationId}' already exists`);
         this.name = 'OrganisationAlreadyExistsError';
+    }
+}
+
+export class LastOwnerError extends Error {
+    constructor() {
+        super('Cannot remove the last remaining owner of the organisation');
+        this.name = 'LastOwnerError';
     }
 }
 
@@ -74,7 +81,7 @@ export class OrganisationService extends Service {
                                 Item: {
                                     PK: `ORG#ID#${org.id}`,
                                     SK: 'META',
-                                    uuid: org.uuid,
+                                    data: JSON.stringify({ uuid: org.uuid }),
                                 },
                                 ConditionExpression: 'attribute_not_exists(PK) AND attribute_not_exists(SK)',
                             },
@@ -97,7 +104,7 @@ export class OrganisationService extends Service {
                                 Item: {
                                     PK: `USER#${param.user_email}`,
                                     SK: 'META',
-                                    user_id: param.user_id,
+                                    data: JSON.stringify({ user_id: param.user_id }),
                                 },
                             },
                         },
@@ -166,10 +173,11 @@ export class OrganisationService extends Service {
 
         if (!lookup.Item) return null;
 
+        const { uuid } = JSON.parse(lookup.Item.data as string) as { uuid: string };
         const meta = await this.DB_Client.send(
             new GetCommand({
                 TableName: TABLE,
-                Key: { PK: 'ORG', SK: `META#${lookup.Item.uuid}` },
+                Key: { PK: 'ORG', SK: `META#${uuid}` },
             }),
         );
 
@@ -206,7 +214,7 @@ export class OrganisationService extends Service {
             }),
         );
 
-        return res.Item ? { user_id: res.Item.user_id as string } : null;
+        return res.Item ? (JSON.parse(res.Item.data as string) as { user_id: string }) : null;
     }
 
     // Lookup user by user_id via inverted-index — SK=USER#{userId}, PK begins_with USER#
@@ -247,7 +255,8 @@ export class OrganisationService extends Service {
         const registeredMap = new Map<string, string>();
         for (const item of (batchGet.Responses?.[TABLE] ?? []) as Record<string, unknown>[]) {
             const email = String(item.PK).replace('USER#', '');
-            registeredMap.set(email, item.user_id as string);
+            const { user_id } = JSON.parse(item.data as string) as { user_id: string };
+            registeredMap.set(email, user_id);
         }
 
         const now = new Date().toISOString();
@@ -321,5 +330,26 @@ export class OrganisationService extends Service {
         }
 
         return { added, not_found: notFound };
+    }
+
+    // Remove a team member — PK=ORG#{orgUuid}, SK=USER#{userId}. Rejects removing the org's sole
+    // remaining owner (an org must always have at least one).
+    public async removeTeamMember(orgUuid: string, userId: string): Promise<void> {
+        const members = await this.getUsersByOrganisationUuid(orgUuid);
+        const target = members.find((m) => m.user_id === userId);
+
+        if (target?.membership.role === 'owner') {
+            const ownerCount = members.filter((m) => m.membership.role === 'owner').length;
+            if (ownerCount <= 1) {
+                throw new LastOwnerError();
+            }
+        }
+
+        await this.DB_Client.send(
+            new DeleteCommand({
+                TableName: TABLE,
+                Key: { PK: `ORG#${orgUuid}`, SK: `USER#${userId}` },
+            }),
+        );
     }
 }

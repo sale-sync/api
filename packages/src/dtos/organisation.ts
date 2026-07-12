@@ -30,3 +30,9 @@ export const AddTeamMemberByUserIdSchema = z.object({
 });
 
 export type AddTeamMemberByUserIdInput = z.infer<typeof AddTeamMemberByUserIdSchema>;
+
+export const RemoveTeamMemberSchema = z.object({
+    user_id: z.string().min(1, 'user_id is required'),
+});
+
+export type RemoveTeamMemberInput = z.infer<typeof RemoveTeamMemberSchema>;
