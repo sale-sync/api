@@ -152,12 +152,15 @@ Resources:
                     MEDIA_TABLE_NAME: !Ref MediaTableName
                     MEDIA_BUCKET_NAME: !Ref MediaBucketName
                     MEDIA_CDN_DOMAIN: !Sub '${ResourcePrefix}media.salesync.biz'
+                    ORGANISATION_TABLE_NAME: !Ref OrganisationTableName
             Policies:
                 - AWSLambdaBasicExecutionRole
                 - DynamoDBCrudPolicy:
                       TableName: !Ref MediaTableName
                 - S3CrudPolicy:
                       BucketName: !Ref MediaBucketName
+                - DynamoDBReadPolicy:
+                      TableName: !Ref OrganisationTableName
             Events:
                 ApiRouter:
                     Type: Api
@@ -180,12 +183,15 @@ Resources:
                     MEDIA_TABLE_NAME: !Ref MediaTableName
                     MEDIA_BUCKET_NAME: !Ref MediaBucketName
                     MEDIA_CDN_DOMAIN: !Sub '${ResourcePrefix}media.salesync.biz'
+                    ORGANISATION_TABLE_NAME: !Ref OrganisationTableName
             Policies:
                 - AWSLambdaBasicExecutionRole
                 - DynamoDBCrudPolicy:
                       TableName: !Ref MediaTableName
                 - S3CrudPolicy:
                       BucketName: !Ref MediaBucketName
+                - DynamoDBReadPolicy:
+                      TableName: !Ref OrganisationTableName
             Events:
                 ApiRouter:
                     Type: Api

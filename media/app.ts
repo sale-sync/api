@@ -7,9 +7,11 @@ import ItemController from './item/item.controller';
 import PropertiesController from './properties/properties.controller';
 import OrganisationController from './organisation/organisation.controller';
 import UserController from './user/user.controller';
+import BrandingController from './branding/branding.controller';
 import { MediaService } from './services/media.service';
 import { FolderService } from './services/folder.service';
 import { S3Service } from './services/s3.service';
+import { OrganisationMembershipService } from './services/organisation-membership.service';
 
 async function main(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
     const region = 'ap-southeast-2';
@@ -46,6 +48,10 @@ async function main(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult>
                 {
                     controller: UserController,
                     services: [S3Service],
+                },
+                {
+                    controller: BrandingController,
+                    services: [S3Service, OrganisationMembershipService],
                 },
             ],
             '/media',

@@ -160,3 +160,21 @@ export const DeleteUserAvatarSchema = z.object({
 });
 
 export type DeleteUserAvatarInput = z.infer<typeof DeleteUserAvatarSchema>;
+
+export const ALLOWED_BRANDING_IMAGE_MIME_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+
+export const UploadBrandingImageSchema = z.object({
+    file_name: z.string().min(1, 'file_name is required').max(255, 'file_name must be 255 characters or less'),
+    mime_type: z
+        .string()
+        .min(1, 'mime_type is required')
+        .refine((type) => ALLOWED_BRANDING_IMAGE_MIME_TYPES.includes(type), 'Unsupported image type'),
+});
+
+export type UploadBrandingImageInput = z.infer<typeof UploadBrandingImageSchema>;
+
+export const DeleteBrandingImageSchema = z.object({
+    s3_key: z.string().min(1, 'Missing s3_key param'),
+});
+
+export type DeleteBrandingImageInput = z.infer<typeof DeleteBrandingImageSchema>;

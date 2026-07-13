@@ -8,8 +8,10 @@ import TeamController from './team/team.controller';
 import TeamMemberController from './team-member/team-member.controller';
 import TemplatesController from './templates/templates.controller';
 import ThemeController from './templates/theme/theme.controller';
+import BrandingController from './branding/branding.controller';
 import { OrganisationService } from './services/organisation.service';
 import { TemplateService } from './services/template.service';
+import { BrandingService } from './services/branding.service';
 
 async function main(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
     const region = 'ap-southeast-2';
@@ -26,6 +28,7 @@ async function main(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult>
                 { controller: TeamMemberController, services: [OrganisationService] },
                 { controller: TemplatesController, services: [TemplateService] },
                 { controller: ThemeController, services: [TemplateService] },
+                { controller: BrandingController, services: [OrganisationService, BrandingService] },
             ],
             '/organisations',
         );

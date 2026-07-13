@@ -76,4 +76,18 @@ export const UpdateProfileSchema = z
         message: 'At least one field (phone, bio, timezone, avatar) must be provided',
     });
 
-export type UpdateProfileInput = z.infer<typeof UpdateProfileSchema>;
+export type UpdateProfileInput = z.infer<typeof UpdateProfileSchema>
+
+export const HEX_COLOR_REGEX = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/
+
+export const UpdateBrandingDraftSchema = z
+    .object({
+        primary_hex: z.string().regex(HEX_COLOR_REGEX, 'primary_hex must be a valid hex color (e.g. #D60002)').optional(),
+        secondary_hex: z.string().regex(HEX_COLOR_REGEX, 'secondary_hex must be a valid hex color (e.g. #3C53FF)').optional(),
+        logo: ImageSchema.nullable().optional(),
+    })
+    .refine((data) => Object.keys(data).length > 0, {
+        message: 'At least one field (primary_hex, secondary_hex, logo) must be provided',
+    })
+
+export type UpdateBrandingDraftInput = z.infer<typeof UpdateBrandingDraftSchema>;
