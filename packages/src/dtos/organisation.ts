@@ -2,6 +2,13 @@ import { z } from 'zod';
 
 const BusinessCategorySchema = z.enum(['fitness', 'real-estate', 'service-business', 'restaurant', 'haircut-and-salon']);
 
+export const ImageSchema = z.object({
+    name: z.string(),
+    url: z.string(),
+    size: z.string(),
+    mime_type: z.string(),
+});
+
 export const CreateOrganisationSchema = z.object({
     organisation_id: z.string().min(1, 'organisation_id is required'),
     organisation_name: z.string().min(1, 'organisation_name is required'),
@@ -9,9 +16,23 @@ export const CreateOrganisationSchema = z.object({
     template_id: z.string().uuid(),
     plan_id: z.string().uuid(),
     description: z.string().optional(),
+    address: z.string().optional(),
 });
 
 export type CreateOrganisationInput = z.infer<typeof CreateOrganisationSchema>;
+
+export const UpdateOrganisationSchema = z
+    .object({
+        name: z.string().min(1, 'name must not be empty').optional(),
+        description: z.string().optional(),
+        address: z.string().nullable().optional(),
+        image: ImageSchema.nullable().optional(),
+    })
+    .refine((data) => Object.keys(data).length > 0, {
+        message: 'At least one field (name, description, address, image) must be provided',
+    });
+
+export type UpdateOrganisationInput = z.infer<typeof UpdateOrganisationSchema>;
 
 export const AddTeamMemberSchema = z.object({
     email: z.union([
@@ -43,3 +64,16 @@ export const UpdateTeamMemberRoleSchema = z.object({
 });
 
 export type UpdateTeamMemberRoleInput = z.infer<typeof UpdateTeamMemberRoleSchema>;
+
+export const UpdateProfileSchema = z
+    .object({
+        phone: z.string().optional(),
+        bio: z.string().optional(),
+        timezone: z.string().optional(),
+        avatar: ImageSchema.nullable().optional(),
+    })
+    .refine((data) => Object.keys(data).length > 0, {
+        message: 'At least one field (phone, bio, timezone, avatar) must be provided',
+    });
+
+export type UpdateProfileInput = z.infer<typeof UpdateProfileSchema>;

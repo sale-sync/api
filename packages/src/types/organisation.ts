@@ -20,6 +20,7 @@ export type Organisation = {
   plan_id: string
   created_at: string
   description?: string
+  address: string | null
 }
 
 export type OrganisationRole = 'owner' | 'admin' | 'manager' | 'editor' | 'staff' | 'guest'
@@ -28,6 +29,10 @@ export type OrganisationUser = {
   role: OrganisationRole
   position?: string
   joined_date: string
+  phone?: string
+  bio?: string
+  timezone?: string
+  avatar?: Image | null
 }
 
 export type User = {

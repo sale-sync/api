@@ -124,3 +124,39 @@ export const DeletePropertyImageSchema = z.object({
 });
 
 export type DeletePropertyImageInput = z.infer<typeof DeletePropertyImageSchema>;
+
+export const ALLOWED_ORGANISATION_IMAGE_MIME_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+
+export const UploadOrganisationImageSchema = z.object({
+    file_name: z.string().min(1, 'file_name is required').max(255, 'file_name must be 255 characters or less'),
+    mime_type: z
+        .string()
+        .min(1, 'mime_type is required')
+        .refine((type) => ALLOWED_ORGANISATION_IMAGE_MIME_TYPES.includes(type), 'Unsupported image type'),
+});
+
+export type UploadOrganisationImageInput = z.infer<typeof UploadOrganisationImageSchema>;
+
+export const DeleteOrganisationImageSchema = z.object({
+    s3_key: z.string().min(1, 'Missing s3_key param'),
+});
+
+export type DeleteOrganisationImageInput = z.infer<typeof DeleteOrganisationImageSchema>;
+
+export const ALLOWED_USER_AVATAR_MIME_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+
+export const UploadUserAvatarSchema = z.object({
+    file_name: z.string().min(1, 'file_name is required').max(255, 'file_name must be 255 characters or less'),
+    mime_type: z
+        .string()
+        .min(1, 'mime_type is required')
+        .refine((type) => ALLOWED_USER_AVATAR_MIME_TYPES.includes(type), 'Unsupported image type'),
+});
+
+export type UploadUserAvatarInput = z.infer<typeof UploadUserAvatarSchema>;
+
+export const DeleteUserAvatarSchema = z.object({
+    s3_key: z.string().min(1, 'Missing s3_key param'),
+});
+
+export type DeleteUserAvatarInput = z.infer<typeof DeleteUserAvatarSchema>;

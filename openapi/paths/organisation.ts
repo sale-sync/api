@@ -1,5 +1,12 @@
 import { z } from 'zod';
-import { AddTeamMemberSchema, AddTeamMemberByUserIdSchema, CreateOrganisationSchema, RemoveTeamMemberSchema, UpdateTeamMemberRoleSchema } from '@sale-sync/shared';
+import {
+    AddTeamMemberSchema,
+    AddTeamMemberByUserIdSchema,
+    CreateOrganisationSchema,
+    RemoveTeamMemberSchema,
+    UpdateOrganisationSchema,
+    UpdateTeamMemberRoleSchema,
+} from '@sale-sync/shared';
 
 const security: Array<Record<string, string[]>> = [{ authenticationCookie: [], identifierCookie: [] }];
 const orgSecurity: Array<Record<string, string[]>> = [{ authenticationCookie: [], identifierCookie: [], organisationAuth: [] }];
@@ -22,6 +29,7 @@ const OrganisationSchema = z.object({
     plan_id: z.string().uuid(),
     created_at: z.string().datetime(),
     description: z.string().optional(),
+    address: z.string().nullable(),
 });
 
 const OrganisationUserSchema = z.object({
@@ -95,6 +103,40 @@ export const organisationPaths = {
                         },
                     },
                 },
+            },
+        },
+        patch: {
+            tags: ['Organisation'],
+            summary: 'Update organisation profile',
+            description: [
+                'Updates the profile (name/description/address) of the organisation resolved from the `Organisation` cookie.',
+                '',
+                'Overwrites only the fields present in the request body; at least one of `name`, `description`, `address` is required.',
+                '',
+                'Restricted to owner/admin, same bar as team management.',
+            ].join('\n'),
+            security: orgSecurity,
+            requestBody: {
+                required: true,
+                content: {
+                    'application/json': { schema: UpdateOrganisationSchema },
+                },
+            },
+            responses: {
+                '200': {
+                    description: 'Updated organisation metadata',
+                    content: {
+                        'application/json': { schema: OrganisationSchema },
+                    },
+                },
+                '400': {
+                    description: 'Validation error',
+                    content: {
+                        'application/json': { schema: z.object({ message: z.string(), issues: z.array(z.unknown()) }) },
+                    },
+                },
+                '401': { description: 'Unauthorized' },
+                '403': { description: 'No organisation context, or caller is not owner/admin (only owner/admin may update the profile)' },
             },
         },
     },

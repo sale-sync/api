@@ -3,6 +3,7 @@ import { Router, withCORS } from '@devyethiha/samjs';
 import DefaultController from './default/default.controller';
 import ByIdController from './by-id/by-id.controller';
 import UsersController from './users/users.controller';
+import ProfileController from './profile/profile.controller';
 import TeamController from './team/team.controller';
 import TeamMemberController from './team-member/team-member.controller';
 import TemplatesController from './templates/templates.controller';
@@ -20,6 +21,7 @@ async function main(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult>
                 { controller: DefaultController, services: [OrganisationService] },
                 { controller: ByIdController, services: [OrganisationService] },
                 { controller: UsersController, services: [OrganisationService] },
+                { controller: ProfileController, services: [OrganisationService] },
                 { controller: TeamController, services: [OrganisationService] },
                 { controller: TeamMemberController, services: [OrganisationService] },
                 { controller: TemplatesController, services: [TemplateService] },

@@ -1,7 +1,7 @@
 import { ConditionalCheckFailedException, DynamoDBClient, TransactionCanceledException } from '@aws-sdk/client-dynamodb';
 import { BatchGetCommand, BatchWriteCommand, DeleteCommand, GetCommand, PutCommand, QueryCommand, TransactWriteCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import { Service } from '@devyethiha/samjs';
-import type { BusinessCategory, Organisation, OrganisationRole, OrganisationUser } from '@sale-sync/shared/src/types';
+import type { BusinessCategory, Image, Organisation, OrganisationRole, OrganisationUser } from '@sale-sync/shared/src/types';
 import { v4 as uuidv4 } from 'uuid';
 
 const TABLE = process.env.ORGANISATION_TABLE_NAME || 'sale-sync-organisation';
@@ -15,6 +15,14 @@ type CreateOrganisationParam = {
     template_id: string;
     plan_id: string;
     description?: string;
+    address?: string;
+};
+
+type UpdateOrganisationParam = {
+    name?: string;
+    description?: string;
+    address?: string | null;
+    image?: Image | null;
 };
 
 export class OrganisationAlreadyExistsError extends Error {
@@ -45,6 +53,13 @@ export class OwnerOnlyActionError extends Error {
     }
 }
 
+export class ProfileNotFoundError extends Error {
+    constructor() {
+        super('No membership record found for this organisation/user');
+        this.name = 'ProfileNotFoundError';
+    }
+}
+
 export class OrganisationService extends Service {
     private DB_Client: DynamoDBClient;
 
@@ -64,6 +79,7 @@ export class OrganisationService extends Service {
             template_id: param.template_id,
             plan_id: param.plan_id,
             created_at: new Date().toISOString(),
+            address: param.address ?? null,
             ...(param.description && { description: param.description }),
         };
 
@@ -198,6 +214,42 @@ export class OrganisationService extends Service {
         return meta.Item ? (JSON.parse(meta.Item.data) as Organisation) : null;
     }
 
+    // Update organisation profile (name/description/address) — PK=ORG, SK=META#{uuid}. Restricted to
+    // owner/admin, same bar as team management, since the profile is org-wide-visible. Existence of
+    // the org is implied by the caller having a resolvable membership (checked by assertCanManageTeam).
+    public async updateOrganisation(
+        orgUuid: string,
+        patch: UpdateOrganisationParam,
+        callerUserId: string,
+    ): Promise<Organisation> {
+        await this.assertCanManageTeam(orgUuid, callerUserId);
+
+        const res = await this.DB_Client.send(
+            new GetCommand({
+                TableName: TABLE,
+                Key: { PK: 'ORG', SK: `META#${orgUuid}` },
+            }),
+        );
+
+        const current = JSON.parse(res.Item!.data as string) as Organisation;
+        const updated: Organisation = {
+            ...current,
+            ...(patch.name !== undefined && { name: patch.name }),
+            ...(patch.description !== undefined && { description: patch.description }),
+            ...(patch.address !== undefined && { address: patch.address }),
+            ...(patch.image !== undefined && { image: patch.image }),
+        };
+
+        await this.DB_Client.send(
+            new PutCommand({
+                TableName: TABLE,
+                Item: { PK: 'ORG', SK: `META#${orgUuid}`, data: JSON.stringify(updated) },
+            }),
+        );
+
+        return updated;
+    }
+
     // List all users in an organisation — PK=ORG#{uuid}, SK begins_with USER#
     public async getUsersByOrganisationUuid(
         orgUuid: string,
@@ -229,6 +281,47 @@ export class OrganisationService extends Service {
         );
 
         return res.Item ? (JSON.parse(res.Item.data as string) as OrganisationUser) : null;
+    }
+
+    // Get the caller's own profile fields (phone/bio/timezone/avatar) from their membership record —
+    // PK=ORG#{orgUuid}, SK=USER#{userId}. Same record as getMembership; name/email are merged in by the
+    // controller from the Cognito-derived `user` on the event, not stored here.
+    public async getProfile(orgUuid: string, userId: string): Promise<OrganisationUser | null> {
+        return this.getMembership(orgUuid, userId);
+    }
+
+    // Update the caller's own profile fields (phone/bio/timezone/avatar) — PK=ORG#{orgUuid},
+    // SK=USER#{userId}. Unlike updateTeamMemberRole, this only ever touches the caller's own record, so
+    // no assertCanManageTeam/role check is needed — every member manages their own profile.
+    public async updateProfile(
+        orgUuid: string,
+        userId: string,
+        patch: { phone?: string; bio?: string; timezone?: string; avatar?: Image | null },
+    ): Promise<OrganisationUser> {
+        const current = await this.getMembership(orgUuid, userId);
+        if (!current) {
+            throw new ProfileNotFoundError();
+        }
+
+        const updated: OrganisationUser = {
+            ...current,
+            ...(patch.phone !== undefined && { phone: patch.phone }),
+            ...(patch.bio !== undefined && { bio: patch.bio }),
+            ...(patch.timezone !== undefined && { timezone: patch.timezone }),
+            ...(patch.avatar !== undefined && { avatar: patch.avatar }),
+        };
+
+        await this.DB_Client.send(
+            new UpdateCommand({
+                TableName: TABLE,
+                Key: { PK: `ORG#${orgUuid}`, SK: `USER#${userId}` },
+                UpdateExpression: 'SET #data = :data',
+                ExpressionAttributeNames: { '#data': 'data' },
+                ExpressionAttributeValues: { ':data': JSON.stringify(updated) },
+            }),
+        );
+
+        return updated;
     }
 
     // Only `owner`/`admin` may manage team membership (add/remove/change-role) — `manager` and below

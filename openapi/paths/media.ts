@@ -9,6 +9,8 @@ import {
     DeleteItemSchema,
     UploadPropertyImageSchema,
     DeletePropertyImageSchema,
+    UploadOrganisationImageSchema,
+    DeleteOrganisationImageSchema,
 } from '@sale-sync/shared';
 
 const security: Array<Record<string, string[]>> = [{ bearerAuth: [] }, { organisationAuth: [] }];
@@ -245,6 +247,65 @@ export const mediaPaths = {
                 '400': { description: 'Validation error' },
                 '401': { description: 'Unauthorized' },
                 '403': { description: 'No organisation context, or s3_key outside caller\'s org/properties scope' },
+            },
+        },
+    },
+    '/media/organisation': {
+        post: {
+            tags: ['Media'],
+            summary: 'Get a presigned upload URL for an organisation image',
+            description:
+                'Stores organisation images (logo) separately from the Folder/Media library: no DynamoDB record is created. Returns a presigned S3 PUT URL for direct upload and a durable CDN URL to store on the Organisation record.',
+            security,
+            requestBody: {
+                content: {
+                    'application/json': { schema: UploadOrganisationImageSchema },
+                },
+            },
+            responses: {
+                '201': {
+                    description: 'Presigned upload URL and durable image URL',
+                    content: {
+                        'application/json': {
+                            schema: z.object({
+                                image_url: z.string(),
+                                upload_url: z.string(),
+                                s3_key: z.string(),
+                                expires_at: z.string(),
+                            }),
+                        },
+                    },
+                },
+                '400': { description: 'Validation error' },
+                '401': { description: 'Unauthorized' },
+                '403': { description: 'No organisation context' },
+            },
+        },
+        delete: {
+            tags: ['Media'],
+            summary: 'Delete an organisation image',
+            description: 'Deletes the S3 object for an organisation image. No DynamoDB record exists for it.',
+            security,
+            requestBody: {
+                content: {
+                    'application/json': { schema: DeleteOrganisationImageSchema },
+                },
+            },
+            responses: {
+                '200': {
+                    description: 'Organisation image deleted',
+                    content: {
+                        'application/json': {
+                            schema: z.object({
+                                message: z.string(),
+                                s3_key: z.string(),
+                            }),
+                        },
+                    },
+                },
+                '400': { description: 'Validation error' },
+                '401': { description: 'Unauthorized' },
+                '403': { description: 'No organisation context, or s3_key outside caller\'s org/organisation scope' },
             },
         },
     },

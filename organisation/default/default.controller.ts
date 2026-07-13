@@ -8,8 +8,10 @@ import {
     UNAUTHORIZE_ERROR,
     ValidationError,
 } from '@devyethiha/samjs';
-import { OrganisationAlreadyExistsError, OrganisationService } from '../services/organisation.service';
+import { getOrganisation, NO_ORGANISATION } from '@sale-sync/shared';
+import { InsufficientRoleError, OrganisationAlreadyExistsError, OrganisationService } from '../services/organisation.service';
 import { CreateOrganisationDTO } from '../dtos/create-organisation.dto';
+import { UpdateOrganisationDTO } from '../dtos/update-organisation.dto';
 
 class DefaultController extends Controller implements IControllerMethods {
     private organisationService!: OrganisationService;
@@ -58,6 +60,7 @@ class DefaultController extends Controller implements IControllerMethods {
                 template_id: body.template_id,
                 plan_id: body.plan_id,
                 description: body.description,
+                address: body.address,
             });
 
             return {
@@ -81,6 +84,48 @@ class DefaultController extends Controller implements IControllerMethods {
             if (error instanceof OrganisationAlreadyExistsError) {
                 return {
                     statusCode: 409,
+                    body: JSON.stringify({
+                        message: error.message,
+                    }),
+                };
+            }
+            throw error;
+        }
+    }
+
+    // PATCH /organisations → update the organisation's profile (name/description/address), from the
+    // Organisation cookie. Restricted to owner/admin.
+    async patch(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
+        if (!isAuthorize(event)) {
+            return UNAUTHORIZE_ERROR;
+        }
+
+        const organisation = getOrganisation(event);
+        if (!organisation) {
+            return NO_ORGANISATION;
+        }
+
+        try {
+            const body = new UpdateOrganisationDTO().validate(JSON.parse(event.body || '{}'));
+            const updated = await this.organisationService.updateOrganisation(organisation.uuid, body, organisation.user_id);
+
+            return {
+                statusCode: 200,
+                body: JSON.stringify(updated),
+            };
+        } catch (error) {
+            if (error instanceof ValidationError) {
+                return {
+                    statusCode: 400,
+                    body: JSON.stringify({
+                        message: error.message,
+                        issues: error.issues,
+                    }),
+                };
+            }
+            if (error instanceof InsufficientRoleError) {
+                return {
+                    statusCode: 403,
                     body: JSON.stringify({
                         message: error.message,
                     }),
