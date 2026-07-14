@@ -1,7 +1,7 @@
-import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DeleteCommand, GetCommand, PutCommand, QueryCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
+import { DynamoDBClient, TransactionCanceledException } from '@aws-sdk/client-dynamodb';
+import { GetCommand, QueryCommand, TransactWriteCommand } from '@aws-sdk/lib-dynamodb';
 import { Service } from '@devyethiha/samjs';
-import type { Organisation, Property, PropertyType, Unit } from '@sale-sync/shared/src/types';
+import type { Organisation, OrganisationRole, OrganisationUser, Property, PropertyScope, PropertyType, Unit } from '@sale-sync/shared/src/types';
 import type { CreatePropertyInput, UpdatePropertyInput } from '@sale-sync/shared/src/dtos';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -29,6 +29,13 @@ export class PropertyCategoryNotAllowedError extends Error {
     }
 }
 
+export class SlugAlreadyExistsError extends Error {
+    constructor(slug: string) {
+        super(`A property with slug '${slug}' already exists for this organisation`);
+        this.name = 'SlugAlreadyExistsError';
+    }
+}
+
 // See docs/dynamodb/access-patterns/properties.md for the full key-schema rationale.
 const pk = (orgUuid: string) => `ORG#${orgUuid}#PROPERTY`;
 const sk = (propertyUuid: string) => `PROPERTY#${propertyUuid}`;
@@ -36,6 +43,15 @@ const gsi1pk = (orgUuid: string, country: string) => `ORG#${orgUuid}#PROPERTY#CO
 const gsi1sk = (areaKey: string, propertyUuid: string) => `AREA#${areaKey}#PROPERTY#${propertyUuid}`;
 const gsi2pk = (orgUuid: string, type: PropertyType) => `ORG#${orgUuid}#PROPERTY#TYPE#${type}`;
 const gsi3pk = (orgUuid: string, country: string, region: string) => `ORG#${orgUuid}#PROPERTY#COUNTRY#${country}#REGION#${region}`;
+// Slug uniqueness/lookup is scoped per-organisation (not global, unlike Organisation.id's
+// PK=ORG#ID#{id}) — two different orgs' public sites are unrelated, nothing requires their
+// property slugs not to collide with each other.
+const slugPk = (orgUuid: string, slug: string) => `ORG#${orgUuid}#PROPERTY#SLUG#${slug}`;
+const SLUG_SK = 'META';
+
+function isConditionalCheckFailure(error: unknown): boolean {
+    return error instanceof TransactionCanceledException && (error.CancellationReasons ?? []).some((r) => r.Code === 'ConditionalCheckFailed');
+}
 
 export class PropertyService extends Service {
     private DB_Client: DynamoDBClient;
@@ -62,6 +78,8 @@ export class PropertyService extends Service {
             region: input.region ?? null,
             area_key: input.area_key,
             type: input.type,
+            scope: input.scope,
+            slug: input.slug,
             sellPrice: input.sellPrice ?? null,
             sellDiscountPrice: input.sellDiscountPrice ?? null,
             sellMaxPrice: input.sellMaxPrice ?? null,
@@ -77,35 +95,70 @@ export class PropertyService extends Service {
             updated_at: now,
         };
 
-        await this.DB_Client.send(
-            new PutCommand({
-                TableName: TABLE,
-                Item: {
-                    PK: pk(orgUuid),
-                    SK: sk(property.uuid),
-                    ...this.gsiAttributes(orgUuid, property),
-                    data: JSON.stringify(property),
-                },
-            }),
-        );
+        try {
+            await this.DB_Client.send(
+                new TransactWriteCommand({
+                    TransactItems: [
+                        {
+                            Put: {
+                                TableName: TABLE,
+                                Item: {
+                                    PK: pk(orgUuid),
+                                    SK: sk(property.uuid),
+                                    ...this.gsiAttributes(orgUuid, property),
+                                    data: JSON.stringify(property),
+                                },
+                            },
+                        },
+                        // Slug uniqueness / slug→uuid lookup — PK=ORG#{orgUuid}#PROPERTY#SLUG#{slug}, SK=META
+                        {
+                            Put: {
+                                TableName: TABLE,
+                                Item: {
+                                    PK: slugPk(orgUuid, input.slug),
+                                    SK: SLUG_SK,
+                                    data: JSON.stringify({ property_uuid: property.uuid }),
+                                },
+                                ConditionExpression: 'attribute_not_exists(PK) AND attribute_not_exists(SK)',
+                            },
+                        },
+                    ],
+                }),
+            );
+        } catch (error) {
+            if (isConditionalCheckFailure(error)) throw new SlugAlreadyExistsError(input.slug);
+            throw error;
+        }
 
         return property;
     }
 
-    // Get a single property by ID
-    public async getPropertyById(orgUuid: string, propertyUuid: string): Promise<Property | null> {
+    // Get a single property by ID, scoped to what viewerRole is allowed to see (per
+    // content-scope-visibility) — returns null (not the item) if the property exists but its
+    // scope isn't visible to this viewer, same as a genuinely-missing item.
+    public async getPropertyById(orgUuid: string, propertyUuid: string, viewerRole: OrganisationRole | null): Promise<Property | null> {
+        const property = await this.getPropertyRecord(orgUuid, propertyUuid);
+        if (!property) return null;
+        return this.visibleScopesFor(viewerRole).includes(property.scope) ? property : null;
+    }
+
+    // Resolve a property by its slug (unique per org), then apply the same viewer-scoped visibility
+    // as getPropertyById. Returns null if the slug doesn't resolve to anything.
+    public async getPropertyBySlug(orgUuid: string, slug: string, viewerRole: OrganisationRole | null): Promise<Property | null> {
         const res = await this.DB_Client.send(
             new GetCommand({
                 TableName: TABLE,
-                Key: { PK: pk(orgUuid), SK: sk(propertyUuid) },
+                Key: { PK: slugPk(orgUuid, slug), SK: SLUG_SK },
             }),
         );
+        if (!res.Item) return null;
 
-        return res.Item ? (JSON.parse(res.Item.data as string) as Property) : null;
+        const { property_uuid } = JSON.parse(res.Item.data as string) as { property_uuid: string };
+        return this.getPropertyById(orgUuid, property_uuid, viewerRole);
     }
 
-    // List all properties for an org — used to export theme-maker's `data-properties` JSON at build time
-    public async listProperties(orgUuid: string): Promise<Property[]> {
+    // List all properties for an org, filtered to what viewerRole can see.
+    public async listProperties(orgUuid: string, viewerRole: OrganisationRole | null): Promise<Property[]> {
         const res = await this.DB_Client.send(
             new QueryCommand({
                 TableName: TABLE,
@@ -117,11 +170,11 @@ export class PropertyService extends Service {
             }),
         );
 
-        return this.parseItems(res.Items);
+        return this.filterByScope(this.parseItems(res.Items), viewerRole);
     }
 
-    // List properties in a country (e.g. an org's AU site vs. TH site at build time)
-    public async listByCountry(orgUuid: string, country: string): Promise<Property[]> {
+    // List properties in a country (e.g. an org's AU site vs. TH site), filtered by viewerRole.
+    public async listByCountry(orgUuid: string, country: string, viewerRole: OrganisationRole | null): Promise<Property[]> {
         const res = await this.DB_Client.send(
             new QueryCommand({
                 TableName: TABLE,
@@ -131,11 +184,11 @@ export class PropertyService extends Service {
             }),
         );
 
-        return this.parseItems(res.Items);
+        return this.filterByScope(this.parseItems(res.Items), viewerRole);
     }
 
-    // List properties in one area within a country — location dropdown filter
-    public async listByArea(orgUuid: string, country: string, areaKey: string): Promise<Property[]> {
+    // List properties in one area within a country — location dropdown filter, by viewerRole.
+    public async listByArea(orgUuid: string, country: string, areaKey: string, viewerRole: OrganisationRole | null): Promise<Property[]> {
         const res = await this.DB_Client.send(
             new QueryCommand({
                 TableName: TABLE,
@@ -148,11 +201,11 @@ export class PropertyService extends Service {
             }),
         );
 
-        return this.parseItems(res.Items);
+        return this.filterByScope(this.parseItems(res.Items), viewerRole);
     }
 
-    // List properties of a type — type-filter icon row
-    public async listByType(orgUuid: string, type: PropertyType): Promise<Property[]> {
+    // List properties of a type — type-filter icon row, by viewerRole.
+    public async listByType(orgUuid: string, type: PropertyType, viewerRole: OrganisationRole | null): Promise<Property[]> {
         const res = await this.DB_Client.send(
             new QueryCommand({
                 TableName: TABLE,
@@ -162,12 +215,12 @@ export class PropertyService extends Service {
             }),
         );
 
-        return this.parseItems(res.Items);
+        return this.filterByScope(this.parseItems(res.Items), viewerRole);
     }
 
     // List properties in a state/province — sparse index; markets that leave `region` null
-    // (e.g. Thailand) will never return results here, use listByCountry instead.
-    public async listByRegion(orgUuid: string, country: string, region: string): Promise<Property[]> {
+    // (e.g. Thailand) will never return results here, use listByCountry instead. Filtered by viewerRole.
+    public async listByRegion(orgUuid: string, country: string, region: string, viewerRole: OrganisationRole | null): Promise<Property[]> {
         const res = await this.DB_Client.send(
             new QueryCommand({
                 TableName: TABLE,
@@ -177,12 +230,12 @@ export class PropertyService extends Service {
             }),
         );
 
-        return this.parseItems(res.Items);
+        return this.filterByScope(this.parseItems(res.Items), viewerRole);
     }
 
     // Update a property. Rewrites GSI1/GSI2/GSI3 attributes in place if their source fields change.
     public async updateProperty(orgUuid: string, propertyUuid: string, updates: Omit<UpdatePropertyInput, 'property_uuid'>): Promise<Property> {
-        const existing = await this.getPropertyById(orgUuid, propertyUuid);
+        const existing = await this.getPropertyRecord(orgUuid, propertyUuid);
         if (!existing) throw new PropertyNotFoundError(propertyUuid);
 
         const updated: Property = {
@@ -197,6 +250,8 @@ export class PropertyService extends Service {
             ...(updates.region !== undefined && { region: updates.region }),
             ...(updates.area_key !== undefined && { area_key: updates.area_key }),
             ...(updates.type !== undefined && { type: updates.type }),
+            ...(updates.scope !== undefined && { scope: updates.scope }),
+            ...(updates.slug !== undefined && { slug: updates.slug }),
             ...(updates.sellPrice !== undefined && { sellPrice: updates.sellPrice }),
             ...(updates.sellDiscountPrice !== undefined && { sellDiscountPrice: updates.sellDiscountPrice }),
             ...(updates.sellMaxPrice !== undefined && { sellMaxPrice: updates.sellMaxPrice }),
@@ -214,32 +269,71 @@ export class PropertyService extends Service {
         const setClause = 'SET #data = :data, GSI1PK = :gsi1pk, GSI1SK = :gsi1sk, GSI2PK = :gsi2pk' + (updated.region ? ', GSI3PK = :gsi3pk, GSI3SK = :gsi3sk' : '');
         const removeClause = updated.region ? '' : ' REMOVE GSI3PK, GSI3SK';
 
-        await this.DB_Client.send(
-            new UpdateCommand({
-                TableName: TABLE,
-                Key: { PK: pk(orgUuid), SK: sk(propertyUuid) },
-                UpdateExpression: setClause + removeClause,
-                ExpressionAttributeNames: { '#data': 'data' },
-                ExpressionAttributeValues: {
-                    ':data': JSON.stringify(updated),
-                    ':gsi1pk': gsi1pk(orgUuid, updated.country),
-                    ':gsi1sk': gsi1sk(updated.area_key, propertyUuid),
-                    ':gsi2pk': gsi2pk(orgUuid, updated.type),
-                    ...(updated.region && { ':gsi3pk': gsi3pk(orgUuid, updated.country, updated.region) }),
-                    ...(updated.region && { ':gsi3sk': gsi1sk(updated.area_key, propertyUuid) }),
-                },
-            }),
-        );
+        // slug is a separate item (for uniqueness), not just an attribute — always run this as a
+        // transaction so the main item and the slug lookup never drift out of sync, even though most
+        // updates don't touch slug at all.
+        const slugChanged = updates.slug !== undefined && updates.slug !== existing.slug;
+
+        try {
+            await this.DB_Client.send(
+                new TransactWriteCommand({
+                    TransactItems: [
+                        {
+                            Update: {
+                                TableName: TABLE,
+                                Key: { PK: pk(orgUuid), SK: sk(propertyUuid) },
+                                UpdateExpression: setClause + removeClause,
+                                ExpressionAttributeNames: { '#data': 'data' },
+                                ExpressionAttributeValues: {
+                                    ':data': JSON.stringify(updated),
+                                    ':gsi1pk': gsi1pk(orgUuid, updated.country),
+                                    ':gsi1sk': gsi1sk(updated.area_key, propertyUuid),
+                                    ':gsi2pk': gsi2pk(orgUuid, updated.type),
+                                    ...(updated.region && { ':gsi3pk': gsi3pk(orgUuid, updated.country, updated.region) }),
+                                    ...(updated.region && { ':gsi3sk': gsi1sk(updated.area_key, propertyUuid) }),
+                                },
+                            },
+                        },
+                        ...(slugChanged && existing.slug
+                            ? [{ Delete: { TableName: TABLE, Key: { PK: slugPk(orgUuid, existing.slug), SK: SLUG_SK } } }]
+                            : []),
+                        ...(slugChanged
+                            ? [
+                                  {
+                                      Put: {
+                                          TableName: TABLE,
+                                          Item: {
+                                              PK: slugPk(orgUuid, updates.slug as string),
+                                              SK: SLUG_SK,
+                                              data: JSON.stringify({ property_uuid: propertyUuid }),
+                                          },
+                                          ConditionExpression: 'attribute_not_exists(PK) AND attribute_not_exists(SK)',
+                                      },
+                                  },
+                              ]
+                            : []),
+                    ],
+                }),
+            );
+        } catch (error) {
+            if (isConditionalCheckFailure(error)) throw new SlugAlreadyExistsError(updates.slug as string);
+            throw error;
+        }
 
         return updated;
     }
 
-    // Delete a property
+    // Delete a property. Also removes its slug lookup item, if it had one, so nothing dangles.
     public async deleteProperty(orgUuid: string, propertyUuid: string): Promise<void> {
+        const existing = await this.getPropertyRecord(orgUuid, propertyUuid);
+        if (!existing) return;
+
         await this.DB_Client.send(
-            new DeleteCommand({
-                TableName: TABLE,
-                Key: { PK: pk(orgUuid), SK: sk(propertyUuid) },
+            new TransactWriteCommand({
+                TransactItems: [
+                    { Delete: { TableName: TABLE, Key: { PK: pk(orgUuid), SK: sk(propertyUuid) } } },
+                    ...(existing.slug ? [{ Delete: { TableName: TABLE, Key: { PK: slugPk(orgUuid, existing.slug), SK: SLUG_SK } } } as const] : []),
+                ],
             }),
         );
     }
@@ -279,8 +373,42 @@ export class PropertyService extends Service {
         };
     }
 
+    // Existing records written before `scope`/`slug` existed have neither attribute — default
+    // scope to 'staff' (internal-only) rather than a bulk migration, so nothing unexpectedly leaks
+    // public; slug simply stays null (not publicly linkable until edited to add one).
+    private parseItem(data: string): Property {
+        const property = JSON.parse(data) as Property;
+        return { ...property, scope: property.scope ?? 'staff', slug: property.slug ?? null };
+    }
+
     private parseItems(items: Record<string, unknown>[] | undefined): Property[] {
-        return (items ?? []).map((item) => JSON.parse(item.data as string) as Property);
+        return (items ?? []).map((item) => this.parseItem(item.data as string));
+    }
+
+    // Unfiltered single-item read, for internal use only (e.g. updateProperty's existence check) —
+    // never expose this directly to a controller; use getPropertyById (viewer-scoped) for that.
+    private async getPropertyRecord(orgUuid: string, propertyUuid: string): Promise<Property | null> {
+        const res = await this.DB_Client.send(
+            new GetCommand({
+                TableName: TABLE,
+                Key: { PK: pk(orgUuid), SK: sk(propertyUuid) },
+            }),
+        );
+
+        return res.Item ? this.parseItem(res.Item.data as string) : null;
+    }
+
+    // Audience rule (content-scope-visibility): 'guest'-role viewers see public+guest scope only;
+    // everyone else sees public+staff+guest. A null role (cookie references a user with no
+    // membership row — shouldn't normally happen) is treated as the most restrictive case, not
+    // full access.
+    private visibleScopesFor(viewerRole: OrganisationRole | null): PropertyScope[] {
+        return viewerRole === 'guest' || viewerRole === null ? ['public', 'guest'] : ['public', 'staff', 'guest'];
+    }
+
+    private filterByScope(properties: Property[], viewerRole: OrganisationRole | null): Property[] {
+        const visible = this.visibleScopesFor(viewerRole);
+        return properties.filter((property) => visible.includes(property.scope));
     }
 
     // Cross-table read: Property now lives in its own table, but the real-estate-category
@@ -299,5 +427,22 @@ export class PropertyService extends Service {
         if (org.business_category !== 'real-estate') throw new PropertyCategoryNotAllowedError(orgUuid);
 
         return org;
+    }
+
+    // Deliberately duplicated (not cross-lambda imported) from
+    // api/media/services/organisation-membership.service.ts's pattern — reads the viewer's
+    // membership role directly from ORGANISATION_TABLE rather than trusting the (unverified,
+    // jwt-decode-only) Organisation cookie JWT, which carries no role at all.
+    public async getViewerRole(orgUuid: string, userId: string): Promise<OrganisationRole | null> {
+        const res = await this.DB_Client.send(
+            new GetCommand({
+                TableName: ORGANISATION_TABLE,
+                Key: { PK: `ORG#${orgUuid}`, SK: `USER#${userId}` },
+            }),
+        );
+
+        if (!res.Item) return null;
+        const membership = JSON.parse(res.Item.data as string) as OrganisationUser;
+        return membership.role;
     }
 }

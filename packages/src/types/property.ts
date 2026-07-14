@@ -13,6 +13,11 @@ export type PropertyAreaKey = string
 
 export type PropertyType = 'house' | 'condo' | 'commercial' | 'land'
 
+// Audience-based visibility (content-scope-visibility): 'public' = the org's public website,
+// 'staff' = dashboard, all members except guest-role, 'guest' = dashboard, all members including
+// guest-role. Not a strict hierarchy — 'guest' is the widest internal audience, not the narrowest.
+export type PropertyScope = 'public' | 'staff' | 'guest'
+
 export type Unit = {
   uuid: string
   title: string
@@ -45,6 +50,11 @@ export type Property = {
   region: PropertyRegion
   area_key: PropertyAreaKey
   type: PropertyType
+  scope: PropertyScope
+  // URL-safe identifier for the public read path (queries-api's GET /properties?slug=<slug>),
+  // unique per-organisation (not globally). Nullable — records written before this field existed
+  // have no slug and simply aren't publicly linkable until edited to add one.
+  slug: string | null
   sellPrice: number | null
   sellDiscountPrice: number | null
   sellMaxPrice: number | null

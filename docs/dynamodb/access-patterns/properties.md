@@ -36,6 +36,8 @@ Gating is enforced at the service layer, not in the key: only organisations with
 | `GSI2SK` | `property-type-index` | `PROPERTY#{property_uuid}`             | Sort key within a type                                                        |
 | `GSI3PK` | `property-region-index` | `ORG#{org_uuid}#PROPERTY#COUNTRY#{country}#REGION#{region}` | Groups listings by state/province, for markets where that's meaningful. **Sparse** — omitted entirely when `region` is `null` |
 | `GSI3SK` | `property-region-index` | `AREA#{area_key}#PROPERTY#{property_uuid}` | Groups by area within a region                                              |
+| `PK`     | `main table` (separate item) | `ORG#{org_uuid}#PROPERTY#SLUG#{slug}`  | Slug uniqueness / slug→uuid lookup, one item per slug — see Key Design Notes |
+| `SK`     | `main table` (separate item) | `META`                                 | Fixed sort key for the slug-lookup item                                     |
 
 ### Index Summary
 
@@ -50,15 +52,17 @@ Gating is enforced at the service layer, not in the key: only organisations with
 
 | Pattern                                                                                                   | Key Condition                                                                                                                                                                                                                 | Command         | Index                                |
 | ----------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------- | -------------------------------------- |
-| Create property listing<br><br>`fn: createProperty`                                                        | `PK = ORG#{org_uuid}#PROPERTY`<br>`SK = PROPERTY#{property_uuid}`<br><br>Units embedded inline; `GSI1PK`/`GSI1SK`/`GSI2PK` set from `country`/`area_key`/`type` at creation<br><br>`GSI3PK`/`GSI3SK` set too, but only if `region` is non-null                                                     | `PutCommand`    | `main table`                          |
+| Create property listing<br><br>`fn: createProperty`                                                        | `PK = ORG#{org_uuid}#PROPERTY`<br>`SK = PROPERTY#{property_uuid}`<br><br>Units embedded inline; `GSI1PK`/`GSI1SK`/`GSI2PK` set from `country`/`area_key`/`type` at creation<br><br>`GSI3PK`/`GSI3SK` set too, but only if `region` is non-null<br><br>Written **atomically with the slug-lookup item** (see below) — `TransactWriteCommand`, not a plain `PutCommand`, so a slug collision fails the whole create rather than leaving an orphaned property with no lookup | `TransactWriteCommand` | `main table`                    |
 | Get property by ID                                                                                          | `PK = ORG#{org_uuid}#PROPERTY`<br>`SK = PROPERTY#{property_uuid}`                                                                                                                                                              | `GetCommand`    | `main table`                          |
-| List all properties for an org<br><br>_Used to export the theme-maker `data-properties` JSON at build time_ | `PK = ORG#{org_uuid}#PROPERTY`<br>`begins_with(SK, "PROPERTY#")`                                                                                                                                                                | `QueryCommand`  | `main table`                          |
+| Get property by slug<br><br>`fn: getPropertyBySlug`                                                        | `PK = ORG#{org_uuid}#PROPERTY#SLUG#{slug}`<br>`SK = META`<br><br>Resolves to `{property_uuid}`, then a second `GetCommand` fetches the actual listing (same as "Get property by ID") — two point reads, no scan   | `GetCommand` ×2 | `main table`                          |
+| List all properties for an org                                                                              | `PK = ORG#{org_uuid}#PROPERTY`<br>`begins_with(SK, "PROPERTY#")`                                                                                                                                                                | `QueryCommand`  | `main table`                          |
 | List properties by country<br><br>_e.g. an org's AU site vs. TH site at build time_                          | `GSI1PK = ORG#{org_uuid}#PROPERTY#COUNTRY#{country}`                                                                                                                                                                            | `QueryCommand`  | `property-area-index`<br>`(GSI1)`    |
 | List properties by area within a country<br><br>_Location dropdown filter (dashboard / future public API)_  | `GSI1PK = ORG#{org_uuid}#PROPERTY#COUNTRY#{country}`<br>`begins_with(GSI1SK, "AREA#{area_key}#")`                                                                                                                               | `QueryCommand`  | `property-area-index`<br>`(GSI1)`    |
 | List properties by type<br><br>_Type-filter icon row (dashboard / future public API)_                       | `GSI2PK = ORG#{org_uuid}#PROPERTY#TYPE#{type}`                                                                                                                                                                                  | `QueryCommand`  | `property-type-index`<br>`(GSI2)`    |
 | List properties by region<br><br>_State/province filter for markets that use one, e.g. AU dashboard "NSW" filter_ | `GSI3PK = ORG#{org_uuid}#PROPERTY#COUNTRY#{country}#REGION#{region}`<br><br>Note: no results for markets that leave `region` null — use "List properties by country" instead                                            | `QueryCommand`  | `property-region-index`<br>`(GSI3)`  |
-| Update property<br><br>`fn: updateProperty`                                                                 | `PK = ORG#{org_uuid}#PROPERTY`<br>`SK = PROPERTY#{property_uuid}`<br><br>If `country`, `area_key`, or `type` changes, `GSI1PK`/`GSI1SK`/`GSI2PK` must be rewritten in the same write — they're plain projected attributes, not separate items<br><br>If `region` changes (including from/to `null`), `GSI3PK`/`GSI3SK` must be added, updated, or removed accordingly | `UpdateCommand` | `main table`                          |
-| Delete property<br><br>`fn: deleteProperty`                                                                 | `PK = ORG#{org_uuid}#PROPERTY`<br>`SK = PROPERTY#{property_uuid}`                                                                                                                                                              | `DeleteCommand` | `main table`                          |
+| Update property<br><br>`fn: updateProperty`                                                                 | `PK = ORG#{org_uuid}#PROPERTY`<br>`SK = PROPERTY#{property_uuid}`<br><br>If `country`, `area_key`, or `type` changes, `GSI1PK`/`GSI1SK`/`GSI2PK` must be rewritten in the same write — they're plain projected attributes, not separate items<br><br>If `region` changes (including from/to `null`), `GSI3PK`/`GSI3SK` must be added, updated, or removed accordingly<br><br>Always a `TransactWriteCommand` (not a plain `UpdateCommand`) so the main item update stays atomic with the slug-lookup item churn below | `TransactWriteCommand` | `main table`                    |
+| Update property's slug<br><br>(part of `fn: updateProperty`, only when `slug` actually changes)             | Delete old lookup item (`PK = ORG#{org_uuid}#PROPERTY#SLUG#{old_slug}, SK = META`, only if a slug existed before) + Put new one (`PK = ORG#{org_uuid}#PROPERTY#SLUG#{new_slug}, SK = META`, same uniqueness `ConditionExpression` as create) — both in the same transaction as the main item update | `TransactWriteCommand` (same transaction) | `main table` |
+| Delete property<br><br>`fn: deleteProperty`                                                                 | `PK = ORG#{org_uuid}#PROPERTY`<br>`SK = PROPERTY#{property_uuid}`<br><br>Also deletes the slug-lookup item in the same transaction, if the property had a slug — avoids a dangling lookup pointing at a now-deleted `property_uuid` | `TransactWriteCommand` | `main table`                          |
 
 ### Typescript Types
 
@@ -92,6 +96,15 @@ export type PropertyAreaKey = string
 
 ```ts
 export type PropertyType = 'house' | 'condo' | 'commercial' | 'land'
+```
+
+##### PropertyScope
+
+```ts
+// Audience-based visibility (content-scope-visibility): 'public' = the org's public website,
+// 'staff' = dashboard, all members except guest-role, 'guest' = dashboard, all members including
+// guest-role. 'public' is a superset — it's also visible in the dashboard, not website-only.
+export type PropertyScope = 'public' | 'staff' | 'guest'
 ```
 
 ##### Unit
@@ -133,6 +146,8 @@ export type Property = {
 	region: PropertyRegion
 	area_key: PropertyAreaKey
 	type: PropertyType
+	scope: PropertyScope
+	slug: string | null // unique per org — see Key Design Notes
 	sellPrice: number | null
 	sellDiscountPrice: number | null
 	sellMaxPrice: number | null
@@ -169,5 +184,28 @@ export type Property = {
 - **`favorite` / `hidden` / `selectedUnitId` / `tags` are intentionally excluded** from the stored `Property` type. `PropertyMapView.md` explicitly marks `selectedUnitId` and `tags` as "computed at runtime, not baked in" by `property-map-view-init.ts`. `favorite` and `hidden` are per-**visitor** drawer state on a site with no visitor auth — they aren't organisation data at all, and are almost certainly meant to be seeded `false` at parse time and then overlaid from the visitor's own `localStorage`. Storing them on the org's `Property` item would let one visitor's favorite/hidden toggle leak into every other visitor's view of the same listing.
 - **`uuid` vs. the frontend's numeric `id`** — every other access-pattern doc in this repo (`template.md`, `organisation.md`) keys entities by uuid string, so `Property`/`Unit` here follow suit with `property_uuid`/a `uuid` field on `Unit`. `PropertyMapView.md`'s own `Property.id`/`Unit.id` are typed `number`, though — whatever build step exports DynamoDB `Property` records into the `data-properties` JSON needs to either map uuid → a stable numeric id, or theme-maker's type needs to widen to `string`. Flagging this now rather than picking silently, since it's a cross-repo contract between this service and theme-maker.
 - **No `business_category` in the key** — enforced at the service layer only (reject Property CRUD unless the org's `business_category` is `"real-estate"`), the same pattern `template.md` uses for its catalogue lookups via org metadata, not baked into the partition/sort key. Since Property lives in its own table, this check is a deliberate **cross-table read**: `properties/services/property.service.ts` reads the org's metadata item from `sale-sync-organisation` (env var `ORGANISATION_TABLE_NAME`) before `createProperty` proceeds. The Properties Lambda's IAM role gets a scoped `DynamoDBReadPolicy` on that table for exactly this purpose — see `docs/dynamodb/tables.md`.
-- **Updating `country`, `region`, `area_key`, or `type` rewrites the GSI attributes in place** — `GSI1PK`/`GSI2PK`/`GSI3PK` (and their SKs) are plain attributes projected by DynamoDB, not separate items, so `updateProperty` just needs to `SET` (or, for `region` going to `null`, `REMOVE`) the relevant attributes in the same `UpdateCommand`; no cleanup of a stale item is required.
+- **Updating `country`, `region`, `area_key`, or `type` rewrites the GSI attributes in place** — `GSI1PK`/`GSI2PK`/`GSI3PK` (and their SKs) are plain attributes projected by DynamoDB, not separate items, so `updateProperty` just needs to `SET` (or, for `region` going to `null`, `REMOVE`) the relevant attributes in the same transact `Update`; no cleanup of a stale item is required for those. `slug` is different — see below.
+- **`slug` (added by `properties-scope-field`'s follow-up work, unblocking `website-queries-api`'s `GET
+  /properties?slug=<slug>`) is a separate item, not just an attribute, because it needs to be unique.**
+  Unlike `Organisation.id` (globally unique, `PK = ORG#ID#{id}`), a property slug only needs to be unique
+  **within its own organisation** — two different real-estate orgs' public sites are unrelated, so
+  nothing requires their slugs not to collide. The lookup item lives at `PK =
+  ORG#{org_uuid}#PROPERTY#SLUG#{slug}, SK = META`, `data: {property_uuid}`, written with
+  `ConditionExpression: attribute_not_exists(PK) AND attribute_not_exists(SK)` for atomic uniqueness
+  (same mechanism `organisation.md`'s `ORG#ID#{id}` lookup uses, just scoped per-org instead of global).
+  Because this is a real second item (not a projected attribute), `createProperty`/`updateProperty`/
+  `deleteProperty` all use `TransactWriteCommand` rather than a plain `Put`/`Update`/`Delete`, so the
+  slug-lookup item can never drift out of sync with the main property item — an update that changes
+  `slug` deletes the old lookup item and creates the new one in the same transaction as the main item
+  update; a delete removes both. Records written before `slug` existed have no lookup item and read back
+  with `slug: null` (see `PropertyService.parseItem`) — not publicly linkable by slug until edited.
+- **`scope` (added by `properties-scope-field`) is filtered in application code, not a GSI.** Every list
+  method and `getPropertyById` take the caller's `OrganisationRole` (resolved via a new
+  `PropertyService.getViewerRole`, a cross-table `GetCommand` against `ORGANISATION_TABLE` mirroring
+  `assertRealEstateOrg`'s existing pattern) and filter the already-fetched items in memory
+  (`visibleScopesFor`/`filterByScope`) rather than adding a fourth GSI keyed by scope. At current data
+  volumes a post-query filter is simpler and cheap; revisit with a scope-keyed GSI only if a single org's
+  listing count grows large enough that over-fetching becomes a real cost. Records written before this
+  field existed have no `scope` attribute at all — read paths default a missing value to `'staff'`
+  (`PropertyService.parseItem`) rather than requiring a backfill migration.
 - **`org_uuid` is resolved from the `Organisation` cookie, not a client-supplied parameter** — every access pattern above is scoped to one org, but the caller never passes `org_uuid` directly. `properties/default/default.controller.ts` decodes it from the `Organisation` cookie JWT (`getOrganisation()` in `@sale-sync/shared`) on every request and returns a 404 (`NO_ORGANISATION`) if the cookie is missing or invalid — the same pattern `media.md`'s API uses. This keeps a caller from ever operating on an org other than the one they've selected, and is why `CreatePropertySchema`/`UpdatePropertySchema`/`DeletePropertySchema` (see `packages/src/dtos/property.ts`) have no `org_uuid` field.

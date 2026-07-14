@@ -1,6 +1,9 @@
 import { z } from 'zod';
 
 export const PropertyTypeSchema = z.enum(['house', 'condo', 'commercial', 'land']);
+export const PropertyScopeSchema = z.enum(['public', 'staff', 'guest']);
+// Lowercase, numbers, single hyphens between segments — no leading/trailing/double hyphens.
+export const PROPERTY_SLUG_REGEX = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
 const UnitInputSchema = z.object({
     uuid: z.string().uuid().optional(),
@@ -33,6 +36,8 @@ export const CreatePropertySchema = z.object({
     region: z.string().nullable().optional(),
     area_key: z.string(),
     type: PropertyTypeSchema,
+    scope: PropertyScopeSchema.default('staff'),
+    slug: z.string().regex(PROPERTY_SLUG_REGEX, 'slug must be lowercase letters, numbers, and hyphens only'),
     sellPrice: z.number().nullable().optional(),
     sellDiscountPrice: z.number().nullable().optional(),
     sellMaxPrice: z.number().nullable().optional(),
@@ -60,6 +65,8 @@ export const UpdatePropertySchema = z.object({
     region: z.string().nullable().optional(),
     area_key: z.string().optional(),
     type: PropertyTypeSchema.optional(),
+    scope: PropertyScopeSchema.optional(),
+    slug: z.string().regex(PROPERTY_SLUG_REGEX, 'slug must be lowercase letters, numbers, and hyphens only').optional(),
     sellPrice: z.number().nullable().optional(),
     sellDiscountPrice: z.number().nullable().optional(),
     sellMaxPrice: z.number().nullable().optional(),
