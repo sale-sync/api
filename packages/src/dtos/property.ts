@@ -23,15 +23,12 @@ const UnitInputSchema = z.object({
     car: z.number().nullable().optional(),
     unitSize: z.number().nullable().optional(),
     landSize: z.number().nullable().optional(),
-    size: z.string().nullable().optional(),
     condition: z.string().nullable().optional(),
     furnishing: z.string().nullable().optional(),
 });
 
 export const CreatePropertySchema = z.object({
     title: z.string(),
-    typeLabel: z.string(),
-    postedLabel: z.string(),
     lat: z.number(),
     lng: z.number(),
     location: z.string(),
@@ -59,8 +56,6 @@ export type CreatePropertyInput = z.infer<typeof CreatePropertySchema>;
 export const UpdatePropertySchema = z.object({
     property_uuid: z.string().uuid(),
     title: z.string().optional(),
-    typeLabel: z.string().optional(),
-    postedLabel: z.string().optional(),
     lat: z.number().optional(),
     lng: z.number().optional(),
     location: z.string().optional(),

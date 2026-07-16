@@ -40,7 +40,6 @@ export type Unit = {
   car: number | null
   unitSize: number | null
   landSize: number | null
-  size: string | null
   condition: string | null
   furnishing: string | null
 }
@@ -48,8 +47,6 @@ export type Unit = {
 export type Property = {
   uuid: string
   title: string
-  typeLabel: string
-  postedLabel: string
   lat: number
   lng: number
   location: string

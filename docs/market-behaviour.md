@@ -9,7 +9,7 @@ Early-stage focus markets for the real-estate vertical. This documents how buyer
 - Hierarchy used: **Country → Region (state) → Suburb (`area_key`)**. `region` should be populated (`"NSW"`, `"VIC"`, `"QLD"`, `"WA"`, `"SA"`, `"TAS"`, `"ACT"`, `"NT"`).
 - `location` (free text) is typically `"{Suburb}, {STATE} {Postcode}"`, e.g. `"Bondi, NSW 2026"`.
 
-**Property types:** house, apartment/unit ("condo" doesn't exist as a term — map `type: "condo"` to "apartment"/"unit" in UI copy), townhouse, land, rural/acreage, commercial. `typeLabel` should carry the AU-facing term even though the underlying `type` enum stays generic.
+**Property types:** house, apartment/unit ("condo" doesn't exist as a term — map `type: "condo"` to "apartment"/"unit" in UI copy), townhouse, land, rural/acreage, commercial. The underlying `type` enum stays generic; mapping it to the AU-facing display term is a UI-layer concern, not a stored field.
 
 **Ownership:** the overwhelming majority of residential listings are **freehold**. `isLeasehold` will be `false` for nearly every AU listing — it mainly applies to some retirement villages, crown leases (rare, mostly NT/ACT ground leases), and strata company-title edge cases. Don't surface a leasehold filter prominently for AU; it's noise there.
 
@@ -40,5 +40,5 @@ Early-stage focus markets for the real-estate vertical. This documents how buyer
 - `region` nullability (already in `properties.md`) is directly driven by this: AU needs it, TH doesn't — confirmed by how each market's real-estate portals are actually structured, not a guess.
 - `postcode` is the one location field that's populated for *both* markets rather than being market-exclusive: required and search-driving for AU, optional and informational-only for TH.
 - `isLeasehold` should not be treated as a rarely-used boolean — for TH it's close to a required filter; for AU it's closer to always-false. Any future "primary filters" list in the map view's UI should be market-aware rather than one fixed set for every org.
-- `type`'s enum (`'house' | 'condo' | 'commercial' | 'land'`) covers both markets' vocabulary reasonably well as *stored* values, but `typeLabel` (the display string) needs to diverge — "condo" reads naturally in TH listings, "apartment"/"unit" in AU ones — so `typeLabel` should stay a free string set per-listing rather than derived automatically from `type`.
+- `type`'s enum (`'house' | 'condo' | 'commercial' | 'land'`) covers both markets' vocabulary reasonably well as *stored* values, but the display term needs to diverge — "condo" reads naturally in TH listings, "apartment"/"unit" in AU ones. Since there's no per-listing display-string field, this mapping (`type` → market-appropriate label) is UI-layer logic, keyed off `type` + `country`, not stored data.
 - Land-size units differ by market (m² vs. rai/ngan/wah) — worth confirming with whoever builds the property-management form whether `landSize` stays a free-text display string (matching theme-maker's existing type) or gets a structured `{ value, unit }` shape before more countries are added.

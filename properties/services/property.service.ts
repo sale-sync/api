@@ -69,8 +69,6 @@ export class PropertyService extends Service {
         const property: Property = {
             uuid: uuidv4(),
             title: input.title,
-            typeLabel: input.typeLabel,
-            postedLabel: input.postedLabel,
             lat: input.lat,
             lng: input.lng,
             location: input.location,
@@ -241,8 +239,6 @@ export class PropertyService extends Service {
         const updated: Property = {
             ...existing,
             ...(updates.title !== undefined && { title: updates.title }),
-            ...(updates.typeLabel !== undefined && { typeLabel: updates.typeLabel }),
-            ...(updates.postedLabel !== undefined && { postedLabel: updates.postedLabel }),
             ...(updates.lat !== undefined && { lat: updates.lat }),
             ...(updates.lng !== undefined && { lng: updates.lng }),
             ...(updates.location !== undefined && { location: updates.location }),
@@ -357,7 +353,6 @@ export class PropertyService extends Service {
             car: unit.car ?? null,
             unitSize: unit.unitSize ?? null,
             landSize: unit.landSize ?? null,
-            size: unit.size ?? null,
             condition: unit.condition ?? null,
             furnishing: unit.furnishing ?? null,
         };

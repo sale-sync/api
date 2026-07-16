@@ -23,7 +23,6 @@ const UnitSchema = z.object({
     car: z.number().nullable(),
     unitSize: z.number().nullable(),
     landSize: z.number().nullable(),
-    size: z.string().nullable(),
     condition: z.string().nullable(),
     furnishing: z.string().nullable(),
 });
@@ -31,8 +30,6 @@ const UnitSchema = z.object({
 const PropertySchema = z.object({
     uuid: z.string().uuid(),
     title: z.string(),
-    typeLabel: z.string(),
-    postedLabel: z.string(),
     lat: z.number(),
     lng: z.number(),
     location: z.string(),
