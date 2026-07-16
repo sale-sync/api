@@ -1,0 +1,46 @@
+{
+  "TransactItems": [
+    {
+      "Put": {
+        "TableName": "staging-sale-sync-properties",
+        "Item": {
+          "PK": {
+            "S": "ORG#563453ec-9dac-45f3-969e-e2a4ae4fff62#PROPERTY"
+          },
+          "SK": {
+            "S": "PROPERTY#a9a05c40-8a1e-48bf-8f05-36aaf87a12cf"
+          },
+          "GSI1PK": {
+            "S": "ORG#563453ec-9dac-45f3-969e-e2a4ae4fff62#PROPERTY#COUNTRY#TH"
+          },
+          "GSI1SK": {
+            "S": "AREA#chiangmai#PROPERTY#a9a05c40-8a1e-48bf-8f05-36aaf87a12cf"
+          },
+          "GSI2PK": {
+            "S": "ORG#563453ec-9dac-45f3-969e-e2a4ae4fff62#PROPERTY#TYPE#condo"
+          },
+          "data": {
+            "S": "{\"uuid\": \"a9a05c40-8a1e-48bf-8f05-36aaf87a12cf\", \"title\": \"Santitham Serviced Apartments\", \"typeLabel\": \"Serviced Apartment\", \"postedLabel\": \"July\", \"lat\": 18.8034, \"lng\": 98.9789, \"location\": \"Chiang Mai\", \"country\": \"TH\", \"region\": null, \"area_key\": \"chiangmai\", \"type\": \"condo\", \"scope\": \"public\", \"slug\": \"santitham-serviced-apartments\", \"sellPrice\": null, \"sellDiscountPrice\": null, \"sellMaxPrice\": null, \"code\": \"SantithamServ\", \"isLeasehold\": false, \"brochure\": null, \"image\": \"https://picsum.photos/seed/cm-rent-3-main/1200/800\", \"images\": [\"https://picsum.photos/seed/cm-rent-3-main/1200/800\", \"https://picsum.photos/seed/cm-rent-3-b/1200/800\"], \"description\": \"Budget-friendly serviced apartments near Chiang Mai University and Santitham night market. Weekly cleaning, on-site laundry, monthly contracts available.\", \"payment\": \"1 month deposit + 1 month advance\", \"units\": [{\"uuid\": \"8b7cb3b5-5dd8-4128-811e-498536d849ae\", \"title\": \"Standard Room\", \"tag\": \"rent\", \"image\": \"https://picsum.photos/seed/cm-rent-3-unit-a/1200/800\", \"sellPrice\": null, \"sellDiscountPrice\": null, \"sellMaxPrice\": null, \"soldPrice\": null, \"rentPrice\": 6500, \"beds\": 1, \"baths\": 1, \"hall\": null, \"kitchen\": null, \"pantry\": null, \"car\": null, \"unitSize\": 24, \"landSize\": null, \"size\": \"24 sqm\", \"condition\": \"Good\", \"furnishing\": \"Fully-fitted\"}, {\"uuid\": \"8192dfcc-a682-43bb-a1c9-4354ff71c61d\", \"title\": \"Deluxe Room\", \"tag\": \"rent\", \"image\": \"https://picsum.photos/seed/cm-rent-3-unit-b/1200/800\", \"sellPrice\": null, \"sellDiscountPrice\": null, \"sellMaxPrice\": null, \"soldPrice\": null, \"rentPrice\": 9000, \"beds\": 1, \"baths\": 1, \"hall\": 1, \"kitchen\": 1, \"pantry\": null, \"car\": null, \"unitSize\": 32, \"landSize\": null, \"size\": \"32 sqm\", \"condition\": \"Good\", \"furnishing\": \"Fully-fitted\"}], \"created_at\": \"2026-07-16T15:17:04.995Z\", \"updated_at\": \"2026-07-16T15:17:04.995Z\"}"
+          }
+        }
+      }
+    },
+    {
+      "Put": {
+        "TableName": "staging-sale-sync-properties",
+        "Item": {
+          "PK": {
+            "S": "ORG#563453ec-9dac-45f3-969e-e2a4ae4fff62#PROPERTY#SLUG#santitham-serviced-apartments"
+          },
+          "SK": {
+            "S": "META"
+          },
+          "data": {
+            "S": "{\"property_uuid\": \"a9a05c40-8a1e-48bf-8f05-36aaf87a12cf\"}"
+          }
+        },
+        "ConditionExpression": "attribute_not_exists(PK) AND attribute_not_exists(SK)"
+      }
+    }
+  ]
+}

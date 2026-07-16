@@ -1,0 +1,46 @@
+{
+  "TransactItems": [
+    {
+      "Put": {
+        "TableName": "staging-sale-sync-properties",
+        "Item": {
+          "PK": {
+            "S": "ORG#563453ec-9dac-45f3-969e-e2a4ae4fff62#PROPERTY"
+          },
+          "SK": {
+            "S": "PROPERTY#b564ed47-6672-4e86-987c-2e9a2821559f"
+          },
+          "GSI1PK": {
+            "S": "ORG#563453ec-9dac-45f3-969e-e2a4ae4fff62#PROPERTY#COUNTRY#TH"
+          },
+          "GSI1SK": {
+            "S": "AREA#chiangmai#PROPERTY#b564ed47-6672-4e86-987c-2e9a2821559f"
+          },
+          "GSI2PK": {
+            "S": "ORG#563453ec-9dac-45f3-969e-e2a4ae4fff62#PROPERTY#TYPE#land"
+          },
+          "data": {
+            "S": "{\"uuid\": \"b564ed47-6672-4e86-987c-2e9a2821559f\", \"title\": \"Doi Suthep View Estate\", \"typeLabel\": \"Land Plot\", \"postedLabel\": \"July\", \"lat\": 18.8021, \"lng\": 98.9114, \"location\": \"Chiang Mai\", \"country\": \"TH\", \"region\": null, \"area_key\": \"chiangmai\", \"type\": \"land\", \"scope\": \"public\", \"slug\": \"doi-suthep-view-estate\", \"sellPrice\": 6200000, \"sellDiscountPrice\": null, \"sellMaxPrice\": 9800000, \"code\": \"DoiSuthepEst\", \"isLeasehold\": false, \"brochure\": null, \"image\": \"https://picsum.photos/seed/cm-buy-3-main/1200/800\", \"images\": [\"https://picsum.photos/seed/cm-buy-3-main/1200/800\", \"https://picsum.photos/seed/cm-buy-3-b/1200/800\"], \"description\": \"Elevated land plots on the western foothills of Chiang Mai with unobstructed views of Doi Suthep. Titled land (Chanote), road access, utilities at boundary.\", \"payment\": \"Booking 100,000 THB\\nContract within 30 days\\nBalance on transfer\", \"units\": [{\"uuid\": \"14a68efd-38e1-4db6-b027-023f3065e153\", \"title\": \"Plot 1 - 100 sqwa\", \"tag\": \"buy\", \"image\": \"https://picsum.photos/seed/cm-buy-3-unit-a/1200/800\", \"sellPrice\": 6200000, \"sellDiscountPrice\": null, \"sellMaxPrice\": null, \"soldPrice\": null, \"rentPrice\": null, \"beds\": null, \"baths\": null, \"hall\": null, \"kitchen\": null, \"pantry\": null, \"car\": null, \"unitSize\": null, \"landSize\": 100, \"size\": \"100 sqwa\", \"condition\": null, \"furnishing\": null}, {\"uuid\": \"2f1488b6-c00e-4b1a-9591-730a20d3eacb\", \"title\": \"Plot 2 - 158 sqwa\", \"tag\": \"buy\", \"image\": \"https://picsum.photos/seed/cm-buy-3-unit-b/1200/800\", \"sellPrice\": 9200000, \"sellDiscountPrice\": null, \"sellMaxPrice\": 9800000, \"soldPrice\": null, \"rentPrice\": null, \"beds\": null, \"baths\": null, \"hall\": null, \"kitchen\": null, \"pantry\": null, \"car\": null, \"unitSize\": null, \"landSize\": 158, \"size\": \"158 sqwa\", \"condition\": null, \"furnishing\": null}], \"created_at\": \"2026-07-16T15:17:04.994Z\", \"updated_at\": \"2026-07-16T15:17:04.994Z\"}"
+          }
+        }
+      }
+    },
+    {
+      "Put": {
+        "TableName": "staging-sale-sync-properties",
+        "Item": {
+          "PK": {
+            "S": "ORG#563453ec-9dac-45f3-969e-e2a4ae4fff62#PROPERTY#SLUG#doi-suthep-view-estate"
+          },
+          "SK": {
+            "S": "META"
+          },
+          "data": {
+            "S": "{\"property_uuid\": \"b564ed47-6672-4e86-987c-2e9a2821559f\"}"
+          }
+        },
+        "ConditionExpression": "attribute_not_exists(PK) AND attribute_not_exists(SK)"
+      }
+    }
+  ]
+}

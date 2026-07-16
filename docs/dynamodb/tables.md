@@ -1,6 +1,6 @@
 # DynamoDB Tables
 
-This API uses **5 DynamoDB tables** across all Lambda services.
+This API uses **6 DynamoDB tables** across all Lambda services.
 
 | Table | Name | Env var | Services |
 |---|---|---|---|
@@ -9,6 +9,7 @@ This API uses **5 DynamoDB tables** across all Lambda services.
 | Media | `sale-sync-media` | `MEDIA_TABLE_NAME` (from the `ss/infra` stack) | Media, media-s3-event |
 | Blocks | `sale-sync-block` | `BLOCK_TABLE_NAME` (unmanaged parameter — see [Known gaps](../infra/README.md#known-gaps-intentionally-not-auto-fixed)) | Blocks |
 | Properties | `sale-sync-properties` | `PROPERTY_TABLE_NAME` (from the `ss/infra` stack) | Properties |
+| Website | `sale-sync-website` | `WEBSITE_TABLE_NAME` (from the `ss/infra` stack) | none yet — provisioned ahead of use, see [`website-staging-environment`](../../../backlogs/website/children/website-staging-environment/plan.md) |
 
 Every table's env var name follows the same `<DOMAIN>_TABLE_NAME` convention — no function reads a bare `TABLE_NAME` anymore.
 
@@ -78,3 +79,13 @@ The Properties Lambda also gets a scoped `DynamoDBReadPolicy` on `sale-sync-orga
 Used by `properties/services/property.service.ts`.
 
 See [Property access patterns](./access-patterns/properties.md) for the key schema.
+
+---
+
+## Website table
+
+Provisioned by the standalone `ss/infra` stack (`ss/infra/template.yaml`), no GSIs. Tracks deployed `theme-maker` sites — template/staging demo sites (`shape`, `wello`) and, later, per-client production sites created by `website-client-manual-deploy` — so there's a single queryable record of what's deployed where, instead of relying on each theme's local `.env`/CFN outputs.
+
+Not yet consumed by any Lambda service — provisioned ahead of use as part of `website-staging-environment`; registering the already-deployed `shape`/`wello` stacks as items is a follow-up task on that same backlog.
+
+See [Website access patterns](./access-patterns/website.md) for the key schema.

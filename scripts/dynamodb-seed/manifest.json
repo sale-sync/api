@@ -1,0 +1,56 @@
+[
+  {
+    "file": "chiang-mai-riverside-villas-buy.transact.json",
+    "title": "Ping Riverside Villas",
+    "slug": "ping-riverside-villas",
+    "uuid": "4e7d2631-d5a1-484e-9bbc-7d633bbf4cb7"
+  },
+  {
+    "file": "chiang-mai-nimman-garden-condo-buy.transact.json",
+    "title": "Nimman Garden Condo",
+    "slug": "nimman-garden-condo",
+    "uuid": "b5cdd589-50ab-4135-b304-4ae89d14982c"
+  },
+  {
+    "file": "chiang-mai-doi-suthep-estate-buy.transact.json",
+    "title": "Doi Suthep View Estate",
+    "slug": "doi-suthep-view-estate",
+    "uuid": "b564ed47-6672-4e86-987c-2e9a2821559f"
+  },
+  {
+    "file": "chiang-mai-old-city-loft-rent.transact.json",
+    "title": "Old City Loft Rentals",
+    "slug": "old-city-loft-rentals",
+    "uuid": "b5efe0e7-56dd-48af-a4ad-f5a27ba19671"
+  },
+  {
+    "file": "chiang-mai-hang-dong-pool-villa-rent.transact.json",
+    "title": "Hang Dong Pool Villa Rentals",
+    "slug": "hang-dong-pool-villa-rentals",
+    "uuid": "996f8050-d729-4a84-bd56-e1194ab9e54a"
+  },
+  {
+    "file": "chiang-mai-santitham-apartments-rent.transact.json",
+    "title": "Santitham Serviced Apartments",
+    "slug": "santitham-serviced-apartments",
+    "uuid": "a9a05c40-8a1e-48bf-8f05-36aaf87a12cf"
+  },
+  {
+    "file": "chiang-mai-mae-rim-teak-house-sold.transact.json",
+    "title": "Mae Rim Teak House",
+    "slug": "mae-rim-teak-house",
+    "uuid": "47b52a62-442f-441e-85b9-a7071b4ffe6e"
+  },
+  {
+    "file": "chiang-mai-chang-phuak-townhome-sold.transact.json",
+    "title": "Chang Phuak Townhome",
+    "slug": "chang-phuak-townhome",
+    "uuid": "3e76fba4-aed3-4ee6-b830-851922049ed5"
+  },
+  {
+    "file": "chiang-mai-san-kamphaeng-land-sold.transact.json",
+    "title": "San Kamphaeng Land Plot",
+    "slug": "san-kamphaeng-land-plot",
+    "uuid": "4121dc4d-5778-4514-b19a-8a947fb91f6a"
+  }
+]

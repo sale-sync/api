@@ -18,13 +18,20 @@ export type PropertyType = 'house' | 'condo' | 'commercial' | 'land'
 // guest-role. Not a strict hierarchy — 'guest' is the widest internal audience, not the narrowest.
 export type PropertyScope = 'public' | 'staff' | 'guest'
 
+// Listing status for a unit. 'buy' pairs with the existing sellPrice/sellDiscountPrice/sellMaxPrice;
+// 'sold'/'rent' each get their own price field (soldPrice/rentPrice) rather than reusing sell*.
+export type UnitTag = 'buy' | 'rent' | 'sold'
+
 export type Unit = {
   uuid: string
   title: string
   image: string | null
+  tag: UnitTag
   sellPrice: number | null
   sellDiscountPrice: number | null
   sellMaxPrice: number | null
+  soldPrice: number | null
+  rentPrice: number | null
   beds: number | null
   baths: number | null
   hall: number | null

@@ -1,0 +1,46 @@
+{
+  "TransactItems": [
+    {
+      "Put": {
+        "TableName": "staging-sale-sync-properties",
+        "Item": {
+          "PK": {
+            "S": "ORG#563453ec-9dac-45f3-969e-e2a4ae4fff62#PROPERTY"
+          },
+          "SK": {
+            "S": "PROPERTY#4e7d2631-d5a1-484e-9bbc-7d633bbf4cb7"
+          },
+          "GSI1PK": {
+            "S": "ORG#563453ec-9dac-45f3-969e-e2a4ae4fff62#PROPERTY#COUNTRY#TH"
+          },
+          "GSI1SK": {
+            "S": "AREA#chiangmai#PROPERTY#4e7d2631-d5a1-484e-9bbc-7d633bbf4cb7"
+          },
+          "GSI2PK": {
+            "S": "ORG#563453ec-9dac-45f3-969e-e2a4ae4fff62#PROPERTY#TYPE#house"
+          },
+          "data": {
+            "S": "{\"uuid\": \"4e7d2631-d5a1-484e-9bbc-7d633bbf4cb7\", \"title\": \"Ping Riverside Villas\", \"typeLabel\": \"Pool Villa\", \"postedLabel\": \"July\", \"lat\": 18.7712, \"lng\": 99.0021, \"location\": \"Chiang Mai\", \"country\": \"TH\", \"region\": null, \"area_key\": \"chiangmai\", \"type\": \"house\", \"scope\": \"public\", \"slug\": \"ping-riverside-villas\", \"sellPrice\": 9800000, \"sellDiscountPrice\": 9350000, \"sellMaxPrice\": 14200000, \"code\": \"PingRiverVilla\", \"isLeasehold\": false, \"brochure\": null, \"image\": \"https://picsum.photos/seed/cm-buy-1-main/1200/800\", \"images\": [\"https://picsum.photos/seed/cm-buy-1-main/1200/800\", \"https://picsum.photos/seed/cm-buy-1-b/1200/800\", \"https://picsum.photos/seed/cm-buy-1-c/1200/800\"], \"description\": \"A gated pool-villa development along the Ping River, minutes from Nimman and the Old City. Three villa types, private gardens, and a shared riverside walking path.\", \"payment\": \"Booking 50,000 THB\\nContract within 14 days\\nBalance on transfer\", \"units\": [{\"uuid\": \"9ebf1c2d-7cec-4fd1-b7a6-c83f640e7a73\", \"title\": \"Type A - 3 Bed\", \"tag\": \"buy\", \"image\": \"https://picsum.photos/seed/cm-buy-1-unit-a/1200/800\", \"sellPrice\": 9800000, \"sellDiscountPrice\": 9350000, \"sellMaxPrice\": 10200000, \"soldPrice\": null, \"rentPrice\": null, \"beds\": 3, \"baths\": 4, \"hall\": 1, \"kitchen\": 1, \"pantry\": null, \"car\": 2, \"unitSize\": 210, \"landSize\": 50, \"size\": \"210 sqm\", \"condition\": \"New\", \"furnishing\": \"Fully-fitted\"}, {\"uuid\": \"52688faa-b674-416b-b5e7-cea8ce37b6d9\", \"title\": \"Type B - 4 Bed\", \"tag\": \"buy\", \"image\": \"https://picsum.photos/seed/cm-buy-1-unit-b/1200/800\", \"sellPrice\": 13600000, \"sellDiscountPrice\": null, \"sellMaxPrice\": 14200000, \"soldPrice\": null, \"rentPrice\": null, \"beds\": 4, \"baths\": 5, \"hall\": 1, \"kitchen\": 1, \"pantry\": 1, \"car\": 3, \"unitSize\": 288, \"landSize\": 68, \"size\": \"288 sqm\", \"condition\": \"New\", \"furnishing\": \"Fully-fitted\"}], \"created_at\": \"2026-07-16T15:17:04.992Z\", \"updated_at\": \"2026-07-16T15:17:04.992Z\"}"
+          }
+        }
+      }
+    },
+    {
+      "Put": {
+        "TableName": "staging-sale-sync-properties",
+        "Item": {
+          "PK": {
+            "S": "ORG#563453ec-9dac-45f3-969e-e2a4ae4fff62#PROPERTY#SLUG#ping-riverside-villas"
+          },
+          "SK": {
+            "S": "META"
+          },
+          "data": {
+            "S": "{\"property_uuid\": \"4e7d2631-d5a1-484e-9bbc-7d633bbf4cb7\"}"
+          }
+        },
+        "ConditionExpression": "attribute_not_exists(PK) AND attribute_not_exists(SK)"
+      }
+    }
+  ]
+}

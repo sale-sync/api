@@ -1,0 +1,46 @@
+{
+  "TransactItems": [
+    {
+      "Put": {
+        "TableName": "staging-sale-sync-properties",
+        "Item": {
+          "PK": {
+            "S": "ORG#563453ec-9dac-45f3-969e-e2a4ae4fff62#PROPERTY"
+          },
+          "SK": {
+            "S": "PROPERTY#4121dc4d-5778-4514-b19a-8a947fb91f6a"
+          },
+          "GSI1PK": {
+            "S": "ORG#563453ec-9dac-45f3-969e-e2a4ae4fff62#PROPERTY#COUNTRY#TH"
+          },
+          "GSI1SK": {
+            "S": "AREA#chiangmai#PROPERTY#4121dc4d-5778-4514-b19a-8a947fb91f6a"
+          },
+          "GSI2PK": {
+            "S": "ORG#563453ec-9dac-45f3-969e-e2a4ae4fff62#PROPERTY#TYPE#land"
+          },
+          "data": {
+            "S": "{\"uuid\": \"4121dc4d-5778-4514-b19a-8a947fb91f6a\", \"title\": \"San Kamphaeng Land Plot\", \"typeLabel\": \"Land Plot\", \"postedLabel\": \"June\", \"lat\": 18.7472, \"lng\": 99.1372, \"location\": \"Chiang Mai\", \"country\": \"TH\", \"region\": null, \"area_key\": \"chiangmai\", \"type\": \"land\", \"scope\": \"public\", \"slug\": \"san-kamphaeng-land-plot\", \"sellPrice\": 3100000, \"sellDiscountPrice\": null, \"sellMaxPrice\": null, \"code\": \"SanKamphaengLand\", \"isLeasehold\": false, \"brochure\": null, \"image\": \"https://picsum.photos/seed/cm-sold-3-main/1200/800\", \"images\": [\"https://picsum.photos/seed/cm-sold-3-main/1200/800\", \"https://picsum.photos/seed/cm-sold-3-b/1200/800\"], \"description\": \"A titled land plot near San Kamphaeng's handicraft district, flat and road-fronting. Now sold \\u2014 kept listed for reference.\", \"payment\": null, \"units\": [{\"uuid\": \"19277c37-a9d8-4d74-9655-d5c5becd895b\", \"title\": \"Plot 4 - 80 sqwa\", \"tag\": \"sold\", \"image\": \"https://picsum.photos/seed/cm-sold-3-unit-a/1200/800\", \"sellPrice\": 3100000, \"sellDiscountPrice\": null, \"sellMaxPrice\": null, \"soldPrice\": 2950000, \"rentPrice\": null, \"beds\": null, \"baths\": null, \"hall\": null, \"kitchen\": null, \"pantry\": null, \"car\": null, \"unitSize\": null, \"landSize\": 80, \"size\": \"80 sqwa\", \"condition\": null, \"furnishing\": null}], \"created_at\": \"2026-07-16T15:17:04.997Z\", \"updated_at\": \"2026-07-16T15:17:04.997Z\"}"
+          }
+        }
+      }
+    },
+    {
+      "Put": {
+        "TableName": "staging-sale-sync-properties",
+        "Item": {
+          "PK": {
+            "S": "ORG#563453ec-9dac-45f3-969e-e2a4ae4fff62#PROPERTY#SLUG#san-kamphaeng-land-plot"
+          },
+          "SK": {
+            "S": "META"
+          },
+          "data": {
+            "S": "{\"property_uuid\": \"4121dc4d-5778-4514-b19a-8a947fb91f6a\"}"
+          }
+        },
+        "ConditionExpression": "attribute_not_exists(PK) AND attribute_not_exists(SK)"
+      }
+    }
+  ]
+}

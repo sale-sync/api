@@ -23,6 +23,7 @@ Early-stage focus markets for the real-estate vertical. This documents how buyer
 
 - Hierarchy used: **Country → City/Area (`area_key`)** only — no meaningful middle tier. `area_key` values are city-level (`"bangkok"`, `"chiangmai"`, `"phuket"`) or, where an org wants finer granularity, neighborhood-level (`"sukhumvit"`, `"nimman"`); either is valid since it's org-defined.
 - `location` (free text) is typically `"{Neighborhood}, {City}"`, e.g. `"Nimman, Chiang Mai"`.
+- `postcode` (added 2026-07-16): Thailand has a standard 5-digit postal code system (e.g. Bangkok `10110`, Chiang Mai `50200`), but it is **not** a documented buyer-facing search pattern here the way it is for AU — TH buyers search city/neighborhood-first (see above), not by postcode. It's populated as optional, informational metadata rather than a primary search field, mainly because the TH buyer base skews heavily foreign and a postal code supports shipping/documentation needs. Unlike `region` (which stays fully `null` for TH), `postcode` should be filled in when known.
 
 **Property types:** house, condo (the dominant term for apartment-style units — unlike AU, "condo" is exactly right here), commercial, land, townhouse (often called "townhome"). Condos are usually the largest single category for foreign-buyer-facing sites.
 
@@ -37,6 +38,7 @@ Early-stage focus markets for the real-estate vertical. This documents how buyer
 ## Cross-market implications for the schema
 
 - `region` nullability (already in `properties.md`) is directly driven by this: AU needs it, TH doesn't — confirmed by how each market's real-estate portals are actually structured, not a guess.
+- `postcode` is the one location field that's populated for *both* markets rather than being market-exclusive: required and search-driving for AU, optional and informational-only for TH.
 - `isLeasehold` should not be treated as a rarely-used boolean — for TH it's close to a required filter; for AU it's closer to always-false. Any future "primary filters" list in the map view's UI should be market-aware rather than one fixed set for every org.
 - `type`'s enum (`'house' | 'condo' | 'commercial' | 'land'`) covers both markets' vocabulary reasonably well as *stored* values, but `typeLabel` (the display string) needs to diverge — "condo" reads naturally in TH listings, "apartment"/"unit" in AU ones — so `typeLabel` should stay a free string set per-listing rather than derived automatically from `type`.
 - Land-size units differ by market (m² vs. rai/ngan/wah) — worth confirming with whoever builds the property-management form whether `landSize` stays a free-text display string (matching theme-maker's existing type) or gets a structured `{ value, unit }` shape before more countries are added.

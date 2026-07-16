@@ -1,0 +1,46 @@
+{
+  "TransactItems": [
+    {
+      "Put": {
+        "TableName": "staging-sale-sync-properties",
+        "Item": {
+          "PK": {
+            "S": "ORG#563453ec-9dac-45f3-969e-e2a4ae4fff62#PROPERTY"
+          },
+          "SK": {
+            "S": "PROPERTY#47b52a62-442f-441e-85b9-a7071b4ffe6e"
+          },
+          "GSI1PK": {
+            "S": "ORG#563453ec-9dac-45f3-969e-e2a4ae4fff62#PROPERTY#COUNTRY#TH"
+          },
+          "GSI1SK": {
+            "S": "AREA#chiangmai#PROPERTY#47b52a62-442f-441e-85b9-a7071b4ffe6e"
+          },
+          "GSI2PK": {
+            "S": "ORG#563453ec-9dac-45f3-969e-e2a4ae4fff62#PROPERTY#TYPE#house"
+          },
+          "data": {
+            "S": "{\"uuid\": \"47b52a62-442f-441e-85b9-a7071b4ffe6e\", \"title\": \"Mae Rim Teak House\", \"typeLabel\": \"Teak House\", \"postedLabel\": \"June\", \"lat\": 18.9086, \"lng\": 98.9453, \"location\": \"Chiang Mai\", \"country\": \"TH\", \"region\": null, \"area_key\": \"chiangmai\", \"type\": \"house\", \"scope\": \"public\", \"slug\": \"mae-rim-teak-house\", \"sellPrice\": 7500000, \"sellDiscountPrice\": null, \"sellMaxPrice\": null, \"code\": \"MaeRimTeak\", \"isLeasehold\": false, \"brochure\": null, \"image\": \"https://picsum.photos/seed/cm-sold-1-main/1200/800\", \"images\": [\"https://picsum.photos/seed/cm-sold-1-main/1200/800\", \"https://picsum.photos/seed/cm-sold-1-b/1200/800\"], \"description\": \"A restored antique teak house on a large landscaped plot in Mae Rim, close to the Botanic Garden. Now sold \\u2014 kept listed for reference.\", \"payment\": null, \"units\": [{\"uuid\": \"16122025-65a0-4f8d-9b3e-725ed730eb11\", \"title\": \"Main House\", \"tag\": \"sold\", \"image\": \"https://picsum.photos/seed/cm-sold-1-unit-a/1200/800\", \"sellPrice\": 7500000, \"sellDiscountPrice\": null, \"sellMaxPrice\": null, \"soldPrice\": 7150000, \"rentPrice\": null, \"beds\": 3, \"baths\": 3, \"hall\": 2, \"kitchen\": 1, \"pantry\": 1, \"car\": 2, \"unitSize\": 240, \"landSize\": 120, \"size\": \"240 sqm\", \"condition\": \"Renovated\", \"furnishing\": \"Fully-fitted\"}], \"created_at\": \"2026-07-16T15:17:04.995Z\", \"updated_at\": \"2026-07-16T15:17:04.995Z\"}"
+          }
+        }
+      }
+    },
+    {
+      "Put": {
+        "TableName": "staging-sale-sync-properties",
+        "Item": {
+          "PK": {
+            "S": "ORG#563453ec-9dac-45f3-969e-e2a4ae4fff62#PROPERTY#SLUG#mae-rim-teak-house"
+          },
+          "SK": {
+            "S": "META"
+          },
+          "data": {
+            "S": "{\"property_uuid\": \"47b52a62-442f-441e-85b9-a7071b4ffe6e\"}"
+          }
+        },
+        "ConditionExpression": "attribute_not_exists(PK) AND attribute_not_exists(SK)"
+      }
+    }
+  ]
+}
