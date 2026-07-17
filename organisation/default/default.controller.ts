@@ -61,6 +61,7 @@ class DefaultController extends Controller implements IControllerMethods {
                 plan_id: body.plan_id,
                 description: body.description,
                 address: body.address,
+                market: body.market,
             });
 
             return {

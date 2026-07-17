@@ -2,6 +2,8 @@ import { z } from 'zod';
 
 const BusinessCategorySchema = z.enum(['fitness', 'real-estate', 'service-business', 'restaurant', 'haircut-and-salon']);
 
+export const MarketSchema = z.enum(['TH', 'AU']);
+
 export const ImageSchema = z.object({
     name: z.string(),
     url: z.string(),
@@ -17,6 +19,7 @@ export const CreateOrganisationSchema = z.object({
     plan_id: z.string().uuid(),
     description: z.string().optional(),
     address: z.string().optional(),
+    market: MarketSchema.default('AU'),
 });
 
 export type CreateOrganisationInput = z.infer<typeof CreateOrganisationSchema>;
@@ -27,9 +30,10 @@ export const UpdateOrganisationSchema = z
         description: z.string().optional(),
         address: z.string().nullable().optional(),
         image: ImageSchema.nullable().optional(),
+        market: MarketSchema.optional(),
     })
     .refine((data) => Object.keys(data).length > 0, {
-        message: 'At least one field (name, description, address, image) must be provided',
+        message: 'At least one field (name, description, address, image, market) must be provided',
     });
 
 export type UpdateOrganisationInput = z.infer<typeof UpdateOrganisationSchema>;

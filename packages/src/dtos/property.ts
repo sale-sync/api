@@ -25,6 +25,7 @@ const UnitInputSchema = z.object({
     landSize: z.number().nullable().optional(),
     condition: z.string().nullable().optional(),
     furnishing: z.string().nullable().optional(),
+    currency: z.string().length(3).optional(),
 });
 
 export const CreatePropertySchema = z.object({
@@ -32,7 +33,8 @@ export const CreatePropertySchema = z.object({
     lat: z.number(),
     lng: z.number(),
     location: z.string(),
-    country: z.string().length(2),
+    country: z.string().length(2).optional(),
+    currency: z.string().length(3).optional(),
     region: z.string().nullable().optional(),
     area_key: z.string(),
     type: PropertyTypeSchema,
@@ -60,6 +62,7 @@ export const UpdatePropertySchema = z.object({
     lng: z.number().optional(),
     location: z.string().optional(),
     country: z.string().length(2).optional(),
+    currency: z.string().length(3).optional(),
     region: z.string().nullable().optional(),
     area_key: z.string().optional(),
     type: PropertyTypeSchema.optional(),

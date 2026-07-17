@@ -3,6 +3,11 @@
 // See docs/dynamodb/access-patterns/properties.md and docs/market-behaviour.md.
 export type PropertyCountry = string
 
+// ISO 4217, deliberately kept open rather than a closed enum — same rationale as PropertyCountry.
+// Defaults from the owning org's market (see MARKET_CURRENCY in organisation.ts) but can be
+// overridden per-property.
+export type PropertyCurrency = string
+
 // State/province — only meaningful for markets that search by it (e.g. AU: "NSW", "VIC").
 // null for markets where it isn't part of how buyers search (e.g. TH).
 export type PropertyRegion = string | null
@@ -42,6 +47,7 @@ export type Unit = {
   landSize: number | null
   condition: string | null
   furnishing: string | null
+  currency: PropertyCurrency
 }
 
 export type Property = {
@@ -51,6 +57,7 @@ export type Property = {
   lng: number
   location: string
   country: PropertyCountry
+  currency: PropertyCurrency
   region: PropertyRegion
   area_key: PropertyAreaKey
   type: PropertyType

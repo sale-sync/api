@@ -9,6 +9,14 @@ export type Image = {
 
 export type OrganisationStatus = 'pending' | 'active'
 
+// Launch markets for the real-estate vertical. See api/docs/market-behaviour.md.
+export type Market = 'TH' | 'AU'
+
+export const MARKET_CURRENCY: Record<Market, string> = {
+  TH: 'THB',
+  AU: 'AUD',
+}
+
 export type Organisation = {
   uuid: string
   id: string
@@ -21,6 +29,7 @@ export type Organisation = {
   created_at: string
   description?: string
   address: string | null
+  market: Market
 }
 
 export type OrganisationRole = 'owner' | 'admin' | 'manager' | 'editor' | 'staff' | 'guest'

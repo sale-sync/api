@@ -1,7 +1,7 @@
 import { ConditionalCheckFailedException, DynamoDBClient, TransactionCanceledException } from '@aws-sdk/client-dynamodb';
 import { BatchGetCommand, BatchWriteCommand, DeleteCommand, GetCommand, PutCommand, QueryCommand, TransactWriteCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import { Service } from '@devyethiha/samjs';
-import type { BusinessCategory, Image, Organisation, OrganisationRole, OrganisationUser } from '@sale-sync/shared/src/types';
+import type { BusinessCategory, Image, Market, Organisation, OrganisationRole, OrganisationUser } from '@sale-sync/shared/src/types';
 import { v4 as uuidv4 } from 'uuid';
 
 const TABLE = process.env.ORGANISATION_TABLE_NAME || 'sale-sync-organisation';
@@ -16,6 +16,7 @@ type CreateOrganisationParam = {
     plan_id: string;
     description?: string;
     address?: string;
+    market?: Market;
 };
 
 type UpdateOrganisationParam = {
@@ -23,6 +24,7 @@ type UpdateOrganisationParam = {
     description?: string;
     address?: string | null;
     image?: Image | null;
+    market?: Market;
 };
 
 export class OrganisationAlreadyExistsError extends Error {
@@ -80,6 +82,7 @@ export class OrganisationService extends Service {
             plan_id: param.plan_id,
             created_at: new Date().toISOString(),
             address: param.address ?? null,
+            market: param.market ?? 'AU',
             ...(param.description && { description: param.description }),
         };
 
@@ -238,6 +241,7 @@ export class OrganisationService extends Service {
             ...(patch.description !== undefined && { description: patch.description }),
             ...(patch.address !== undefined && { address: patch.address }),
             ...(patch.image !== undefined && { image: patch.image }),
+            ...(patch.market !== undefined && { market: patch.market }),
         };
 
         await this.DB_Client.send(

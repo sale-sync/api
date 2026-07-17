@@ -1,7 +1,8 @@
 import { DynamoDBClient, TransactionCanceledException } from '@aws-sdk/client-dynamodb';
 import { GetCommand, QueryCommand, TransactWriteCommand } from '@aws-sdk/lib-dynamodb';
 import { Service } from '@devyethiha/samjs';
-import type { Organisation, OrganisationRole, OrganisationUser, Property, PropertyScope, PropertyType, Unit } from '@sale-sync/shared/src/types';
+import { MARKET_CURRENCY } from '@sale-sync/shared/src/types';
+import type { Organisation, OrganisationRole, OrganisationUser, Property, PropertyCurrency, PropertyScope, PropertyType, Unit } from '@sale-sync/shared/src/types';
 import type { CreatePropertyInput, UpdatePropertyInput } from '@sale-sync/shared/src/dtos';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -63,7 +64,10 @@ export class PropertyService extends Service {
 
     // Create a property listing. Only orgs with business_category = "real-estate" may do this.
     public async createProperty(orgUuid: string, input: CreatePropertyInput): Promise<Property> {
-        await this.assertRealEstateOrg(orgUuid);
+        const org = await this.assertRealEstateOrg(orgUuid);
+
+        const country = input.country ?? org.market;
+        const currency = input.currency ?? MARKET_CURRENCY[org.market];
 
         const now = new Date().toISOString();
         const property: Property = {
@@ -72,7 +76,8 @@ export class PropertyService extends Service {
             lat: input.lat,
             lng: input.lng,
             location: input.location,
-            country: input.country,
+            country,
+            currency,
             region: input.region ?? null,
             area_key: input.area_key,
             type: input.type,
@@ -88,7 +93,7 @@ export class PropertyService extends Service {
             images: input.images ?? [],
             description: input.description ?? null,
             payment: input.payment ?? null,
-            units: (input.units ?? []).map((unit) => this.normalizeUnit(unit)),
+            units: (input.units ?? []).map((unit) => this.normalizeUnit(unit, currency)),
             created_at: now,
             updated_at: now,
         };
@@ -236,6 +241,8 @@ export class PropertyService extends Service {
         const existing = await this.getPropertyRecord(orgUuid, propertyUuid);
         if (!existing) throw new PropertyNotFoundError(propertyUuid);
 
+        const currency = updates.currency !== undefined ? updates.currency : existing.currency;
+
         const updated: Property = {
             ...existing,
             ...(updates.title !== undefined && { title: updates.title }),
@@ -243,6 +250,7 @@ export class PropertyService extends Service {
             ...(updates.lng !== undefined && { lng: updates.lng }),
             ...(updates.location !== undefined && { location: updates.location }),
             ...(updates.country !== undefined && { country: updates.country }),
+            ...(updates.currency !== undefined && { currency: updates.currency }),
             ...(updates.region !== undefined && { region: updates.region }),
             ...(updates.area_key !== undefined && { area_key: updates.area_key }),
             ...(updates.type !== undefined && { type: updates.type }),
@@ -258,7 +266,14 @@ export class PropertyService extends Service {
             ...(updates.images !== undefined && { images: updates.images }),
             ...(updates.description !== undefined && { description: updates.description }),
             ...(updates.payment !== undefined && { payment: updates.payment }),
-            ...(updates.units !== undefined && { units: updates.units.map((unit) => this.normalizeUnit(unit)) }),
+            // Units are re-normalized whenever the payload includes units OR the currency changed —
+            // the latter case cascades the new currency onto every existing unit, even ones not
+            // present in this update's payload.
+            ...(updates.units !== undefined
+                ? { units: updates.units.map((unit) => this.normalizeUnit(unit, currency)) }
+                : updates.currency !== undefined
+                  ? { units: existing.units.map((unit) => this.normalizeUnit(unit, currency)) }
+                  : {}),
             updated_at: new Date().toISOString(),
         };
 
@@ -334,7 +349,9 @@ export class PropertyService extends Service {
         );
     }
 
-    private normalizeUnit(unit: Partial<Unit> & { title: string }): Unit {
+    // currency is always set from the property-level value, ignoring any per-unit currency the
+    // client sends — a property has one currency, cascaded to every unit.
+    private normalizeUnit(unit: Partial<Unit> & { title: string }, currency: PropertyCurrency): Unit {
         return {
             uuid: unit.uuid ?? uuidv4(),
             title: unit.title,
@@ -355,6 +372,7 @@ export class PropertyService extends Service {
             landSize: unit.landSize ?? null,
             condition: unit.condition ?? null,
             furnishing: unit.furnishing ?? null,
+            currency,
         };
     }
 
