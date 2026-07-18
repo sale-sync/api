@@ -23,7 +23,7 @@ const tomlPath = path.join(ROOT, "samconfig.toml");
 // were CloudFormation-managed via nested stacks (OrganisationInfraStack /
 // AuthInfraStack / MediaInfraStack / PropertiesInfraStack), not plain
 // parameters. Those nested stacks are gone — infra now lives in the
-// standalone ss/infra stack (see ss/infra/docs/runbook.md) — and
+// standalone ss/infra stack (see ss/docs/infra/runbook.md) — and
 // template.yaml takes these as plain Parameters, so they're included below
 // like everything else.
 const PARAM_KEY_MAP = {

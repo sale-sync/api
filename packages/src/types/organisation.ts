@@ -9,7 +9,7 @@ export type Image = {
 
 export type OrganisationStatus = 'pending' | 'active'
 
-// Launch markets for the real-estate vertical. See api/docs/market-behaviour.md.
+// Launch markets for the real-estate vertical. See docs/api/market-behaviour.md.
 export type Market = 'TH' | 'AU'
 
 export const MARKET_CURRENCY: Record<Market, string> = {

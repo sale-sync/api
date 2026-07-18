@@ -1,7 +1,7 @@
 import type { BrandingColorScale, BrandingColorScaleStep } from '@sale-sync/shared';
 
 // Generates an 11-stop (50-950) tint/shade scale from a single input hex, approximating the shape of
-// the hand-authored scales in theme-maker/{shape,wello}/design-system/primitive-tokens.ts: hue/saturation
+// the hand-authored scales in theme-maker/{shape,real-estate}/design-system/primitive-tokens.ts: hue/saturation
 // pinned constant across all stops, only lightness varies. This is an approximation, not a reproduction
 // — those two hand-authored scales don't share one proportional curve either.
 
