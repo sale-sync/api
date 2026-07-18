@@ -9,7 +9,7 @@ const UnitInputSchema = z.object({
     uuid: z.string().uuid().optional(),
     title: z.string(),
     image: z.string().nullable().optional(),
-    tag: z.enum(['buy', 'rent', 'sold']).optional(),
+    tag: z.enum(['sell', 'rent', 'sold']).optional(),
     sellPrice: z.number().nullable().optional(),
     sellDiscountPrice: z.number().nullable().optional(),
     sellMaxPrice: z.number().nullable().optional(),

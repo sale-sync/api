@@ -356,7 +356,7 @@ export class PropertyService extends Service {
             uuid: unit.uuid ?? uuidv4(),
             title: unit.title,
             image: unit.image ?? null,
-            tag: unit.tag ?? 'buy',
+            tag: unit.tag ?? 'sell',
             sellPrice: unit.sellPrice ?? null,
             sellDiscountPrice: unit.sellDiscountPrice ?? null,
             sellMaxPrice: unit.sellMaxPrice ?? null,

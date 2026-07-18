@@ -9,7 +9,7 @@ const UnitSchema = z.object({
     uuid: z.string().uuid(),
     title: z.string(),
     image: z.string().nullable(),
-    tag: z.enum(['buy', 'rent', 'sold']),
+    tag: z.enum(['sell', 'rent', 'sold']),
     sellPrice: z.number().nullable(),
     sellDiscountPrice: z.number().nullable(),
     sellMaxPrice: z.number().nullable(),
