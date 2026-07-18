@@ -1,35 +1,35 @@
 {
-  "name": "crm",
-  "root": "crm",
-  "sourceRoot": "crm",
+  "name": "blocks",
+  "root": "blocks",
+  "sourceRoot": "blocks",
   "projectType": "application",
   "targets": {
     "compile": {
       "executor": "nx:run-commands",
       "options": {
         "command": "npm run compile",
-        "cwd": "crm"
+        "cwd": "blocks"
       }
     },
     "bundle": {
       "executor": "nx:run-commands",
       "options": {
         "command": "npm run bundle",
-        "cwd": "crm"
+        "cwd": "blocks"
       }
     },
     "test": {
       "executor": "nx:run-commands",
       "options": {
         "command": "npm test",
-        "cwd": "crm"
+        "cwd": "blocks"
       }
     },
     "lint": {
       "executor": "nx:run-commands",
       "options": {
         "command": "npm run lint",
-        "cwd": "crm"
+        "cwd": "blocks"
       }
     }
   }

@@ -11,10 +11,25 @@
         "cwd": "packages"
       }
     },
-    "shared.pack": {
+    "compile": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "make shared.pack"
+        "command": "npm run compile",
+        "cwd": "packages"
+      }
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "npm test",
+        "cwd": "packages"
+      }
+    },
+    "lint": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "npm run lint",
+        "cwd": "packages"
       }
     }
   }

@@ -1,5 +1,5 @@
 export type Workspace = {
-  uuid: string
-  id: string
-  name: string
+    uuid: string;
+    id: string;
+    name: string;
 };

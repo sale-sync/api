@@ -17,7 +17,7 @@
     "@aws-sdk/client-dynamodb": "^3.893.0",
     "@aws-sdk/lib-dynamodb": "^3.893.0",
     "@devyethiha/samjs": "^0.1.18",
-    "@sale-sync/shared": "file:vendor/shared.tgz",
+    "@sale-sync/shared": "file:../packages",
     "esbuild": "^0.14.14",
     "install": "^0.13.0",
     "npm": "^11.6.2",

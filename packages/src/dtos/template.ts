@@ -1,6 +1,12 @@
 import { z } from 'zod';
 
-const BusinessCategorySchema = z.enum(['fitness', 'real-estate', 'service-business', 'restaurant', 'haircut-and-salon']);
+const BusinessCategorySchema = z.enum([
+    'fitness',
+    'real-estate',
+    'service-business',
+    'restaurant',
+    'haircut-and-salon',
+]);
 const ThemeBrandColorSchema = z.enum(['red', 'orange', 'blue', 'purple', 'green', 'amber', 'gray', 'stone']);
 const ThemeFontSchema = z.enum(['sans', 'mono']);
 

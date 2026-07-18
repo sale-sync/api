@@ -24,11 +24,11 @@ export const getWorkspace = (event: APIGatewayProxyEvent): IWorkspace | null => 
         workspaceCookie = cookies['Workspace'] || null;
         if (!workspaceCookie) return null;
         const obj = jwtDecode(workspaceCookie) as any;
-        
+
         const user = {
             workspace_id: obj.workspace_id ?? '',
             user_id: obj.user_id ?? '',
-            uuid: obj.uuid ?? '' ,
+            uuid: obj.uuid ?? '',
         };
         return user;
         // uid = JSON.parse(cookies['Identifier']);

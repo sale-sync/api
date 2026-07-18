@@ -1,53 +1,53 @@
-export type BusinessCategory = 'fitness' | 'real-estate' | 'service-business' | 'restaurant' | 'haircut-and-salon'
+export type BusinessCategory = 'fitness' | 'real-estate' | 'service-business' | 'restaurant' | 'haircut-and-salon';
 
 export type Image = {
-  name: string
-  url: string
-  size: string
-  mime_type: string
-}
+    name: string;
+    url: string;
+    size: string;
+    mime_type: string;
+};
 
-export type OrganisationStatus = 'pending' | 'active'
+export type OrganisationStatus = 'pending' | 'active';
 
 // Launch markets for the real-estate vertical. See docs/api/market-behaviour.md.
-export type Market = 'TH' | 'AU'
+export type Market = 'TH' | 'AU';
 
 export const MARKET_CURRENCY: Record<Market, string> = {
-  TH: 'THB',
-  AU: 'AUD',
-}
+    TH: 'THB',
+    AU: 'AUD',
+};
 
 export type Organisation = {
-  uuid: string
-  id: string
-  name: string
-  status: OrganisationStatus
-  image: Image | null
-  business_category: BusinessCategory
-  template_id: string
-  plan_id: string
-  created_at: string
-  description?: string
-  address: string | null
-  market: Market
-}
+    uuid: string;
+    id: string;
+    name: string;
+    status: OrganisationStatus;
+    image: Image | null;
+    business_category: BusinessCategory;
+    template_id: string;
+    plan_id: string;
+    created_at: string;
+    description?: string;
+    address: string | null;
+    market: Market;
+};
 
-export type OrganisationRole = 'owner' | 'admin' | 'manager' | 'editor' | 'staff' | 'guest'
+export type OrganisationRole = 'owner' | 'admin' | 'manager' | 'editor' | 'staff' | 'guest';
 
 export type OrganisationUser = {
-  role: OrganisationRole
-  position?: string
-  joined_date: string
-  phone?: string
-  bio?: string
-  timezone?: string
-  avatar?: Image | null
-}
+    role: OrganisationRole;
+    position?: string;
+    joined_date: string;
+    phone?: string;
+    bio?: string;
+    timezone?: string;
+    avatar?: Image | null;
+};
 
 export type User = {
-  status: 'unverified' | 'verified'
-  profile: string
-}
+    status: 'unverified' | 'verified';
+    profile: string;
+};
 
 // ─── Website branding ──────────────────────────
 // One record per organisation. `name` is intentionally not part of this shape — it stays
@@ -58,24 +58,35 @@ export type User = {
 // already in `theme-maker/*/design-system/semantic-tokens.ts` (brand vs. accent) — both are now
 // client-editable hexes instead of only the primary/brand one.
 
-export type BrandingColorScaleStep = '50' | '100' | '200' | '300' | '400' | '500' | '600' | '700' | '800' | '900' | '950'
+export type BrandingColorScaleStep =
+    | '50'
+    | '100'
+    | '200'
+    | '300'
+    | '400'
+    | '500'
+    | '600'
+    | '700'
+    | '800'
+    | '900'
+    | '950';
 
-export type BrandingColorScale = Record<BrandingColorScaleStep, string>
+export type BrandingColorScale = Record<BrandingColorScaleStep, string>;
 
 export type BrandingColor = {
-  hex: string
-  scale: BrandingColorScale
-}
+    hex: string;
+    scale: BrandingColorScale;
+};
 
 export type BrandingContent = {
-  logo: Image | null
-  primaryColor: BrandingColor | null
-  secondaryColor: BrandingColor | null
-}
+    logo: Image | null;
+    primaryColor: BrandingColor | null;
+    secondaryColor: BrandingColor | null;
+};
 
 export type BrandingRecord = {
-  data: BrandingContent | null
-  draft: BrandingContent | null
-  updated_at: string
-  published_at: string | null
-}
+    data: BrandingContent | null;
+    draft: BrandingContent | null;
+    updated_at: string;
+    published_at: string | null;
+};
