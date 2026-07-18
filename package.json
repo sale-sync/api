@@ -4,15 +4,15 @@
   "description": "",
   "private": true,
   "workspaces": [
-    "auth",
-    "organisation",
-    "media",
-    "blocks",
-    "templates",
-    "plan",
-    "properties",
-    "packages",
-    "openapi"
+    "apps/auth",
+    "apps/organisation",
+    "apps/media",
+    "apps/blocks",
+    "apps/templates",
+    "apps/plan",
+    "apps/properties",
+    "apps/openapi",
+    "libs/shared"
   ],
   "scripts": {
     "nx": "nx",
@@ -27,7 +27,7 @@
     "openapi.dev": "nx run openapi:dev",
     "samconfig:sync:staging": "node scripts/sync-samconfig.js staging staging.deploy.parameters",
     "samconfig:sync:prod": "node scripts/sync-samconfig.js prod prod.deploy.parameters",
-    "clean": "rimraf node_modules auth/node_modules organisation/node_modules packages/node_modules .aws-sam"
+    "clean": "rimraf node_modules apps/auth/node_modules apps/organisation/node_modules libs/shared/node_modules .aws-sam"
   },
   "repository": {
     "type": "git",

@@ -6,21 +6,21 @@
 # === Dev mode ===
 define NODEMON_WATCH
 	npx nodemon -e ts,js,yml,yaml,json \
-	  -w auth \
-	  -w organisation \
-	  -w media \
-	  -w blocks \
-	  -w properties \
-	  -w packages/src \
+	  -w apps/auth \
+	  -w apps/organisation \
+	  -w apps/media \
+	  -w apps/blocks \
+	  -w apps/properties \
+	  -w libs/shared/src \
 	  -w template.yaml \
-	  -i auth/bundle \
-	  -i organisation/bundle \
-	  -i media/bundle \
-	  -i blocks/bundle \
-	  -i properties/bundle \
+	  -i apps/auth/bundle \
+	  -i apps/organisation/bundle \
+	  -i apps/media/bundle \
+	  -i apps/blocks/bundle \
+	  -i apps/properties/bundle \
 	  -i .aws-sam \
 	  -i node_modules \
-	  -i packages/dist \
+	  -i libs/shared/dist \
 	  --delay 700ms \
 	  -x "$(1)"
 endef
@@ -36,11 +36,13 @@ dev.prod:
 	$(call NODEMON_WATCH,make start.prod)
 
 # === Bundle each Lambda with esbuild, via Nx ===
-# `@sale-sync/shared` is a plain npm workspace dependency now (services depend on
-# `file:../packages`, which npm symlinks straight to `packages/` — no tarball, no vendor/
-# copies, no reinstall step). Nx's own task graph (nx.json's `bundle: { dependsOn: ["^build"] }`)
-# builds `shared` first automatically, from cache when nothing changed. This replaced the old
-# `make shared.pack` + `make deps.all` dance entirely (2026-07-19).
+# `@sale-sync/shared` (libs/shared/) is a plain npm workspace dependency (services depend on
+# `file:../../libs/shared`, which npm symlinks directly — no tarball, no vendor/ copies, no
+# reinstall step). Nx's own task graph (nx.json's `bundle: { dependsOn: ["^build"] }`) builds
+# `shared` first automatically, from cache when nothing changed. This replaced the old
+# `make shared.pack` + `make deps.all` dance entirely (2026-07-19). Every service lives under
+# `apps/`, the shared library under `libs/` (Nx's standard `apps`/`libs` workspace layout,
+# adopted the same day).
 bundle:
 	@echo "==> Bundling all Lambdas via Nx (auto-builds packages/shared first, from cache if unchanged)"
 	npm run bundle
@@ -96,12 +98,12 @@ check.both:
 # === Cleanup ===
 clean:
 	@echo "==> Cleaning build artifacts"
-	rm -rf .aws-sam auth/bundle organisation/bundle media/bundle blocks/bundle templates/bundle plan/bundle properties/bundle packages/dist
+	rm -rf .aws-sam apps/auth/bundle apps/organisation/bundle apps/media/bundle apps/blocks/bundle apps/templates/bundle apps/plan/bundle apps/properties/bundle libs/shared/dist
 
 # === OpenAPI docs server ===
 docs:
 	@echo "==> Starting OpenAPI docs server on :1778"
-	cd openapi && npx ts-node app.ts
+	cd apps/openapi && npx ts-node app.ts
 
 # === Help ===
 help:

@@ -1,0 +1,22 @@
+{
+  "name": "openapi",
+  "root": "apps/openapi",
+  "sourceRoot": "apps/openapi",
+  "projectType": "application",
+  "targets": {
+    "start": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "npm run start",
+        "cwd": "apps/openapi"
+      }
+    },
+    "dev": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "npm run dev",
+        "cwd": "apps/openapi"
+      }
+    }
+  }
+}

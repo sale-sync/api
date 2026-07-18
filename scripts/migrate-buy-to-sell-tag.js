@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 // One-off backfill for the UnitTag rename 'buy' -> 'sell' (see
-// api/packages/src/types/property.ts). Existing Property items persisted
+// api/libs/shared/src/types/property.ts). Existing Property items persisted
 // before this rename may still have units with tag: 'buy', which the
-// updated Zod schemas (dtos/property.ts, openapi/paths/properties.ts) no
+// updated Zod schemas (dtos/property.ts, apps/openapi/paths/properties.ts) no
 // longer accept, and which the app/theme-maker frontends no longer
 // recognize (they now check for 'sell').
 //
