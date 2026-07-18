@@ -8,7 +8,7 @@ async function main(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult>
     try {
         const router = new Router(event, region, [{ controller: LoginController, services: [AuthService] }], '/auth');
 
-        return router.handle();
+        return await router.handle();
     } catch (err) {
         return {
             statusCode: 500,
@@ -24,4 +24,5 @@ export const lambdaHandler = withCORS(main, [
     'https://staging.salesync.biz',
     'http://localhost:3000',
     'http://127.0.0.1:3000',
+    'https://app.salesync.local',
 ]);

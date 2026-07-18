@@ -1,186 +1,432 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
 
-Description: Sales Sync API
+Description: Sale Sync API
+
+# =============================================================================
+# NOTE: Lambda functions must be in the same template as the API Gateway.
+# SAM requires RestApiId to reference an AWS::Serverless::Api in the same template.
+# Shared infra (S3, DynamoDB) lives in the standalone ss/infra stack instead
+# of a nested stack here — see ss/docs/infra/runbook.md.
+# =============================================================================
 
 Parameters:
-  TableName:
-    Type: String
-  CognitoUrl:
-    Type: String
-  ClientId:
-    Type: String
-  ClientSecret:
-    Type: String
-  CognitoCallbackUrl:
-    Type: String
+    ResourcePrefix:
+        Type: String
+        Default: ''
+    BlockTableName:
+        Type: String
+    CognitoUrl:
+        Type: String
+    ClientId:
+        Type: String
+    ClientSecret:
+        Type: String
+    CognitoCallbackUrl:
+        Type: String
+    # -------------------------------------------------------------------------
+    # Shared infra (DynamoDB/S3), now owned by the standalone ss/infra stack
+    # instead of a nested stack here. See ss/docs/infra/runbook.md.
+    # -------------------------------------------------------------------------
+    AuthTableName:
+        Type: String
+    OrganisationTableName:
+        Type: String
+    MediaTableName:
+        Type: String
+    MediaBucketName:
+        Type: String
+    PropertyTableName:
+        Type: String
 
 Globals:
-  Function:
-    Timeout: 10
-    Environment:
-      Variables:
-        TABLE_NAME:            !Ref TableName
-        COGNITO_URL:           !Ref CognitoUrl
-        CLIENT_ID:             !Ref ClientId
-        CLIENT_SECRET:         !Ref ClientSecret
-        COGNITO_CALLBACK_URL:  !Ref CognitoCallbackUrl
+    Function:
+        Timeout: 10
+        Environment:
+            Variables:
+                ORGANISATION_TABLE_NAME: !Ref OrganisationTableName
+                BLOCK_TABLE_NAME: !Ref BlockTableName
+                COGNITO_URL: !Ref CognitoUrl
+                CLIENT_ID: !Ref ClientId
+                CLIENT_SECRET: !Ref ClientSecret
+                COGNITO_CALLBACK_URL: !Ref CognitoCallbackUrl
 
 Resources:
-  SalesSyncApi:
-    Type: AWS::Serverless::Api
-    Properties:
-      StageName: Prod
+    # =========================================================================
+    # API Gateway
+    # =========================================================================
+    SalesSyncApi:
+        Type: AWS::Serverless::Api
+        Properties:
+            StageName: Prod
 
-  AuthFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      CodeUri: auth/bundle
-      Handler: app.lambdaHandler
-      Runtime: nodejs22.x
-      Architectures: [ x86_64 ]
-      Policies:
-        - AWSLambdaBasicExecutionRole
-        - arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess
-      Events:
-        ApiRouter:
-          Type: Api
-          Properties:
-            RestApiId: !Ref SalesSyncApi
-            Path: /auth/{proxy+}
-            Method: ANY
+    # =========================================================================
+    # Lambda Functions
+    #
+    # Shared infra (DynamoDB tables, S3 buckets) used to live here as nested
+    # stacks (AWS::Serverless::Application). It's now owned by the standalone
+    # ss/infra stack instead — see ss/docs/infra/runbook.md — and referenced
+    # below via plain Parameters.
+    # =========================================================================
 
-  WorkspaceFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      CodeUri: workspace/bundle
-      Handler: app.lambdaHandler
-      Runtime: nodejs22.x
-      Architectures: [ x86_64 ]
-      Policies:
-        - AWSLambdaBasicExecutionRole
-        - arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess
-      Events:
-        ApiRouter:
-          Type: Api
-          Properties:
-            RestApiId: !Ref SalesSyncApi
-            Path: /workspace/{proxy+}
-            Method: ANY
-          
-  WorkspaceDefaultFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      CodeUri: workspace/bundle
-      Handler: app.lambdaHandler
-      Runtime: nodejs22.x
-      Architectures: [ x86_64 ]
-      Policies:
-        - AWSLambdaBasicExecutionRole
-        - arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess
-      Events:
-        ApiRouter:
-          Type: Api
-          Properties:
-            RestApiId: !Ref SalesSyncApi
-            Path: /workspace
-            Method: ANY
-            
-  CRMFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      CodeUri: crm/bundle
-      Handler: app.lambdaHandler
-      Runtime: nodejs22.x
-      Architectures: [ x86_64 ]
-      Policies:
-        - AWSLambdaBasicExecutionRole
-        - arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess
-      Events:
-        ApiRouter:
-          Type: Api
-          Properties:
-            RestApiId: !Ref SalesSyncApi
-            Path: /crm/{proxy+}
-            Method: ANY
-          
-  CRMDefaultFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      CodeUri: crm/bundle
-      Handler: app.lambdaHandler
-      Runtime: nodejs22.x
-      Architectures: [ x86_64 ]
-      Policies:
-        - AWSLambdaBasicExecutionRole
-        - arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess
-      Events:
-        ApiRouter:
-          Type: Api
-          Properties:
-            RestApiId: !Ref SalesSyncApi
-            Path: /crm
-            Method: ANY
+    # -------------------------------------------------------------------------
+    # Auth Lambda
+    # -------------------------------------------------------------------------
+    AuthFunction:
+        Type: AWS::Serverless::Function
+        Properties:
+            CodeUri: auth/bundle
+            Handler: app.lambdaHandler
+            Runtime: nodejs22.x
+            Architectures: [x86_64]
+            Environment:
+                Variables:
+                    AUTH_TABLE_NAME: !Ref AuthTableName
+            Policies:
+                - AWSLambdaBasicExecutionRole
+                - DynamoDBCrudPolicy:
+                      TableName: !Ref AuthTableName
+            Events:
+                ApiRouter:
+                    Type: Api
+                    Properties:
+                        RestApiId: !Ref SalesSyncApi
+                        Path: /auth/{proxy+}
+                        Method: ANY
 
-  MediaFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      CodeUri: media/bundle
-      Handler: app.lambdaHandler
-      Runtime: nodejs22.x
-      Architectures: [ x86_64 ]
-      Policies:
-        - AWSLambdaBasicExecutionRole
-        - arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess
-      Events:
-        ApiRouter:
-          Type: Api
-          Properties:
-            RestApiId: !Ref SalesSyncApi
-            Path: /media/{proxy+}
-            Method: ANY
-          
-  MediaDefaultFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      CodeUri: media/bundle
-      Handler: app.lambdaHandler
-      Runtime: nodejs22.x
-      Architectures: [ x86_64 ]
-      Policies:
-        - AWSLambdaBasicExecutionRole
-        - arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess
-      Events:
-        ApiRouter:
-          Type: Api
-          Properties:
-            RestApiId: !Ref SalesSyncApi
-            Path: /media
-            Method: ANY
-     
-            
-  
+    # -------------------------------------------------------------------------
+    # Organisation Lambdas
+    # -------------------------------------------------------------------------
+    OrganisationFunction:
+        Type: AWS::Serverless::Function
+        Properties:
+            CodeUri: organisation/bundle
+            Handler: app.lambdaHandler
+            Runtime: nodejs22.x
+            Architectures: [x86_64]
+            Policies:
+                - AWSLambdaBasicExecutionRole
+                - DynamoDBCrudPolicy:
+                      TableName: !Ref OrganisationTableName
+            Events:
+                ApiRouter:
+                    Type: Api
+                    Properties:
+                        RestApiId: !Ref SalesSyncApi
+                        Path: /organisations/{proxy+}
+                        Method: ANY
+
+    OrganisationDefaultFunction:
+        Type: AWS::Serverless::Function
+        Properties:
+            CodeUri: organisation/bundle
+            Handler: app.lambdaHandler
+            Runtime: nodejs22.x
+            Architectures: [x86_64]
+            Policies:
+                - AWSLambdaBasicExecutionRole
+                - DynamoDBCrudPolicy:
+                      TableName: !Ref OrganisationTableName
+            Events:
+                ApiRouter:
+                    Type: Api
+                    Properties:
+                        RestApiId: !Ref SalesSyncApi
+                        Path: /organisations
+                        Method: ANY
+
+    # -------------------------------------------------------------------------
+    # Media Lambdas (uses infrastructure from the ss/infra stack)
+    # -------------------------------------------------------------------------
+    MediaFunction:
+        Type: AWS::Serverless::Function
+        Properties:
+            CodeUri: media/bundle
+            Handler: app.lambdaHandler
+            Runtime: nodejs22.x
+            Architectures: [x86_64]
+            MemorySize: 256
+            Timeout: 30
+            Environment:
+                Variables:
+                    MEDIA_TABLE_NAME: !Ref MediaTableName
+                    MEDIA_BUCKET_NAME: !Ref MediaBucketName
+                    MEDIA_CDN_DOMAIN: !Sub '${ResourcePrefix}media.salesync.biz'
+                    ORGANISATION_TABLE_NAME: !Ref OrganisationTableName
+            Policies:
+                - AWSLambdaBasicExecutionRole
+                - DynamoDBCrudPolicy:
+                      TableName: !Ref MediaTableName
+                - S3CrudPolicy:
+                      BucketName: !Ref MediaBucketName
+                - DynamoDBReadPolicy:
+                      TableName: !Ref OrganisationTableName
+            Events:
+                ApiRouter:
+                    Type: Api
+                    Properties:
+                        RestApiId: !Ref SalesSyncApi
+                        Path: /media/{proxy+}
+                        Method: ANY
+
+    MediaDefaultFunction:
+        Type: AWS::Serverless::Function
+        Properties:
+            CodeUri: media/bundle
+            Handler: app.lambdaHandler
+            Runtime: nodejs22.x
+            Architectures: [x86_64]
+            MemorySize: 256
+            Timeout: 30
+            Environment:
+                Variables:
+                    MEDIA_TABLE_NAME: !Ref MediaTableName
+                    MEDIA_BUCKET_NAME: !Ref MediaBucketName
+                    MEDIA_CDN_DOMAIN: !Sub '${ResourcePrefix}media.salesync.biz'
+                    ORGANISATION_TABLE_NAME: !Ref OrganisationTableName
+            Policies:
+                - AWSLambdaBasicExecutionRole
+                - DynamoDBCrudPolicy:
+                      TableName: !Ref MediaTableName
+                - S3CrudPolicy:
+                      BucketName: !Ref MediaBucketName
+                - DynamoDBReadPolicy:
+                      TableName: !Ref OrganisationTableName
+            Events:
+                ApiRouter:
+                    Type: Api
+                    Properties:
+                        RestApiId: !Ref SalesSyncApi
+                        Path: /media
+                        Method: ANY
+
+    # -------------------------------------------------------------------------
+    # Template Catalogue Lambdas
+    # -------------------------------------------------------------------------
+    TemplateCatalogueFunction:
+        Type: AWS::Serverless::Function
+        Properties:
+            CodeUri: templates/bundle
+            Handler: app.lambdaHandler
+            Runtime: nodejs22.x
+            Architectures: [x86_64]
+            Policies:
+                - AWSLambdaBasicExecutionRole
+                - DynamoDBCrudPolicy:
+                      TableName: !Ref OrganisationTableName
+            Events:
+                ApiRouter:
+                    Type: Api
+                    Properties:
+                        RestApiId: !Ref SalesSyncApi
+                        Path: /templates/{proxy+}
+                        Method: ANY
+
+    TemplateCatalogueDefaultFunction:
+        Type: AWS::Serverless::Function
+        Properties:
+            CodeUri: templates/bundle
+            Handler: app.lambdaHandler
+            Runtime: nodejs22.x
+            Architectures: [x86_64]
+            Policies:
+                - AWSLambdaBasicExecutionRole
+                - DynamoDBCrudPolicy:
+                      TableName: !Ref OrganisationTableName
+            Events:
+                ApiRouter:
+                    Type: Api
+                    Properties:
+                        RestApiId: !Ref SalesSyncApi
+                        Path: /templates
+                        Method: ANY
+
+    # -------------------------------------------------------------------------
+    # Plan Lambdas
+    # -------------------------------------------------------------------------
+    PlanFunction:
+        Type: AWS::Serverless::Function
+        Properties:
+            CodeUri: plan/bundle
+            Handler: app.lambdaHandler
+            Runtime: nodejs22.x
+            Architectures: [x86_64]
+            Policies:
+                - AWSLambdaBasicExecutionRole
+                - DynamoDBCrudPolicy:
+                      TableName: !Ref OrganisationTableName
+            Events:
+                ApiRouter:
+                    Type: Api
+                    Properties:
+                        RestApiId: !Ref SalesSyncApi
+                        Path: /plans/{proxy+}
+                        Method: ANY
+
+    PlanDefaultFunction:
+        Type: AWS::Serverless::Function
+        Properties:
+            CodeUri: plan/bundle
+            Handler: app.lambdaHandler
+            Runtime: nodejs22.x
+            Architectures: [x86_64]
+            Policies:
+                - AWSLambdaBasicExecutionRole
+                - DynamoDBCrudPolicy:
+                      TableName: !Ref OrganisationTableName
+            Events:
+                ApiRouter:
+                    Type: Api
+                    Properties:
+                        RestApiId: !Ref SalesSyncApi
+                        Path: /plans
+                        Method: ANY
+
+    # -------------------------------------------------------------------------
+    # Blocks Lambdas
+    # -------------------------------------------------------------------------
+    BlocksFunction:
+        Type: AWS::Serverless::Function
+        Properties:
+            CodeUri: blocks/bundle
+            Handler: app.lambdaHandler
+            Runtime: nodejs22.x
+            Architectures: [x86_64]
+            Policies:
+                - AWSLambdaBasicExecutionRole
+                - DynamoDBCrudPolicy:
+                      TableName: !Ref BlockTableName
+            Events:
+                ApiRouter:
+                    Type: Api
+                    Properties:
+                        RestApiId: !Ref SalesSyncApi
+                        Path: /blocks/{proxy+}
+                        Method: ANY
+
+    BlocksDefaultFunction:
+        Type: AWS::Serverless::Function
+        Properties:
+            CodeUri: blocks/bundle
+            Handler: app.lambdaHandler
+            Runtime: nodejs22.x
+            Architectures: [x86_64]
+            Policies:
+                - AWSLambdaBasicExecutionRole
+                - DynamoDBCrudPolicy:
+                      TableName: !Ref BlockTableName
+            Events:
+                ApiRouter:
+                    Type: Api
+                    Properties:
+                        RestApiId: !Ref SalesSyncApi
+                        Path: /blocks
+                        Method: ANY
+
+    # -------------------------------------------------------------------------
+    # Properties Lambdas (uses infrastructure from the ss/infra stack)
+    # -------------------------------------------------------------------------
+    PropertiesFunction:
+        Type: AWS::Serverless::Function
+        Properties:
+            CodeUri: properties/bundle
+            Handler: app.lambdaHandler
+            Runtime: nodejs22.x
+            Architectures: [x86_64]
+            Environment:
+                Variables:
+                    PROPERTY_TABLE_NAME: !Ref PropertyTableName
+            Policies:
+                - AWSLambdaBasicExecutionRole
+                - DynamoDBCrudPolicy:
+                      TableName: !Ref PropertyTableName
+                - DynamoDBReadPolicy:
+                      TableName: !Ref OrganisationTableName
+            Events:
+                ApiRouter:
+                    Type: Api
+                    Properties:
+                        RestApiId: !Ref SalesSyncApi
+                        Path: /properties/{proxy+}
+                        Method: ANY
+
+    PropertiesDefaultFunction:
+        Type: AWS::Serverless::Function
+        Properties:
+            CodeUri: properties/bundle
+            Handler: app.lambdaHandler
+            Runtime: nodejs22.x
+            Architectures: [x86_64]
+            Environment:
+                Variables:
+                    PROPERTY_TABLE_NAME: !Ref PropertyTableName
+            Policies:
+                - AWSLambdaBasicExecutionRole
+                - DynamoDBCrudPolicy:
+                      TableName: !Ref PropertyTableName
+                - DynamoDBReadPolicy:
+                      TableName: !Ref OrganisationTableName
+            Events:
+                ApiRouter:
+                    Type: Api
+                    Properties:
+                        RestApiId: !Ref SalesSyncApi
+                        Path: /properties
+                        Method: ANY
+
 Outputs:
-  SalesSyncApiId:
-    Description: "API Gateway RestApi ID"
-    Value: !Ref SalesSyncApi
+    SalesSyncApiId:
+        Description: API Gateway RestApi ID
+        Value: !Ref SalesSyncApi
 
-  SalesSyncApiRootResourceId:
-    Description: "API Gateway Root Resource ID"
-    Value: !GetAtt SalesSyncApi.RootResourceId
+    SalesSyncApiRootResourceId:
+        Description: API Gateway Root Resource ID
+        Value: !GetAtt SalesSyncApi.RootResourceId
 
-  SalesSyncApiInvokeUrl:
-    Description: "Invoke URL for the Prod stage"
-    Value: !Sub "https://${SalesSyncApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/"
+    SalesSyncApiInvokeUrl:
+        Description: Invoke URL for the Prod stage
+        Value: !Sub 'https://${SalesSyncApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/'
 
-  AuthFunctionArn:
-    Description: "Sales Sync Auth API Lambda Function ARN"
-    Value: !GetAtt AuthFunction.Arn
+    AuthFunctionArn:
+        Description: Auth Lambda Function ARN
+        Value: !GetAtt AuthFunction.Arn
 
-  WorkspaceFunctionArn:
-    Description: "Sales Sync Workspace API Lambda Function ARN"
-    Value: !GetAtt WorkspaceFunction.Arn
+    OrganisationFunctionArn:
+        Description: Organisation Lambda Function ARN
+        Value: !GetAtt OrganisationFunction.Arn
 
-  CRMFunctionArn:
-    Description: "Sales Sync CRM API Lambda Function ARN"
-    Value: !GetAtt CRMFunction.Arn
+    MediaFunctionArn:
+        Description: Media Lambda Function ARN
+        Value: !GetAtt MediaFunction.Arn
+
+    BlocksFunctionArn:
+        Description: Blocks Lambda Function ARN
+        Value: !GetAtt BlocksFunction.Arn
+
+    TemplateCatalogueFunctionArn:
+        Description: Template Catalogue Lambda Function ARN
+        Value: !GetAtt TemplateCatalogueFunction.Arn
+
+    PropertiesFunctionArn:
+        Description: Properties Lambda Function ARN
+        Value: !GetAtt PropertiesFunction.Arn
+
+    MediaBucketName:
+        Description: S3 Bucket for media storage
+        Value: !Ref MediaBucketName
+
+    MediaTableName:
+        Description: DynamoDB Table for media metadata
+        Value: !Ref MediaTableName
+
+    PropertyTableName:
+        Description: DynamoDB Table for property listings
+        Value: !Ref PropertyTableName
+
+    AuthTableName:
+        Description: DynamoDB Table for auth nonce/state
+        Value: !Ref AuthTableName
+
+    OrganisationTableName:
+        Description: DynamoDB Table for organisation/user/template/plan data
+        Value: !Ref OrganisationTableName

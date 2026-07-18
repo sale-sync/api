@@ -40,21 +40,24 @@ export class AuthService extends Service implements IAuthService {
             state,
         };
         const Item = {
-            pk: 'NONCE-STATE#' + param.state,
-            sk: param.state,
+            PK: 'NONCE-STATE#' + param.state,
+            SK: param.state,
             data: JSON.stringify(param),
         };
         const command = new PutCommand({
-            TableName: 'sales-sync-auth',
+            TableName: process.env.AUTH_TABLE_NAME || 'sale-sync-auth',
             Item,
         });
+        const { COGNITO_CALLBACK_URL } = process.env;
         const config = {
             scope: 'email openid phone profile',
             state: state,
             nonce: nonce,
+            redirect_uri: COGNITO_CALLBACK_URL ?? '',
         };
         const client = await this.initializeClient();
         const authUrl = client.authorizationUrl(config);
+        console.log({ authUrl });
         await this.DB_Client.send(command);
         return authUrl;
     }
@@ -62,22 +65,24 @@ export class AuthService extends Service implements IAuthService {
     private async initializeClient() {
         const { CLIENT_SECRET, CLIENT_ID, COGNITO_CALLBACK_URL, COGNITO_URL } = process.env;
         const issuer = await oc.Issuer.discover(COGNITO_URL ?? '');
-        const client = new issuer.Client({
+        const configs = {
             client_id: CLIENT_ID ?? '',
             client_secret: CLIENT_SECRET ?? '',
             redirect_uris: [COGNITO_CALLBACK_URL ?? ''],
             response_types: ['code'],
-        });
+        };
+        console.log({ configs });
+        const client = new issuer.Client(configs);
         return client;
     }
 
     public async getNonce(state: string): Promise<NoncePair | null> {
         try {
             const command = new GetCommand({
-                TableName: 'sales-sync-auth',
+                TableName: process.env.AUTH_TABLE_NAME || 'sale-sync-auth',
                 Key: {
-                    pk: 'NONCE-STATE#' + state,
-                    sk: state,
+                    PK: 'NONCE-STATE#' + state,
+                    SK: state,
                 },
             });
 
@@ -103,7 +108,7 @@ export class AuthService extends Service implements IAuthService {
             const noncePair = await this.getNonce(state);
             if (!noncePair) return null;
             const client = await this.initializeClient();
-
+            console.log({ COGNITO_CALLBACK_URL });
             const tokenSet = await client.callback(COGNITO_CALLBACK_URL ?? '', params, { ...noncePair });
             console.log({ tokenSet });
             if (!tokenSet) return null;

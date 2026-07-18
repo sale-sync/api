@@ -1,7 +1,7 @@
 // packages/src/types/contact.ts
 
 export type IContact = {
-  workspace_uuid: string;
+  organisation_uuid: string;
   id: string;
   name: string;
   mode: "b2b" | "b2c"

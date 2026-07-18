@@ -1,1 +1,1 @@
-# Sales Sync API
+# Sale Sync API

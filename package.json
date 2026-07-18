@@ -1,23 +1,29 @@
 {
-  "name": "sales-sync-api",
+  "name": "sale-sync-api",
   "version": "1.0.0",
   "description": "",
   "private": true,
   "workspaces": [
     "auth",
-    "workspace",
-    "crm",
+    "organisation",
     "media",
-    "packages"
+    "blocks",
+    "templates",
+    "plan",
+    "properties",
+    "packages",
+    "openapi"
   ],
   "scripts": {
     "nx": "nx",
-    "build": "nx run-many -t compile --projects=auth,workspace,crm",
-    "bundle": "nx run-many -t bundle --projects=auth,workspace,crm",
-    "lint": "nx run-many -t lint --projects=auth,workspace,crm",
-    "test": "nx run-many -t test --projects=auth,workspace,crm",
+    "build": "nx run-many -t compile --projects=auth,organisation",
+    "bundle": "nx run-many -t bundle --projects=auth,organisation",
+    "lint": "nx run-many -t lint --projects=auth,organisation",
+    "test": "nx run-many -t test --projects=auth,organisation",
     "shared.pack": "nx run shared:shared.pack",
-    "clean": "rimraf node_modules auth/node_modules workspace/node_modules crm/node_modules packages/node_modules .aws-sam"
+    "samconfig:sync:staging": "node scripts/sync-samconfig.js staging staging.deploy.parameters",
+    "samconfig:sync:prod": "node scripts/sync-samconfig.js prod prod.deploy.parameters",
+    "clean": "rimraf node_modules auth/node_modules organisation/node_modules packages/node_modules .aws-sam"
   },
   "repository": {
     "type": "git",

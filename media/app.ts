@@ -1,41 +1,69 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { Router, withCORS } from '@devyethiha/samjs';
 import DefaultController from './default/default.controller';
-import CreateContactController from './contact/create-contact.controller';
-import { ContactService } from './contact/contact.service';
-import FormController from './form/form.controller';
-import { FormService } from './form/form.service';
-import ContactController from './contact/contact.controller';
+import UploadController from './upload/upload.controller';
+import FoldersController from './folders/folders.controller';
+import ItemController from './item/item.controller';
+import PropertiesController from './properties/properties.controller';
+import OrganisationController from './organisation/organisation.controller';
+import UserController from './user/user.controller';
+import BrandingController from './branding/branding.controller';
+import { MediaService } from './services/media.service';
+import { FolderService } from './services/folder.service';
+import { S3Service } from './services/s3.service';
+import { OrganisationMembershipService } from './services/organisation-membership.service';
 
 async function main(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
     const region = 'ap-southeast-2';
-    console.log(event.path);
+
     try {
         const router = new Router(
             event,
             region,
             [
-                { controller: DefaultController, services: [ContactService, FormService] },
                 {
-                    controller: CreateContactController,
-                    services: [ContactService],
+                    controller: DefaultController,
+                    services: [MediaService, FolderService],
                 },
                 {
-                    controller: ContactController,
-                    services: [ContactService],
+                    controller: UploadController,
+                    services: [MediaService, FolderService, S3Service],
                 },
                 {
-                    controller: FormController,
-                    services: [FormService],
+                    controller: FoldersController,
+                    services: [FolderService],
+                },
+                {
+                    controller: ItemController,
+                    services: [MediaService, FolderService, S3Service],
+                },
+                {
+                    controller: PropertiesController,
+                    services: [S3Service],
+                },
+                {
+                    controller: OrganisationController,
+                    services: [S3Service],
+                },
+                {
+                    controller: UserController,
+                    services: [S3Service],
+                },
+                {
+                    controller: BrandingController,
+                    services: [S3Service, OrganisationMembershipService],
                 },
             ],
             '/media',
         );
 
         return await router.handle();
-    } catch (error: any) {
-        const statusCode = error?.statusstatusCode;
-        return { statusCode: statusCode ? statusCode : 500, body: JSON.stringify(error) };
+    } catch (err) {
+        console.error('Media API Error:', err);
+        return {
+            statusCode: 500,
+            body: JSON.stringify({ message: 'Internal server error' }),
+        };
     }
 }
 
@@ -44,4 +72,5 @@ export const lambdaHandler = withCORS(main, [
     'https://staging.salesync.biz',
     'http://localhost:3000',
     'http://127.0.0.1:3000',
+    'https://app.salesync.local',
 ]);
