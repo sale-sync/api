@@ -37,13 +37,25 @@ export class SlugAlreadyExistsError extends Error {
     }
 }
 
-// See docs/dynamodb/access-patterns/properties.md for the full key-schema rationale.
+// See docs/api/dynamodb/access-patterns/properties.md for the full key-schema rationale.
 const pk = (orgUuid: string) => `ORG#${orgUuid}#PROPERTY`;
 const sk = (propertyUuid: string) => `PROPERTY#${propertyUuid}`;
+// GSI1 stays country-only (not region-inclusive) — it's what serves listByCountry, which needs a
+// single partition key spanning every region within a country (impossible if region were folded
+// in, since DynamoDB Query only targets one partition key value). TH never populates region, so
+// GSI1SK (city/neighborhood) is TH's primary browse-by-location index; AU browses via GSI3 instead
+// (region already disambiguates AU's — and any future market's — same-named suburbs/cities).
 const gsi1pk = (orgUuid: string, country: string) => `ORG#${orgUuid}#PROPERTY#COUNTRY#${country}`;
-const gsi1sk = (areaKey: string, propertyUuid: string) => `AREA#${areaKey}#PROPERTY#${propertyUuid}`;
+const gsi1sk = (city: string | null, neighborhood: string | null, propertyUuid: string) =>
+    `CITY#${city ?? ''}#NEIGHBORHOOD#${neighborhood ?? ''}#PROPERTY#${propertyUuid}`;
 const gsi2pk = (orgUuid: string, type: PropertyType) => `ORG#${orgUuid}#PROPERTY#TYPE#${type}`;
 const gsi3pk = (orgUuid: string, country: string, region: string) => `ORG#${orgUuid}#PROPERTY#COUNTRY#${country}#REGION#${region}`;
+const gsi3sk = (suburb: string | null, propertyUuid: string) => `SUBURB#${suburb ?? ''}#PROPERTY#${propertyUuid}`;
+// postcode is filtered standalone (not nested under city/suburb), so it needs its own index rather
+// than a suffix on GSI1SK/GSI3SK — see docs/api/dynamodb/access-patterns/properties.md. Sparse,
+// written for either market whenever postcode is set (not AU-only).
+const gsi4pk = (orgUuid: string, country: string, postcode: string) => `ORG#${orgUuid}#PROPERTY#COUNTRY#${country}#POSTCODE#${postcode}`;
+const gsi4sk = (propertyUuid: string) => `PROPERTY#${propertyUuid}`;
 // Slug uniqueness/lookup is scoped per-organisation (not global, unlike Organisation.id's
 // PK=ORG#ID#{id}) — two different orgs' public sites are unrelated, nothing requires their
 // property slugs not to collide with each other.
@@ -79,8 +91,12 @@ export class PropertyService extends Service {
             country,
             currency,
             region: input.region ?? null,
-            area_key: input.area_key,
+            city: input.city ?? null,
+            neighborhood: input.neighborhood ?? null,
+            suburb: input.suburb ?? null,
+            postcode: input.postcode ?? null,
             type: input.type,
+            subType: input.subType ?? null,
             scope: input.scope,
             slug: input.slug,
             sellPrice: input.sellPrice ?? null,
@@ -190,8 +206,9 @@ export class PropertyService extends Service {
         return this.filterByScope(this.parseItems(res.Items), viewerRole);
     }
 
-    // List properties in one area within a country — location dropdown filter, by viewerRole.
-    public async listByArea(orgUuid: string, country: string, areaKey: string, viewerRole: OrganisationRole | null): Promise<Property[]> {
+    // List properties in one city (+ optional neighborhood) within a country — TH-style location
+    // dropdown filter, by viewerRole.
+    public async listByCity(orgUuid: string, country: string, city: string, viewerRole: OrganisationRole | null): Promise<Property[]> {
         const res = await this.DB_Client.send(
             new QueryCommand({
                 TableName: TABLE,
@@ -199,8 +216,41 @@ export class PropertyService extends Service {
                 KeyConditionExpression: 'GSI1PK = :pk AND begins_with(GSI1SK, :prefix)',
                 ExpressionAttributeValues: {
                     ':pk': gsi1pk(orgUuid, country),
-                    ':prefix': `AREA#${areaKey}#`,
+                    ':prefix': `CITY#${city}#`,
                 },
+            }),
+        );
+
+        return this.filterByScope(this.parseItems(res.Items), viewerRole);
+    }
+
+    // List properties in one suburb within a region — AU-style location dropdown filter, by
+    // viewerRole. Region already disambiguates same-named suburbs across states.
+    public async listBySuburb(orgUuid: string, country: string, region: string, suburb: string, viewerRole: OrganisationRole | null): Promise<Property[]> {
+        const res = await this.DB_Client.send(
+            new QueryCommand({
+                TableName: TABLE,
+                IndexName: 'property-region-index',
+                KeyConditionExpression: 'GSI3PK = :pk AND begins_with(GSI3SK, :prefix)',
+                ExpressionAttributeValues: {
+                    ':pk': gsi3pk(orgUuid, country, region),
+                    ':prefix': `SUBURB#${suburb}#`,
+                },
+            }),
+        );
+
+        return this.filterByScope(this.parseItems(res.Items), viewerRole);
+    }
+
+    // List properties by postcode — standalone filter axis (not nested under city/suburb/region),
+    // by viewerRole. Sparse index; properties without a postcode never appear here.
+    public async listByPostcode(orgUuid: string, country: string, postcode: string, viewerRole: OrganisationRole | null): Promise<Property[]> {
+        const res = await this.DB_Client.send(
+            new QueryCommand({
+                TableName: TABLE,
+                IndexName: 'property-postcode-index',
+                KeyConditionExpression: 'GSI4PK = :pk',
+                ExpressionAttributeValues: { ':pk': gsi4pk(orgUuid, country, postcode) },
             }),
         );
 
@@ -252,8 +302,12 @@ export class PropertyService extends Service {
             ...(updates.country !== undefined && { country: updates.country }),
             ...(updates.currency !== undefined && { currency: updates.currency }),
             ...(updates.region !== undefined && { region: updates.region }),
-            ...(updates.area_key !== undefined && { area_key: updates.area_key }),
+            ...(updates.city !== undefined && { city: updates.city }),
+            ...(updates.neighborhood !== undefined && { neighborhood: updates.neighborhood }),
+            ...(updates.suburb !== undefined && { suburb: updates.suburb }),
+            ...(updates.postcode !== undefined && { postcode: updates.postcode }),
             ...(updates.type !== undefined && { type: updates.type }),
+            ...(updates.subType !== undefined && { subType: updates.subType }),
             ...(updates.scope !== undefined && { scope: updates.scope }),
             ...(updates.slug !== undefined && { slug: updates.slug }),
             ...(updates.sellPrice !== undefined && { sellPrice: updates.sellPrice }),
@@ -277,8 +331,32 @@ export class PropertyService extends Service {
             updated_at: new Date().toISOString(),
         };
 
-        const setClause = 'SET #data = :data, GSI1PK = :gsi1pk, GSI1SK = :gsi1sk, GSI2PK = :gsi2pk' + (updated.region ? ', GSI3PK = :gsi3pk, GSI3SK = :gsi3sk' : '');
-        const removeClause = updated.region ? '' : ' REMOVE GSI3PK, GSI3SK';
+        // GSI3 (region) and GSI4 (postcode) are both sparse — SET when their source field is
+        // populated, REMOVE (not just cleared) when it isn't, same pattern GSI3 already used before
+        // GSI4 existed. DynamoDB only allows one SET and one REMOVE clause per UpdateExpression, so
+        // both attribute pairs' presence/absence is collected into shared arrays first.
+        const setParts = ['#data = :data', 'GSI1PK = :gsi1pk', 'GSI1SK = :gsi1sk', 'GSI2PK = :gsi2pk'];
+        const removeParts: string[] = [];
+        const gsiValues: Record<string, string> = {
+            ':gsi1pk': gsi1pk(orgUuid, updated.country),
+            ':gsi1sk': gsi1sk(updated.city, updated.neighborhood, propertyUuid),
+            ':gsi2pk': gsi2pk(orgUuid, updated.type),
+        };
+        if (updated.region) {
+            setParts.push('GSI3PK = :gsi3pk', 'GSI3SK = :gsi3sk');
+            gsiValues[':gsi3pk'] = gsi3pk(orgUuid, updated.country, updated.region);
+            gsiValues[':gsi3sk'] = gsi3sk(updated.suburb, propertyUuid);
+        } else {
+            removeParts.push('GSI3PK', 'GSI3SK');
+        }
+        if (updated.postcode) {
+            setParts.push('GSI4PK = :gsi4pk', 'GSI4SK = :gsi4sk');
+            gsiValues[':gsi4pk'] = gsi4pk(orgUuid, updated.country, updated.postcode);
+            gsiValues[':gsi4sk'] = gsi4sk(propertyUuid);
+        } else {
+            removeParts.push('GSI4PK', 'GSI4SK');
+        }
+        const updateExpression = `SET ${setParts.join(', ')}` + (removeParts.length ? ` REMOVE ${removeParts.join(', ')}` : '');
 
         // slug is a separate item (for uniqueness), not just an attribute — always run this as a
         // transaction so the main item and the slug lookup never drift out of sync, even though most
@@ -293,15 +371,11 @@ export class PropertyService extends Service {
                             Update: {
                                 TableName: TABLE,
                                 Key: { PK: pk(orgUuid), SK: sk(propertyUuid) },
-                                UpdateExpression: setClause + removeClause,
+                                UpdateExpression: updateExpression,
                                 ExpressionAttributeNames: { '#data': 'data' },
                                 ExpressionAttributeValues: {
                                     ':data': JSON.stringify(updated),
-                                    ':gsi1pk': gsi1pk(orgUuid, updated.country),
-                                    ':gsi1sk': gsi1sk(updated.area_key, propertyUuid),
-                                    ':gsi2pk': gsi2pk(orgUuid, updated.type),
-                                    ...(updated.region && { ':gsi3pk': gsi3pk(orgUuid, updated.country, updated.region) }),
-                                    ...(updated.region && { ':gsi3sk': gsi1sk(updated.area_key, propertyUuid) }),
+                                    ...gsiValues,
                                 },
                             },
                         },
@@ -356,7 +430,7 @@ export class PropertyService extends Service {
             uuid: unit.uuid ?? uuidv4(),
             title: unit.title,
             image: unit.image ?? null,
-            tag: unit.tag ?? 'sell',
+            actions: unit.actions?.length ? unit.actions : ['sell'],
             sellPrice: unit.sellPrice ?? null,
             sellDiscountPrice: unit.sellDiscountPrice ?? null,
             sellMaxPrice: unit.sellMaxPrice ?? null,
@@ -372,6 +446,7 @@ export class PropertyService extends Service {
             landSize: unit.landSize ?? null,
             condition: unit.condition ?? null,
             furnishing: unit.furnishing ?? null,
+            ownership: unit.ownership ?? null,
             currency,
         };
     }
@@ -379,12 +454,17 @@ export class PropertyService extends Service {
     private gsiAttributes(orgUuid: string, property: Property): Record<string, string> {
         return {
             GSI1PK: gsi1pk(orgUuid, property.country),
-            GSI1SK: gsi1sk(property.area_key, property.uuid),
+            GSI1SK: gsi1sk(property.city, property.neighborhood, property.uuid),
             GSI2PK: gsi2pk(orgUuid, property.type),
             // Sparse: only written when region is set, matching markets (e.g. TH) that don't use it
             ...(property.region && {
                 GSI3PK: gsi3pk(orgUuid, property.country, property.region),
-                GSI3SK: gsi1sk(property.area_key, property.uuid),
+                GSI3SK: gsi3sk(property.suburb, property.uuid),
+            }),
+            // Sparse: written for either market whenever postcode is set (not AU-only)
+            ...(property.postcode && {
+                GSI4PK: gsi4pk(orgUuid, property.country, property.postcode),
+                GSI4SK: gsi4sk(property.uuid),
             }),
         };
     }

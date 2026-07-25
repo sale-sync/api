@@ -10,6 +10,7 @@ async function main(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult>
 
         return await router.handle();
     } catch (err) {
+        console.error('auth handler error:', err);
         return {
             statusCode: 500,
             body: JSON.stringify({

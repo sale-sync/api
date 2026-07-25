@@ -15,13 +15,15 @@ class DefaultController extends Controller implements IControllerMethods {
         this.propertyService = propertyService;
     }
 
-    // GET /properties?propertyUuid={uuid}   → get one
-    // GET /properties?slug={slug}           → get one, by its slug (unique per org)
-    // GET /properties?country={c}&areaKey={a} → list by area within a country
-    // GET /properties?country={c}&region={r} → list by region within a country
-    // GET /properties?country={c}           → list by country
-    // GET /properties?type={t}              → list by type
-    // GET /properties                       → list all
+    // GET /properties?propertyUuid={uuid}     → get one
+    // GET /properties?slug={slug}             → get one, by its slug (unique per org)
+    // GET /properties?country={c}&city={ci}   → list by city (+ implicit neighborhood via prefix) within a country — TH-style
+    // GET /properties?country={c}&region={r}&suburb={s} → list by suburb within a region — AU-style
+    // GET /properties?country={c}&region={r}  → list by region within a country
+    // GET /properties?country={c}&postcode={p} → list by postcode within a country (either market)
+    // GET /properties?country={c}             → list by country
+    // GET /properties?type={t}                → list by type
+    // GET /properties                         → list all
     //
     // Organisation context comes from the Organisation cookie JWT. Every result is filtered by the
     // caller's org role (content-scope-visibility) — see PropertyService.getViewerRole/visibleScopesFor.
@@ -33,7 +35,7 @@ class DefaultController extends Controller implements IControllerMethods {
         const orgUuid = organisation.uuid;
         const viewerRole = await this.propertyService.getViewerRole(orgUuid, organisation.user_id);
 
-        const { propertyUuid, slug, country, region, areaKey, type } = event.queryStringParameters ?? {};
+        const { propertyUuid, slug, country, region, city, suburb, postcode, type } = event.queryStringParameters ?? {};
 
         if (propertyUuid) {
             const property = await this.propertyService.getPropertyById(orgUuid, propertyUuid, viewerRole);
@@ -47,8 +49,18 @@ class DefaultController extends Controller implements IControllerMethods {
             return { statusCode: 200, body: JSON.stringify(property) };
         }
 
-        if (country && areaKey) {
-            const properties = await this.propertyService.listByArea(orgUuid, country, areaKey, viewerRole);
+        if (country && city) {
+            const properties = await this.propertyService.listByCity(orgUuid, country, city, viewerRole);
+            return { statusCode: 200, body: JSON.stringify(properties) };
+        }
+
+        if (country && region && suburb) {
+            const properties = await this.propertyService.listBySuburb(orgUuid, country, region, suburb, viewerRole);
+            return { statusCode: 200, body: JSON.stringify(properties) };
+        }
+
+        if (country && postcode) {
+            const properties = await this.propertyService.listByPostcode(orgUuid, country, postcode, viewerRole);
             return { statusCode: 200, body: JSON.stringify(properties) };
         }
 
