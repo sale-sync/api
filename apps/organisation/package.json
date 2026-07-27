@@ -15,6 +15,7 @@
   },
   "dependencies": {
     "@aws-sdk/client-dynamodb": "^3.893.0",
+    "@aws-sdk/client-lambda": "^3.1095.0",
     "@aws-sdk/lib-dynamodb": "^3.893.0",
     "@devyethiha/samjs": "^0.1.18",
     "@sale-sync/shared": "file:../../libs/shared",

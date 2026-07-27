@@ -11,6 +11,7 @@ import ThemeController from './templates/theme/theme.controller';
 import BrandingController from './branding/branding.controller';
 import { OrganisationService } from './services/organisation.service';
 import { TemplateService } from './services/template.service';
+import { WebsiteTemplateService } from './services/website-template.service';
 import { BrandingService } from './services/branding.service';
 
 async function main(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
@@ -27,7 +28,7 @@ async function main(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult>
                 { controller: TeamController, services: [OrganisationService] },
                 { controller: TeamMemberController, services: [OrganisationService] },
                 { controller: TemplatesController, services: [TemplateService] },
-                { controller: ThemeController, services: [TemplateService] },
+                { controller: ThemeController, services: [WebsiteTemplateService] },
                 { controller: BrandingController, services: [OrganisationService, BrandingService] },
             ],
             '/organisations',

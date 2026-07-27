@@ -38,6 +38,7 @@ const PARAM_KEY_MAP = {
   MEDIA_TABLE_NAME: "MediaTableName",
   MEDIA_BUCKET_NAME: "MediaBucketName",
   PROPERTY_TABLE_NAME: "PropertyTableName",
+  INIT_WEBSITE_FUNCTION_NAME: "InitWebsiteFunctionName",
 };
 
 function main() {

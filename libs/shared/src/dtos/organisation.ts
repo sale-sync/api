@@ -90,6 +90,8 @@ export type UpdateProfileInput = z.infer<typeof UpdateProfileSchema>;
 
 export const HEX_COLOR_REGEX = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
 
+export const ThemeFontSchema = z.enum(['sans', 'mono']);
+
 export const UpdateBrandingDraftSchema = z
     .object({
         primary_hex: z
@@ -101,9 +103,10 @@ export const UpdateBrandingDraftSchema = z
             .regex(HEX_COLOR_REGEX, 'secondary_hex must be a valid hex color (e.g. #3C53FF)')
             .optional(),
         logo: ImageSchema.nullable().optional(),
+        font: ThemeFontSchema.optional(),
     })
     .refine((data) => Object.keys(data).length > 0, {
-        message: 'At least one field (primary_hex, secondary_hex, logo) must be provided',
+        message: 'At least one field (primary_hex, secondary_hex, logo, font) must be provided',
     });
 
 export type UpdateBrandingDraftInput = z.infer<typeof UpdateBrandingDraftSchema>;

@@ -7,8 +7,6 @@ const BusinessCategorySchema = z.enum([
     'restaurant',
     'haircut-and-salon',
 ]);
-const ThemeBrandColorSchema = z.enum(['red', 'orange', 'blue', 'purple', 'green', 'amber', 'gray', 'stone']);
-const ThemeFontSchema = z.enum(['sans', 'mono']);
 
 export const CreateTemplateSchema = z.object({
     name: z.string().min(1, 'name is required'),
@@ -36,11 +34,3 @@ export const SetActiveTemplateSchema = z.object({
 });
 
 export type SetActiveTemplateInput = z.infer<typeof SetActiveTemplateSchema>;
-
-export const UpdateThemeSchema = z.object({
-    template_uuid: z.string().uuid(),
-    brand_color: ThemeBrandColorSchema.optional(),
-    font: ThemeFontSchema.optional(),
-});
-
-export type UpdateThemeInput = z.infer<typeof UpdateThemeSchema>;

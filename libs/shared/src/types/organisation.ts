@@ -7,7 +7,13 @@ export type Image = {
     mime_type: string;
 };
 
-export type OrganisationStatus = 'pending' | 'active';
+// Retired 'pending' 2026-07-26 (backlogs/sync-templates) in favor of a real website-provisioning
+// lifecycle: 'creating-website' (org just created, real-estate only) -> 'ready' (website
+// provisioned, or non-real-estate categories that skip provisioning entirely) -> 'active'
+// (admin-approved) -> 'suspended'. 'website-failed' covers a CREATE_FAILED/ROLLBACK_COMPLETE
+// stack. admin-api/'s copy of this type remains the source of truth for admin-governed
+// transitions (active/suspended) — see docs/srs/admin-api-spec.md.
+export type OrganisationStatus = 'creating-website' | 'ready' | 'website-failed' | 'active' | 'suspended';
 
 // Launch markets for the real-estate vertical. See docs/api/market-behaviour.md.
 export type Market = 'TH' | 'AU';
@@ -78,10 +84,15 @@ export type BrandingColor = {
     scale: BrandingColorScale;
 };
 
+// Theme font — shared between an org's own branding record and template.ts's PredefinedTheme
+// catalog entries (a predefined theme is a staff-curated color-palette + font combo).
+export type ThemeFont = 'sans' | 'mono';
+
 export type BrandingContent = {
     logo: Image | null;
     primaryColor: BrandingColor | null;
     secondaryColor: BrandingColor | null;
+    font: ThemeFont | null;
 };
 
 export type BrandingRecord = {

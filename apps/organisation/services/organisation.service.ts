@@ -1,10 +1,13 @@
 import { ConditionalCheckFailedException, DynamoDBClient, TransactionCanceledException } from '@aws-sdk/client-dynamodb';
 import { BatchGetCommand, BatchWriteCommand, DeleteCommand, GetCommand, PutCommand, QueryCommand, TransactWriteCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
+import { LambdaClient, InvokeCommand } from '@aws-sdk/client-lambda';
 import { Service } from '@devyethiha/samjs';
 import type { BusinessCategory, Image, Market, Organisation, OrganisationRole, OrganisationUser } from '@sale-sync/shared/src/types';
 import { v4 as uuidv4 } from 'uuid';
 
 const TABLE = process.env.ORGANISATION_TABLE_NAME || 'sale-sync-organisation';
+const INIT_WEBSITE_FUNCTION_NAME = process.env.INIT_WEBSITE_FUNCTION_NAME;
+const lambdaClient = new LambdaClient({});
 
 type CreateOrganisationParam = {
     user_id: string;
@@ -71,11 +74,17 @@ export class OrganisationService extends Service {
     }
 
     public async createOrganisation(param: CreateOrganisationParam): Promise<void> {
+        // Only real-estate has a sync-templates/ content-source template today — the other 4
+        // business categories skip website provisioning entirely and land straight on 'ready'
+        // (see backlogs/sync-templates). Easy to extend as more categories get their own
+        // sync-templates/<category>/ folder.
+        const isWebsiteProvisioned = param.business_category === 'real-estate';
+
         const org: Organisation = {
             uuid: uuidv4(),
             id: param.organisation_id,
             name: param.organisation_name,
-            status: 'pending',
+            status: isWebsiteProvisioned ? 'creating-website' : 'ready',
             image: null,
             business_category: param.business_category,
             template_id: param.template_id,
@@ -162,6 +171,25 @@ export class OrganisationService extends Service {
                 throw new OrganisationAlreadyExistsError(param.organisation_id);
             }
             throw error;
+        }
+
+        // Fire-and-forget: kick off website provisioning (infra/functions/init-website, see
+        // backlogs/sync-templates) without blocking the response — the org row above is already
+        // committed, so a failed invoke here must never fail org creation. init-website only
+        // creates the CFN stack and returns; infra/functions/website-stack-complete reacts to the
+        // stack's completion event later and flips status to 'ready'/'website-failed'.
+        if (isWebsiteProvisioned && INIT_WEBSITE_FUNCTION_NAME) {
+            try {
+                await lambdaClient.send(
+                    new InvokeCommand({
+                        FunctionName: INIT_WEBSITE_FUNCTION_NAME,
+                        InvocationType: 'Event',
+                        Payload: JSON.stringify({ organisation_id: org.id }),
+                    }),
+                );
+            } catch (error) {
+                console.error('Failed to invoke init-website — org created, but website provisioning was not started', error);
+            }
         }
     }
 

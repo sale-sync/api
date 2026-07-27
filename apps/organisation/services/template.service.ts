@@ -1,13 +1,10 @@
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DeleteCommand, GetCommand, PutCommand, QueryCommand, TransactWriteCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
+import { DeleteCommand, GetCommand, QueryCommand, TransactWriteCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import { Service } from '@devyethiha/samjs';
-import type { BusinessCategory, Organisation, OrganisationTemplate, Template, ThemeBrandColor, ThemeConfig, ThemeFont } from '@sale-sync/shared/src/types';
-import type { UpdateThemeInput } from '@sale-sync/shared/src/dtos';
+import type { BusinessCategory, Organisation, OrganisationTemplate, Template } from '@sale-sync/shared/src/types';
+import { WebsiteTemplateService } from './website-template.service';
 
 const TABLE = process.env.ORGANISATION_TABLE_NAME || 'sale-sync-organisation';
-
-const DEFAULT_BRAND_COLOR: ThemeBrandColor = 'blue';
-const DEFAULT_FONT: ThemeFont = 'sans';
 
 export class TemplateNotFoundError extends Error {
     constructor(templateUuid: string) {
@@ -39,41 +36,24 @@ export class OrganisationNotFoundError extends Error {
 
 export class TemplateService extends Service {
     private DB_Client: DynamoDBClient;
+    private catalogue: WebsiteTemplateService;
 
     constructor(DB_Client: DynamoDBClient) {
         super('template');
         this.DB_Client = DB_Client;
+        this.catalogue = new WebsiteTemplateService(DB_Client);
     }
 
-    // List global template catalogue by business category
+    // List global template catalogue by business category — delegates to WebsiteTemplateService
+    // (WebsiteTable), which superseded OrganisationTable as the catalogue's home. Kept as a
+    // pass-through here so TemplatesController's DI wiring didn't need to change.
     public async listByCategory(category: BusinessCategory): Promise<Template[]> {
-        const res = await this.DB_Client.send(
-            new QueryCommand({
-                TableName: TABLE,
-                KeyConditionExpression: 'PK = :pk AND begins_with(SK, :prefix)',
-                ExpressionAttributeValues: {
-                    ':pk': 'TEMPLATE',
-                    ':prefix': `CATEGORY#${category}#TEMPLATE#`,
-                },
-            }),
-        );
-
-        return (res.Items ?? []).map((item) => JSON.parse(item.data as string) as Template);
+        return this.catalogue.listByCategory(category);
     }
 
-    // Get a single template from the global catalogue
+    // Get a single template from the global catalogue — see listByCategory's note above.
     public async getByUuid(uuid: string, category: BusinessCategory): Promise<Template | null> {
-        const res = await this.DB_Client.send(
-            new GetCommand({
-                TableName: TABLE,
-                Key: {
-                    PK: 'TEMPLATE',
-                    SK: `CATEGORY#${category}#TEMPLATE#${uuid}`,
-                },
-            }),
-        );
-
-        return res.Item ? (JSON.parse(res.Item.data as string) as Template) : null;
+        return this.catalogue.getByUuid(uuid, category);
     }
 
     // Add a template to an organisation (and optionally set it as active)
@@ -89,13 +69,6 @@ export class TemplateService extends Service {
             added_at: new Date().toISOString(),
         };
 
-        const theme: ThemeConfig = {
-            template_uuid: templateUuid,
-            brand_color: DEFAULT_BRAND_COLOR,
-            font: DEFAULT_FONT,
-            updated_at: membership.added_at,
-        };
-
         const transactItems = [
             {
                 Put: {
@@ -104,16 +77,6 @@ export class TemplateService extends Service {
                         PK: `ORG#${orgUuid}`,
                         SK: `TEMPLATE#${templateUuid}`,
                         data: JSON.stringify(membership),
-                    },
-                },
-            },
-            {
-                Put: {
-                    TableName: TABLE,
-                    Item: {
-                        PK: `ORG#${orgUuid}`,
-                        SK: `THEME#${templateUuid}`,
-                        data: JSON.stringify(theme),
                     },
                 },
             },
@@ -154,28 +117,16 @@ export class TemplateService extends Service {
         }));
     }
 
-    // Remove a template from an organisation (also deletes its theme config)
+    // Remove a template from an organisation
     public async removeFromOrganisation(orgUuid: string, templateUuid: string): Promise<void> {
         const org = await this.getOrgMetadata(orgUuid);
 
         if (org.template_id === templateUuid) throw new ActiveTemplateRemovalError();
 
         await this.DB_Client.send(
-            new TransactWriteCommand({
-                TransactItems: [
-                    {
-                        Delete: {
-                            TableName: TABLE,
-                            Key: { PK: `ORG#${orgUuid}`, SK: `TEMPLATE#${templateUuid}` },
-                        },
-                    },
-                    {
-                        Delete: {
-                            TableName: TABLE,
-                            Key: { PK: `ORG#${orgUuid}`, SK: `THEME#${templateUuid}` },
-                        },
-                    },
-                ],
+            new DeleteCommand({
+                TableName: TABLE,
+                Key: { PK: `ORG#${orgUuid}`, SK: `TEMPLATE#${templateUuid}` },
             }),
         );
     }
@@ -203,43 +154,6 @@ export class TemplateService extends Service {
                 ExpressionAttributeValues: { ':data': JSON.stringify(updatedOrg) },
             }),
         );
-    }
-
-    // Get the theme config for a specific org-template pair
-    public async getTheme(orgUuid: string, templateUuid: string): Promise<ThemeConfig | null> {
-        const res = await this.DB_Client.send(
-            new GetCommand({
-                TableName: TABLE,
-                Key: { PK: `ORG#${orgUuid}`, SK: `THEME#${templateUuid}` },
-            }),
-        );
-
-        return res.Item ? (JSON.parse(res.Item.data as string) as ThemeConfig) : null;
-    }
-
-    // Update the theme config for a specific org-template pair
-    public async updateTheme(orgUuid: string, templateUuid: string, updates: Pick<UpdateThemeInput, 'brand_color' | 'font'>): Promise<ThemeConfig> {
-        const existing = await this.getTheme(orgUuid, templateUuid);
-        if (!existing) throw new TemplateMembershipNotFoundError(templateUuid);
-
-        const updated: ThemeConfig = {
-            ...existing,
-            ...(updates.brand_color !== undefined && { brand_color: updates.brand_color }),
-            ...(updates.font !== undefined && { font: updates.font }),
-            updated_at: new Date().toISOString(),
-        };
-
-        await this.DB_Client.send(
-            new UpdateCommand({
-                TableName: TABLE,
-                Key: { PK: `ORG#${orgUuid}`, SK: `THEME#${templateUuid}` },
-                UpdateExpression: 'SET #data = :data',
-                ExpressionAttributeNames: { '#data': 'data' },
-                ExpressionAttributeValues: { ':data': JSON.stringify(updated) },
-            }),
-        );
-
-        return updated;
     }
 
     private async getOrgMetadata(orgUuid: string): Promise<Organisation> {
