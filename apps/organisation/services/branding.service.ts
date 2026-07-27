@@ -1,7 +1,7 @@
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { GetCommand, PutCommand } from '@aws-sdk/lib-dynamodb';
 import { Service } from '@devyethiha/samjs';
-import type { BrandingContent, BrandingRecord, Image } from '@sale-sync/shared/src/types';
+import type { BrandingContent, BrandingRecord, Image, ThemeFont } from '@sale-sync/shared/src/types';
 import { generateColorScale } from './branding-color.util';
 
 const TABLE = process.env.ORGANISATION_TABLE_NAME || 'sale-sync-organisation';
@@ -52,10 +52,10 @@ export class BrandingService extends Service {
 
     public async updateDraft(
         orgUuid: string,
-        patch: { primary_hex?: string; secondary_hex?: string; logo?: Image | null },
+        patch: { primary_hex?: string; secondary_hex?: string; logo?: Image | null; font?: ThemeFont },
     ): Promise<BrandingRecord> {
         const current = await this.get(orgUuid);
-        const currentDraft: BrandingContent = current.draft ?? { logo: null, primaryColor: null, secondaryColor: null };
+        const currentDraft: BrandingContent = current.draft ?? { logo: null, primaryColor: null, secondaryColor: null, font: null };
 
         const updatedDraft: BrandingContent = {
             ...currentDraft,
@@ -66,6 +66,7 @@ export class BrandingService extends Service {
                 secondaryColor: { hex: patch.secondary_hex, scale: generateColorScale(patch.secondary_hex) },
             }),
             ...(patch.logo !== undefined && { logo: patch.logo }),
+            ...(patch.font !== undefined && { font: patch.font }),
         };
 
         const updated: BrandingRecord = {

@@ -38,6 +38,14 @@ Parameters:
         Type: String
     PropertyTableName:
         Type: String
+    InitWebsiteFunctionName:
+        Type: String
+        Description: >
+            Name of ss/infra's InitWebsiteFunction (see backlogs/sync-templates) — a
+            plain-Parameter cross-stack reference, same convention as the tables above,
+            since init-website lives in a different SAM app/stack (ss/infra, not ss/api).
+            OrganisationDefaultFunction invokes it fire-and-forget after creating a
+            real-estate organisation.
 
 Globals:
     Function:
@@ -123,10 +131,21 @@ Resources:
             Handler: app.lambdaHandler
             Runtime: nodejs22.x
             Architectures: [x86_64]
+            Environment:
+                Variables:
+                    INIT_WEBSITE_FUNCTION_NAME: !Ref InitWebsiteFunctionName
             Policies:
                 - AWSLambdaBasicExecutionRole
                 - DynamoDBCrudPolicy:
                       TableName: !Ref OrganisationTableName
+                - Statement:
+                      - Effect: Allow
+                        Action: lambda:InvokeFunction
+                        # Predictable ARN string (not !GetAtt), same idiom
+                        # ss/infra/template.yaml's MediaS3EventFunction/MediaS3EventPermission use —
+                        # init-website lives in a different SAM app/stack (ss/infra) than this one,
+                        # so there's no CFN GetAtt/import available across the two.
+                        Resource: !Sub 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${InitWebsiteFunctionName}'
             Events:
                 ApiRouter:
                     Type: Api

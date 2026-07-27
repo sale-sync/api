@@ -1,11 +1,10 @@
 import { z } from 'zod';
-import { CreateTemplateSchema, AddTemplateSchema, RemoveTemplateSchema, SetActiveTemplateSchema, UpdateThemeSchema } from '@sale-sync/shared';
+import { CreateTemplateSchema, AddTemplateSchema, RemoveTemplateSchema, SetActiveTemplateSchema } from '@sale-sync/shared';
 
 const security: Array<Record<string, string[]>> = [{ authenticationCookie: [], identifierCookie: [] }];
 const orgSecurity: Array<Record<string, string[]>> = [{ authenticationCookie: [], identifierCookie: [], organisationAuth: [] }];
 
 const BusinessCategorySchema = z.enum(['fitness', 'real-estate', 'service-business', 'restaurant', 'haircut-and-salon']);
-const ThemeBrandColorSchema = z.enum(['red', 'orange', 'blue', 'purple', 'green', 'amber', 'gray', 'stone']);
 const ThemeFontSchema = z.enum(['sans', 'mono']);
 
 const TemplateSchema = z.object({
@@ -24,11 +23,35 @@ const OrganisationTemplateSchema = z.object({
     }),
 });
 
-const ThemeConfigSchema = z.object({
+const BrandingColorScaleSchema = z.object({
+    '50': z.string(),
+    '100': z.string(),
+    '200': z.string(),
+    '300': z.string(),
+    '400': z.string(),
+    '500': z.string(),
+    '600': z.string(),
+    '700': z.string(),
+    '800': z.string(),
+    '900': z.string(),
+    '950': z.string(),
+});
+
+const BrandingColorSchema = z.object({
+    hex: z.string(),
+    scale: BrandingColorScaleSchema,
+});
+
+// A staff-curated color-palette + font preset scoped to one template. Distinct from an
+// organisation's own theme, which lives on its BrandingRecord (see /organisations/branding).
+const PredefinedThemeSchema = z.object({
+    uuid: z.string().uuid(),
     template_uuid: z.string().uuid(),
-    brand_color: ThemeBrandColorSchema,
+    name: z.string(),
+    primaryColor: BrandingColorSchema,
+    secondaryColor: BrandingColorSchema,
     font: ThemeFontSchema,
-    updated_at: z.string().datetime(),
+    created_at: z.string().datetime(),
 });
 
 export const templatePaths = {
@@ -115,7 +138,7 @@ export const templatePaths = {
         post: {
             tags: ['Template'],
             summary: 'Add a template to an organisation',
-            description: 'Adds a template from the global catalogue to the organisation (from the `Organisation` cookie). Creates a `TEMPLATE#` membership item and a `THEME#` config item (with defaults) in one transaction. Pass `set_active: true` to also update the organisation\'s active template in the same transaction (used during onboarding).',
+            description: 'Adds a template from the global catalogue to the organisation (from the `Organisation` cookie). Creates a `TEMPLATE#` membership item. Pass `set_active: true` to also update the organisation\'s active template in the same transaction (used during onboarding).',
             security: orgSecurity,
             requestBody: {
                 required: true,
@@ -167,7 +190,7 @@ export const templatePaths = {
         delete: {
             tags: ['Template'],
             summary: 'Remove a template from an organisation',
-            description: 'Removes a template and its theme config from the organisation (from the `Organisation` cookie) in one transaction. Returns 409 if the template is currently active.',
+            description: 'Removes a template from the organisation (from the `Organisation` cookie). Returns 409 if the template is currently active.',
             security: orgSecurity,
             requestBody: {
                 required: true,
@@ -199,53 +222,41 @@ export const templatePaths = {
     '/organisations/templates/theme': {
         get: {
             tags: ['Template'],
-            summary: 'Get theme config for a template in the organisation',
-            description: 'Organisation context comes from the `Organisation` cookie.',
+            summary: 'List or get predefined theme(s) for a template',
+            description: [
+                'Staff-curated color-palette + font presets scoped to a template — the catalog an organisation',
+                'picks from (e.g. during onboarding), not the organisation\'s own theme (see `/organisations/branding`',
+                'for that). Accepts an optional `themeUuid` query parameter:',
+                '',
+                '- `themeUuid` provided — get a single predefined theme',
+                '- (none) — list every predefined theme for the template',
+            ].join('\n'),
             security: orgSecurity,
             requestParams: {
                 query: z.object({
                     templateUuid: z.string().uuid().meta({ description: 'Template UUID' }),
+                    themeUuid: z.string().uuid().optional().meta({ description: 'Predefined theme UUID — omit to list all themes for the template' }),
                 }),
             },
             responses: {
                 '200': {
-                    description: 'Theme config',
-                    content: { 'application/json': { schema: ThemeConfigSchema } },
+                    description: 'Response shape depends on whether `themeUuid` was provided',
+                    content: {
+                        'application/json': {
+                            schema: z.union([
+                                PredefinedThemeSchema.meta({ description: 'themeUuid → single predefined theme' }),
+                                z.array(PredefinedThemeSchema).meta({ description: 'default → every predefined theme for the template' }),
+                            ]),
+                        },
+                    },
                 },
                 '400': {
                     description: 'Missing templateUuid query parameter',
                     content: { 'application/json': { schema: z.object({ message: z.string() }) } },
                 },
                 '401': { description: 'Unauthorized' },
-                '403': { description: 'No organisation context' },
                 '404': {
-                    description: 'Theme not found',
-                    content: { 'application/json': { schema: z.object({ message: z.string() }) } },
-                },
-            },
-        },
-        patch: {
-            tags: ['Template'],
-            summary: 'Update theme config (brand color and/or font)',
-            description: 'Updates the theme configuration for a specific template in the organisation (from the `Organisation` cookie). Only provided fields are updated.',
-            security: orgSecurity,
-            requestBody: {
-                required: true,
-                content: { 'application/json': { schema: UpdateThemeSchema } },
-            },
-            responses: {
-                '200': {
-                    description: 'Updated theme config',
-                    content: { 'application/json': { schema: ThemeConfigSchema } },
-                },
-                '400': {
-                    description: 'Validation error',
-                    content: { 'application/json': { schema: z.object({ message: z.string(), issues: z.array(z.unknown()) }) } },
-                },
-                '401': { description: 'Unauthorized' },
-                '403': { description: 'No organisation context' },
-                '404': {
-                    description: 'Template not in org collection',
+                    description: 'Theme not found (only when themeUuid is given)',
                     content: { 'application/json': { schema: z.object({ message: z.string() }) } },
                 },
             },

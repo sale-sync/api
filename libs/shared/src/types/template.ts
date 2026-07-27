@@ -1,8 +1,4 @@
-import type { BusinessCategory } from './organisation';
-
-export type ThemeBrandColor = 'red' | 'orange' | 'blue' | 'purple' | 'green' | 'amber' | 'gray' | 'stone';
-
-export type ThemeFont = 'sans' | 'mono';
+import type { BrandingColor, BusinessCategory, ThemeFont } from './organisation';
 
 export type Template = {
     uuid: string;
@@ -17,9 +13,17 @@ export type OrganisationTemplate = {
     added_at: string;
 };
 
-export type ThemeConfig = {
+// Staff-curated color-palette + font preset, scoped to exactly one template. An organisation's own
+// theme (its BrandingRecord) is created by deep-copying one of these at org-creation time — editing
+// the org's copy afterward never affects the predefined theme it was copied from. Stored in
+// WebsiteTable: PK=TEMPLATE#<uuid>, SK=THEME#<uuid>. See backlogs/website/children/
+// website-table-templates-themes for the full design history.
+export type PredefinedTheme = {
+    uuid: string;
     template_uuid: string;
-    brand_color: ThemeBrandColor;
+    name: string;
+    primaryColor: BrandingColor;
+    secondaryColor: BrandingColor;
     font: ThemeFont;
-    updated_at: string;
+    created_at: string;
 };
