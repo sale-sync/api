@@ -101,7 +101,9 @@ bundle/
 .env.test
 .env*.local
 env.*
+admin.env.*
 samconfig.toml
+admin.samconfig.toml
 
 # parcel-bundler cache (https://parceljs.org/)
 .cache

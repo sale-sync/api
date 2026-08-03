@@ -8,43 +8,46 @@
 #   source scripts/check-resources.sh && check_sale_sync_resources staging
 #   ./scripts/check-resources.sh prod [region]
 #   ./scripts/check-resources.sh both [region]
+#   ./scripts/check-resources.sh admin staging [region]   # admin API stack instead
+#   ./scripts/check-resources.sh admin prod [region]
+#   ./scripts/check-resources.sh admin both [region]
+
+_check_one() {
+    local prefix="$1" stack_name="$2" region="$3"
+
+    echo "=== [$stack_name] CloudFormation stacks (${stack_name}*) — region ${region} ==="
+    aws cloudformation list-stacks \
+        --region "$region" \
+        --stack-status-filter CREATE_COMPLETE CREATE_FAILED ROLLBACK_COMPLETE ROLLBACK_FAILED \
+            UPDATE_COMPLETE UPDATE_ROLLBACK_COMPLETE UPDATE_ROLLBACK_FAILED DELETE_FAILED \
+        --query "StackSummaries[?starts_with(StackName, '${stack_name}')].[StackName,StackStatus,CreationTime]" \
+        --output table
+
+    echo
+    echo "=== [$stack_name] DynamoDB tables (${prefix}*) ==="
+    aws dynamodb list-tables \
+        --region "$region" \
+        --query "TableNames[?starts_with(@, '${prefix}')]" \
+        --output table
+
+    echo
+    echo "=== [$stack_name] S3 buckets (${prefix}*) ==="
+    aws s3api list-buckets \
+        --query "Buckets[?starts_with(Name, '${prefix}')].Name" \
+        --output table
+
+    echo
+    echo "=== [$stack_name] Lambda functions (${stack_name}-* or ${prefix}*) — region ${region} ==="
+    aws lambda list-functions \
+        --region "$region" \
+        --query "Functions[?starts_with(FunctionName, '${stack_name}') || starts_with(FunctionName, '${prefix}')].[FunctionName,Runtime,LastModified]" \
+        --output table
+    echo
+}
 
 check_sale_sync_resources() {
     local env="$1"
     local region="${2:-ap-southeast-2}"
-
-    _check_one() {
-        local prefix="$1" stack_name="$2" region="$3"
-
-        echo "=== [$stack_name] CloudFormation stacks (${stack_name}*) — region ${region} ==="
-        aws cloudformation list-stacks \
-            --region "$region" \
-            --stack-status-filter CREATE_COMPLETE CREATE_FAILED ROLLBACK_COMPLETE ROLLBACK_FAILED \
-                UPDATE_COMPLETE UPDATE_ROLLBACK_COMPLETE UPDATE_ROLLBACK_FAILED DELETE_FAILED \
-            --query "StackSummaries[?starts_with(StackName, '${stack_name}')].[StackName,StackStatus,CreationTime]" \
-            --output table
-
-        echo
-        echo "=== [$stack_name] DynamoDB tables (${prefix}*) ==="
-        aws dynamodb list-tables \
-            --region "$region" \
-            --query "TableNames[?starts_with(@, '${prefix}')]" \
-            --output table
-
-        echo
-        echo "=== [$stack_name] S3 buckets (${prefix}*) ==="
-        aws s3api list-buckets \
-            --query "Buckets[?starts_with(Name, '${prefix}')].Name" \
-            --output table
-
-        echo
-        echo "=== [$stack_name] Lambda functions (${stack_name}-* or ${prefix}*) — region ${region} ==="
-        aws lambda list-functions \
-            --region "$region" \
-            --query "Functions[?starts_with(FunctionName, '${stack_name}') || starts_with(FunctionName, '${prefix}')].[FunctionName,Runtime,LastModified]" \
-            --output table
-        echo
-    }
 
     case "$env" in
         staging)
@@ -62,11 +65,40 @@ check_sale_sync_resources() {
             return 1
             ;;
     esac
+}
 
-    unset -f _check_one
+# Admin API stack (sales-sync-admin-api / staging-sales-sync-admin-api) — shares the same
+# OrganisationTable/prefix as the client API (no own DynamoDB/S3), so those two sections will
+# just re-show the client API's resources; the CloudFormation/Lambda sections are the useful
+# ones here (they filter on the admin stack name instead).
+check_sale_sync_admin_resources() {
+    local env="$1"
+    local region="${2:-ap-southeast-2}"
+
+    case "$env" in
+        staging)
+            _check_one "staging-sale-sync-" "staging-sales-sync-admin-api" "$region"
+            ;;
+        prod|production)
+            _check_one "sale-sync-" "sales-sync-admin-api" "$region"
+            ;;
+        both)
+            _check_one "staging-sale-sync-" "staging-sales-sync-admin-api" "$region"
+            _check_one "sale-sync-" "sales-sync-admin-api" "$region"
+            ;;
+        *)
+            echo "Usage: check_sale_sync_admin_resources <staging|prod|both> [region]" >&2
+            return 1
+            ;;
+    esac
 }
 
 # Allow running directly (./scripts/check-resources.sh staging) as well as sourcing.
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
-    check_sale_sync_resources "$@"
+    if [[ "$1" == "admin" ]]; then
+        shift
+        check_sale_sync_admin_resources "$@"
+    else
+        check_sale_sync_resources "$@"
+    fi
 fi

@@ -46,6 +46,14 @@ Parameters:
             since init-website lives in a different SAM app/stack (ss/infra, not ss/api).
             OrganisationDefaultFunction invokes it fire-and-forget after creating a
             real-estate organisation.
+    WebsiteTableName:
+        Type: String
+        Description: >
+            Name of ss/infra's WebsiteTable (see infra/template.yaml WebsiteTable /
+            WebsiteTableName output) — cross-stack reference, same convention as
+            OrganisationTableName / InitWebsiteFunctionName above. Read by
+            OrganisationFunction/OrganisationDefaultFunction's WebsiteTemplateService
+            to serve the global template catalogue (GET /organisations/templates).
 
 Globals:
     Function:
@@ -83,7 +91,7 @@ Resources:
     AuthFunction:
         Type: AWS::Serverless::Function
         Properties:
-            CodeUri: apps/auth/bundle
+            CodeUri: apps/api/auth/bundle
             Handler: app.lambdaHandler
             Runtime: nodejs22.x
             Architectures: [x86_64]
@@ -108,14 +116,19 @@ Resources:
     OrganisationFunction:
         Type: AWS::Serverless::Function
         Properties:
-            CodeUri: apps/organisation/bundle
+            CodeUri: apps/api/organisation/bundle
             Handler: app.lambdaHandler
             Runtime: nodejs22.x
             Architectures: [x86_64]
+            Environment:
+                Variables:
+                    WEBSITE_TABLE_NAME: !Ref WebsiteTableName
             Policies:
                 - AWSLambdaBasicExecutionRole
                 - DynamoDBCrudPolicy:
                       TableName: !Ref OrganisationTableName
+                - DynamoDBReadPolicy:
+                      TableName: !Ref WebsiteTableName
             Events:
                 ApiRouter:
                     Type: Api
@@ -127,17 +140,20 @@ Resources:
     OrganisationDefaultFunction:
         Type: AWS::Serverless::Function
         Properties:
-            CodeUri: apps/organisation/bundle
+            CodeUri: apps/api/organisation/bundle
             Handler: app.lambdaHandler
             Runtime: nodejs22.x
             Architectures: [x86_64]
             Environment:
                 Variables:
                     INIT_WEBSITE_FUNCTION_NAME: !Ref InitWebsiteFunctionName
+                    WEBSITE_TABLE_NAME: !Ref WebsiteTableName
             Policies:
                 - AWSLambdaBasicExecutionRole
                 - DynamoDBCrudPolicy:
                       TableName: !Ref OrganisationTableName
+                - DynamoDBReadPolicy:
+                      TableName: !Ref WebsiteTableName
                 - Statement:
                       - Effect: Allow
                         Action: lambda:InvokeFunction
@@ -160,7 +176,7 @@ Resources:
     MediaFunction:
         Type: AWS::Serverless::Function
         Properties:
-            CodeUri: apps/media/bundle
+            CodeUri: apps/api/media/bundle
             Handler: app.lambdaHandler
             Runtime: nodejs22.x
             Architectures: [x86_64]
@@ -191,7 +207,7 @@ Resources:
     MediaDefaultFunction:
         Type: AWS::Serverless::Function
         Properties:
-            CodeUri: apps/media/bundle
+            CodeUri: apps/api/media/bundle
             Handler: app.lambdaHandler
             Runtime: nodejs22.x
             Architectures: [x86_64]
@@ -225,7 +241,7 @@ Resources:
     TemplateCatalogueFunction:
         Type: AWS::Serverless::Function
         Properties:
-            CodeUri: apps/templates/bundle
+            CodeUri: apps/api/templates/bundle
             Handler: app.lambdaHandler
             Runtime: nodejs22.x
             Architectures: [x86_64]
@@ -244,7 +260,7 @@ Resources:
     TemplateCatalogueDefaultFunction:
         Type: AWS::Serverless::Function
         Properties:
-            CodeUri: apps/templates/bundle
+            CodeUri: apps/api/templates/bundle
             Handler: app.lambdaHandler
             Runtime: nodejs22.x
             Architectures: [x86_64]
@@ -261,12 +277,12 @@ Resources:
                         Method: ANY
 
     # -------------------------------------------------------------------------
-    # Plan Lambdas
+    # Payments Lambdas
     # -------------------------------------------------------------------------
-    PlanFunction:
+    PaymentsFunction:
         Type: AWS::Serverless::Function
         Properties:
-            CodeUri: apps/plan/bundle
+            CodeUri: apps/api/payments/bundle
             Handler: app.lambdaHandler
             Runtime: nodejs22.x
             Architectures: [x86_64]
@@ -279,13 +295,13 @@ Resources:
                     Type: Api
                     Properties:
                         RestApiId: !Ref SalesSyncApi
-                        Path: /plans/{proxy+}
+                        Path: /payments/{proxy+}
                         Method: ANY
 
-    PlanDefaultFunction:
+    PaymentsDefaultFunction:
         Type: AWS::Serverless::Function
         Properties:
-            CodeUri: apps/plan/bundle
+            CodeUri: apps/api/payments/bundle
             Handler: app.lambdaHandler
             Runtime: nodejs22.x
             Architectures: [x86_64]
@@ -298,7 +314,7 @@ Resources:
                     Type: Api
                     Properties:
                         RestApiId: !Ref SalesSyncApi
-                        Path: /plans
+                        Path: /payments
                         Method: ANY
 
     # -------------------------------------------------------------------------
@@ -307,7 +323,7 @@ Resources:
     BlocksFunction:
         Type: AWS::Serverless::Function
         Properties:
-            CodeUri: apps/blocks/bundle
+            CodeUri: apps/api/blocks/bundle
             Handler: app.lambdaHandler
             Runtime: nodejs22.x
             Architectures: [x86_64]
@@ -326,7 +342,7 @@ Resources:
     BlocksDefaultFunction:
         Type: AWS::Serverless::Function
         Properties:
-            CodeUri: apps/blocks/bundle
+            CodeUri: apps/api/blocks/bundle
             Handler: app.lambdaHandler
             Runtime: nodejs22.x
             Architectures: [x86_64]
@@ -348,7 +364,7 @@ Resources:
     PropertiesFunction:
         Type: AWS::Serverless::Function
         Properties:
-            CodeUri: apps/properties/bundle
+            CodeUri: apps/api/properties/bundle
             Handler: app.lambdaHandler
             Runtime: nodejs22.x
             Architectures: [x86_64]
@@ -372,7 +388,7 @@ Resources:
     PropertiesDefaultFunction:
         Type: AWS::Serverless::Function
         Properties:
-            CodeUri: apps/properties/bundle
+            CodeUri: apps/api/properties/bundle
             Handler: app.lambdaHandler
             Runtime: nodejs22.x
             Architectures: [x86_64]

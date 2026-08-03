@@ -3,9 +3,13 @@
 // parameter_overrides, since `sam deploy` ignores --env-vars files and only
 // reads CloudFormation parameters from samconfig.toml.
 //
-// Usage: node scripts/sync-samconfig.js [envName] [tomlSection]
-//   envName     defaults to "prod"      -> reads env.<envName>.json
+// Usage: node scripts/sync-samconfig.js [envName] [tomlSection] [mode]
+//   envName     defaults to "prod"      -> reads <mode's env prefix>.<envName>.json
 //   tomlSection defaults to "default.deploy.parameters"
+//   mode        defaults to "client"    -> "client" (env.*.json/samconfig.toml,
+//               customer-facing API) or "admin" (admin.env.*.json/
+//               admin.samconfig.toml, staff-facing admin API — own template/stack,
+//               smaller Parameters block, see admin.template.yaml)
 
 const fs = require("fs");
 const path = require("path");
@@ -13,33 +17,58 @@ const path = require("path");
 const ROOT = path.resolve(__dirname, "..");
 const envName = process.argv[2] || "prod";
 const tomlSection = process.argv[3] || "default.deploy.parameters";
+const mode = process.argv[4] || "client";
 
-const envPath = path.join(ROOT, `env.${envName}.json`);
-const tomlPath = path.join(ROOT, "samconfig.toml");
-
-// Keep in sync with the `Parameters:` block in template.yaml
+// Keep each mode's map in sync with its own template.yaml's `Parameters:` block.
 // ORGANISATION_TABLE_NAME/AUTH_TABLE_NAME/MEDIA_TABLE_NAME/MEDIA_BUCKET_NAME/
-// PROPERTY_TABLE_NAME used to be intentionally excluded here because they
-// were CloudFormation-managed via nested stacks (OrganisationInfraStack /
-// AuthInfraStack / MediaInfraStack / PropertiesInfraStack), not plain
-// parameters. Those nested stacks are gone — infra now lives in the
-// standalone ss/infra stack (see ss/docs/infra/runbook.md) — and
-// template.yaml takes these as plain Parameters, so they're included below
-// like everything else.
-const PARAM_KEY_MAP = {
-  RESOURCE_PREFIX: "ResourcePrefix",
-  BLOCK_TABLE_NAME: "BlockTableName",
-  COGNITO_URL: "CognitoUrl",
-  CLIENT_ID: "ClientId",
-  CLIENT_SECRET: "ClientSecret",
-  COGNITO_CALLBACK_URL: "CognitoCallbackUrl",
-  AUTH_TABLE_NAME: "AuthTableName",
-  ORGANISATION_TABLE_NAME: "OrganisationTableName",
-  MEDIA_TABLE_NAME: "MediaTableName",
-  MEDIA_BUCKET_NAME: "MediaBucketName",
-  PROPERTY_TABLE_NAME: "PropertyTableName",
-  INIT_WEBSITE_FUNCTION_NAME: "InitWebsiteFunctionName",
+// PROPERTY_TABLE_NAME used to be intentionally excluded from the client map because
+// they were CloudFormation-managed via nested stacks (OrganisationInfraStack /
+// AuthInfraStack / MediaInfraStack / PropertiesInfraStack), not plain parameters.
+// Those nested stacks are gone — infra now lives in the standalone ss/infra stack
+// (see ss/docs/infra/runbook.md) — and template.yaml takes these as plain
+// Parameters, so they're included below like everything else.
+const MODE_CONFIG = {
+  client: {
+    envPrefix: "env",
+    tomlFile: "samconfig.toml",
+    paramKeyMap: {
+      RESOURCE_PREFIX: "ResourcePrefix",
+      BLOCK_TABLE_NAME: "BlockTableName",
+      COGNITO_URL: "CognitoUrl",
+      CLIENT_ID: "ClientId",
+      CLIENT_SECRET: "ClientSecret",
+      COGNITO_CALLBACK_URL: "CognitoCallbackUrl",
+      AUTH_TABLE_NAME: "AuthTableName",
+      ORGANISATION_TABLE_NAME: "OrganisationTableName",
+      MEDIA_TABLE_NAME: "MediaTableName",
+      MEDIA_BUCKET_NAME: "MediaBucketName",
+      PROPERTY_TABLE_NAME: "PropertyTableName",
+      INIT_WEBSITE_FUNCTION_NAME: "InitWebsiteFunctionName",
+      WEBSITE_TABLE_NAME: "WebsiteTableName",
+    },
+  },
+  admin: {
+    envPrefix: "admin.env",
+    tomlFile: "admin.samconfig.toml",
+    // admin.template.yaml's Parameters block is just these four (TableName is the
+    // OrganisationTable — admin only ever reads/writes that one table).
+    paramKeyMap: {
+      TABLE_NAME: "TableName",
+      COGNITO_URL: "CognitoUrl",
+      CLIENT_ID: "ClientId",
+      CLIENT_SECRET: "ClientSecret",
+    },
+  },
 };
+
+if (!MODE_CONFIG[mode]) {
+  console.error(`ERROR: unknown mode "${mode}" — expected one of: ${Object.keys(MODE_CONFIG).join(", ")}`);
+  process.exit(1);
+}
+
+const { envPrefix, tomlFile, paramKeyMap: PARAM_KEY_MAP } = MODE_CONFIG[mode];
+const envPath = path.join(ROOT, `${envPrefix}.${envName}.json`);
+const tomlPath = path.join(ROOT, tomlFile);
 
 function main() {
   if (!fs.existsSync(envPath)) {

@@ -1,0 +1,175 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+
+Description: Sales Sync Admin API
+
+Parameters:
+    TableName:
+        Type: String
+    CognitoUrl:
+        Type: String
+    ClientId:
+        Type: String
+    ClientSecret:
+        Type: String
+
+Globals:
+    Function:
+        Timeout: 10
+        Environment:
+            Variables:
+                TABLE_NAME: !Ref TableName
+                COGNITO_URL: !Ref CognitoUrl
+                CLIENT_ID: !Ref ClientId
+                CLIENT_SECRET: !Ref ClientSecret
+
+Resources:
+    # =========================================================================
+    # API Gateway
+    # =========================================================================
+    SalesSyncAdminApi:
+        Type: AWS::Serverless::Api
+        Properties:
+            StageName: Prod
+
+    # =========================================================================
+    # Lambda Functions
+    # =========================================================================
+
+    # -------------------------------------------------------------------------
+    # Payments Lambdas
+    # -------------------------------------------------------------------------
+    PaymentsFunction:
+        Type: AWS::Serverless::Function
+        Properties:
+            CodeUri: apps/admin-api/payments/bundle
+            Handler: app.lambdaHandler
+            Runtime: nodejs22.x
+            Architectures: [x86_64]
+            Policies:
+                - AWSLambdaBasicExecutionRole
+                - arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess
+            Events:
+                ApiRouter:
+                    Type: Api
+                    Properties:
+                        RestApiId: !Ref SalesSyncAdminApi
+                        Path: /payments/{proxy+}
+                        Method: ANY
+
+    PaymentsDefaultFunction:
+        Type: AWS::Serverless::Function
+        Properties:
+            CodeUri: apps/admin-api/payments/bundle
+            Handler: app.lambdaHandler
+            Runtime: nodejs22.x
+            Architectures: [x86_64]
+            Policies:
+                - AWSLambdaBasicExecutionRole
+                - arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess
+            Events:
+                ApiRouter:
+                    Type: Api
+                    Properties:
+                        RestApiId: !Ref SalesSyncAdminApi
+                        Path: /payments
+                        Method: ANY
+
+    # -------------------------------------------------------------------------
+    # Promo Codes Lambdas
+    # -------------------------------------------------------------------------
+    PromoCodesFunction:
+        Type: AWS::Serverless::Function
+        Properties:
+            CodeUri: apps/admin-api/promo-codes/bundle
+            Handler: app.lambdaHandler
+            Runtime: nodejs22.x
+            Architectures: [x86_64]
+            Policies:
+                - AWSLambdaBasicExecutionRole
+                - arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess
+            Events:
+                ApiRouter:
+                    Type: Api
+                    Properties:
+                        RestApiId: !Ref SalesSyncAdminApi
+                        Path: /promo-codes/{proxy+}
+                        Method: ANY
+
+    PromoCodesDefaultFunction:
+        Type: AWS::Serverless::Function
+        Properties:
+            CodeUri: apps/admin-api/promo-codes/bundle
+            Handler: app.lambdaHandler
+            Runtime: nodejs22.x
+            Architectures: [x86_64]
+            Policies:
+                - AWSLambdaBasicExecutionRole
+                - arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess
+            Events:
+                ApiRouter:
+                    Type: Api
+                    Properties:
+                        RestApiId: !Ref SalesSyncAdminApi
+                        Path: /promo-codes
+                        Method: ANY
+
+    # -------------------------------------------------------------------------
+    # Organisation Lambdas
+    # -------------------------------------------------------------------------
+    OrganisationFunction:
+        Type: AWS::Serverless::Function
+        Properties:
+            CodeUri: apps/admin-api/organisation/bundle
+            Handler: app.lambdaHandler
+            Runtime: nodejs22.x
+            Architectures: [x86_64]
+            Policies:
+                - AWSLambdaBasicExecutionRole
+                - arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess
+            Events:
+                ApiRouter:
+                    Type: Api
+                    Properties:
+                        RestApiId: !Ref SalesSyncAdminApi
+                        Path: /organisations/{proxy+}
+                        Method: ANY
+
+    OrganisationDefaultFunction:
+        Type: AWS::Serverless::Function
+        Properties:
+            CodeUri: apps/admin-api/organisation/bundle
+            Handler: app.lambdaHandler
+            Runtime: nodejs22.x
+            Architectures: [x86_64]
+            Policies:
+                - AWSLambdaBasicExecutionRole
+                - arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess
+            Events:
+                ApiRouter:
+                    Type: Api
+                    Properties:
+                        RestApiId: !Ref SalesSyncAdminApi
+                        Path: /organisations
+                        Method: ANY
+
+Outputs:
+    AdminApiId:
+        Description: API Gateway RestApi ID
+        Value: !Ref SalesSyncAdminApi
+
+    AdminApiInvokeUrl:
+        Description: Invoke URL for the Prod stage
+        Value: !Sub 'https://${SalesSyncAdminApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/'
+
+    PaymentsFunctionArn:
+        Description: Payments Lambda Function ARN
+        Value: !GetAtt PaymentsFunction.Arn
+
+    OrganisationFunctionArn:
+        Description: Organisation Lambda Function ARN
+        Value: !GetAtt OrganisationFunction.Arn
+
+    PromoCodesFunctionArn:
+        Description: Promo Codes Lambda Function ARN
+        Value: !GetAtt PromoCodesFunction.Arn
