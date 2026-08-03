@@ -26,6 +26,7 @@ export const CreateOrganisationSchema = z.object({
     description: z.string().optional(),
     address: z.string().optional(),
     market: MarketSchema.default('AU'),
+    promo_code: z.string().optional(),
 });
 
 export type CreateOrganisationInput = z.infer<typeof CreateOrganisationSchema>;
@@ -110,3 +111,15 @@ export const UpdateBrandingDraftSchema = z
     });
 
 export type UpdateBrandingDraftInput = z.infer<typeof UpdateBrandingDraftSchema>;
+
+// ─── Admin-only ──────────────────────────
+// Staff-side org update: status/plan reassignment only — deliberately a separate schema from
+// UpdateOrganisationSchema above (customer self-edit: name/description/address/image/market).
+// The two never overlap in allowed fields, so they stay distinct rather than one combined schema.
+export const AdminUpdateOrganisationSchema = z.object({
+    uuid: z.string().uuid('uuid must be a valid UUID'),
+    status: z.enum(['creating-website', 'ready', 'website-failed', 'active', 'suspended']).optional(),
+    plan_id: z.string().uuid('plan_id must be a valid UUID').optional(),
+});
+
+export type AdminUpdateOrganisationInput = z.infer<typeof AdminUpdateOrganisationSchema>;

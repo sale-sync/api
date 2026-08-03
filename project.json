@@ -20,6 +20,24 @@
       "options": {
         "command": "make deploy"
       }
+    },
+    "admin.build": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "make admin.build"
+      }
+    },
+    "admin.dev": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "make admin.dev"
+      }
+    },
+    "admin.deploy": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "make admin.deploy"
+      }
     }
   }
 }
