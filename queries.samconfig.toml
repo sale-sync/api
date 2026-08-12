@@ -1,0 +1,27 @@
+version = 0.1
+
+[staging.deploy.parameters]
+stack_name = "staging-sale-sync-queries-api"
+resolve_s3 = true
+s3_prefix = "staging-sale-sync-queries-api"
+region = "ap-southeast-2"
+confirm_changeset = true
+capabilities = "CAPABILITY_IAM CAPABILITY_AUTO_EXPAND"
+image_repositories = []
+parameter_overrides = [
+  "ParameterKey=OrganisationTableName,ParameterValue=staging-sale-sync-organisation",
+  "ParameterKey=PropertyTableName,ParameterValue=staging-sale-sync-properties"
+]
+
+[prod.deploy.parameters]
+stack_name = "sale-sync-queries-api"
+resolve_s3 = true
+s3_prefix = "sale-sync-queries-api"
+region = "ap-southeast-2"
+confirm_changeset = true
+capabilities = "CAPABILITY_IAM CAPABILITY_AUTO_EXPAND"
+image_repositories = []
+parameter_overrides = [
+  "ParameterKey=OrganisationTableName,ParameterValue=sale-sync-organisation",
+  "ParameterKey=PropertyTableName,ParameterValue=sale-sync-properties"
+]

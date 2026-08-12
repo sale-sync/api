@@ -1,0 +1,110 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+
+Description: Sales Sync Queries API — public, unauthenticated read API for deployed theme-maker sites
+
+Parameters:
+    OrganisationTableName:
+        Type: String
+        Description: The existing organisation table (shared with api/ and admin-api) — read-only access
+    PropertyTableName:
+        Type: String
+        Description: The existing property table (shared with api/) — read-only access
+
+Globals:
+    Function:
+        Timeout: 10
+        Environment:
+            Variables:
+                ORGANISATION_TABLE_NAME: !Ref OrganisationTableName
+
+Resources:
+    # =========================================================================
+    # API Gateway
+    # =========================================================================
+    SalesSyncQueriesApi:
+        Type: AWS::Serverless::Api
+        Properties:
+            StageName: Prod
+
+    # =========================================================================
+    # Lambda Functions
+    # =========================================================================
+
+    # -------------------------------------------------------------------------
+    # Branding Lambda
+    # -------------------------------------------------------------------------
+    # Read-only IAM by construction (DynamoDBReadPolicy, not the AmazonDynamoDBFullAccess managed
+    # policy admin-api/ uses) — this is the first public, unauthenticated Lambda in the repo touching
+    # the organisation table. Even if the Organisation cookie is forged (getOrganisation never verifies
+    # its signature — see website-queries-api backlog), this function still can't write.
+    BrandingFunction:
+        Type: AWS::Serverless::Function
+        Properties:
+            CodeUri: apps/queries-api/branding/bundle
+            Handler: app.lambdaHandler
+            Runtime: nodejs22.x
+            Architectures: [x86_64]
+            Policies:
+                - AWSLambdaBasicExecutionRole
+                - DynamoDBReadPolicy:
+                      TableName: !Ref OrganisationTableName
+            Events:
+                # Method: ANY, not GET — the CORS preflight (OPTIONS) needs to reach the Lambda too
+                # (withOpenCORS in branding/app.ts handles it), matching every other service's
+                # pattern in this repo. The controller itself still only implements get(), so any
+                # other real verb 404s via the Router, same as it would with a narrower Method.
+                ApiRouter:
+                    Type: Api
+                    Properties:
+                        RestApiId: !Ref SalesSyncQueriesApi
+                        Path: /branding
+                        Method: ANY
+
+    # -------------------------------------------------------------------------
+    # Properties Lambda
+    # -------------------------------------------------------------------------
+    # Read-only IAM, same rationale as BrandingFunction — needs both tables: the property table
+    # itself (slug lookup + the property record) and the organisation table (confirming the org
+    # from the cookie actually exists, same check branding does).
+    PropertiesFunction:
+        Type: AWS::Serverless::Function
+        Properties:
+            CodeUri: apps/queries-api/properties/bundle
+            Handler: app.lambdaHandler
+            Runtime: nodejs22.x
+            Architectures: [x86_64]
+            Environment:
+                Variables:
+                    PROPERTY_TABLE_NAME: !Ref PropertyTableName
+            Policies:
+                - AWSLambdaBasicExecutionRole
+                - DynamoDBReadPolicy:
+                      TableName: !Ref PropertyTableName
+                - DynamoDBReadPolicy:
+                      TableName: !Ref OrganisationTableName
+            Events:
+                # Method: ANY (not GET) — same CORS-preflight rationale as BrandingFunction.
+                ApiRouter:
+                    Type: Api
+                    Properties:
+                        RestApiId: !Ref SalesSyncQueriesApi
+                        Path: /properties
+                        Method: ANY
+
+Outputs:
+    QueriesApiId:
+        Description: API Gateway RestApi ID
+        Value: !Ref SalesSyncQueriesApi
+
+    QueriesApiInvokeUrl:
+        Description: Invoke URL for the Prod stage
+        Value: !Sub 'https://${SalesSyncQueriesApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/'
+
+    BrandingFunctionArn:
+        Description: Branding Lambda Function ARN
+        Value: !GetAtt BrandingFunction.Arn
+
+    PropertiesFunctionArn:
+        Description: Properties Lambda Function ARN
+        Value: !GetAtt PropertiesFunction.Arn

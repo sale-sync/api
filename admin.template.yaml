@@ -1,7 +1,7 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
 
-Description: Sales Sync Admin API
+Description: Sale Sync Admin API
 
 Parameters:
     TableName:
@@ -12,6 +12,13 @@ Parameters:
         Type: String
     ClientSecret:
         Type: String
+    CognitoCallbackUrl:
+        Type: String
+        Description: >
+            OAuth redirect_uri for the admin login flow (ss/admin's
+            /api/auth/callback route) — must exactly match one of the
+            admin Cognito app client's CallbackURLs (see
+            infra/admin-cognito.yaml).
 
 Globals:
     Function:
@@ -22,15 +29,21 @@ Globals:
                 COGNITO_URL: !Ref CognitoUrl
                 CLIENT_ID: !Ref ClientId
                 CLIENT_SECRET: !Ref ClientSecret
+                COGNITO_CALLBACK_URL: !Ref CognitoCallbackUrl
 
 Resources:
     # =========================================================================
     # API Gateway
     # =========================================================================
-    SalesSyncAdminApi:
+    SaleSyncAdminApi:
         Type: AWS::Serverless::Api
         Properties:
             StageName: Prod
+            # Explicit Name (defaults to the logical ID otherwise, which is why the
+            # earlier "SalesSyncAdminApi" typo showed up as the API Gateway console
+            # name) — set to the stack name so it's unambiguous and independent of
+            # any future logical-ID rename.
+            Name: !Ref AWS::StackName
 
     # =========================================================================
     # Lambda Functions
@@ -53,7 +66,7 @@ Resources:
                 ApiRouter:
                     Type: Api
                     Properties:
-                        RestApiId: !Ref SalesSyncAdminApi
+                        RestApiId: !Ref SaleSyncAdminApi
                         Path: /payments/{proxy+}
                         Method: ANY
 
@@ -71,7 +84,7 @@ Resources:
                 ApiRouter:
                     Type: Api
                     Properties:
-                        RestApiId: !Ref SalesSyncAdminApi
+                        RestApiId: !Ref SaleSyncAdminApi
                         Path: /payments
                         Method: ANY
 
@@ -92,7 +105,7 @@ Resources:
                 ApiRouter:
                     Type: Api
                     Properties:
-                        RestApiId: !Ref SalesSyncAdminApi
+                        RestApiId: !Ref SaleSyncAdminApi
                         Path: /promo-codes/{proxy+}
                         Method: ANY
 
@@ -110,8 +123,47 @@ Resources:
                 ApiRouter:
                     Type: Api
                     Properties:
-                        RestApiId: !Ref SalesSyncAdminApi
+                        RestApiId: !Ref SaleSyncAdminApi
                         Path: /promo-codes
+                        Method: ANY
+
+    # -------------------------------------------------------------------------
+    # Auth Lambdas (staff Cognito login/callback)
+    # -------------------------------------------------------------------------
+    AuthFunction:
+        Type: AWS::Serverless::Function
+        Properties:
+            CodeUri: apps/admin-api/auth/bundle
+            Handler: app.lambdaHandler
+            Runtime: nodejs22.x
+            Architectures: [x86_64]
+            Policies:
+                - AWSLambdaBasicExecutionRole
+                - arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess
+            Events:
+                ApiRouter:
+                    Type: Api
+                    Properties:
+                        RestApiId: !Ref SaleSyncAdminApi
+                        Path: /auth/{proxy+}
+                        Method: ANY
+
+    AuthDefaultFunction:
+        Type: AWS::Serverless::Function
+        Properties:
+            CodeUri: apps/admin-api/auth/bundle
+            Handler: app.lambdaHandler
+            Runtime: nodejs22.x
+            Architectures: [x86_64]
+            Policies:
+                - AWSLambdaBasicExecutionRole
+                - arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess
+            Events:
+                ApiRouter:
+                    Type: Api
+                    Properties:
+                        RestApiId: !Ref SaleSyncAdminApi
+                        Path: /auth
                         Method: ANY
 
     # -------------------------------------------------------------------------
@@ -131,7 +183,7 @@ Resources:
                 ApiRouter:
                     Type: Api
                     Properties:
-                        RestApiId: !Ref SalesSyncAdminApi
+                        RestApiId: !Ref SaleSyncAdminApi
                         Path: /organisations/{proxy+}
                         Method: ANY
 
@@ -149,18 +201,18 @@ Resources:
                 ApiRouter:
                     Type: Api
                     Properties:
-                        RestApiId: !Ref SalesSyncAdminApi
+                        RestApiId: !Ref SaleSyncAdminApi
                         Path: /organisations
                         Method: ANY
 
 Outputs:
     AdminApiId:
         Description: API Gateway RestApi ID
-        Value: !Ref SalesSyncAdminApi
+        Value: !Ref SaleSyncAdminApi
 
     AdminApiInvokeUrl:
         Description: Invoke URL for the Prod stage
-        Value: !Sub 'https://${SalesSyncAdminApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/'
+        Value: !Sub 'https://${SaleSyncAdminApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/'
 
     PaymentsFunctionArn:
         Description: Payments Lambda Function ARN
@@ -173,3 +225,7 @@ Outputs:
     PromoCodesFunctionArn:
         Description: Promo Codes Lambda Function ARN
         Value: !GetAtt PromoCodesFunction.Arn
+
+    AuthFunctionArn:
+        Description: Auth Lambda Function ARN
+        Value: !GetAtt AuthFunction.Arn

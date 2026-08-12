@@ -7,9 +7,11 @@
 //   envName     defaults to "prod"      -> reads <mode's env prefix>.<envName>.json
 //   tomlSection defaults to "default.deploy.parameters"
 //   mode        defaults to "client"    -> "client" (env.*.json/samconfig.toml,
-//               customer-facing API) or "admin" (admin.env.*.json/
+//               customer-facing API), "admin" (admin.env.*.json/
 //               admin.samconfig.toml, staff-facing admin API — own template/stack,
-//               smaller Parameters block, see admin.template.yaml)
+//               smaller Parameters block, see admin.template.yaml), or "queries"
+//               (queries.env.*.json/queries.samconfig.toml, public unauthenticated
+//               read API — own template/stack, see queries.template.yaml)
 
 const fs = require("fs");
 const path = require("path");
@@ -50,13 +52,25 @@ const MODE_CONFIG = {
   admin: {
     envPrefix: "admin.env",
     tomlFile: "admin.samconfig.toml",
-    // admin.template.yaml's Parameters block is just these four (TableName is the
-    // OrganisationTable — admin only ever reads/writes that one table).
+    // admin.template.yaml's Parameters block (TableName is the OrganisationTable —
+    // admin only ever reads/writes that one table; CognitoCallbackUrl feeds the new
+    // apps/admin-api/auth app's OIDC redirect_uri).
     paramKeyMap: {
       TABLE_NAME: "TableName",
       COGNITO_URL: "CognitoUrl",
       CLIENT_ID: "ClientId",
       CLIENT_SECRET: "ClientSecret",
+      COGNITO_CALLBACK_URL: "CognitoCallbackUrl",
+    },
+  },
+  queries: {
+    envPrefix: "queries.env",
+    tomlFile: "queries.samconfig.toml",
+    // queries.template.yaml's Parameters block is just these two (both existing
+    // tables, read-only access — queries never writes anything).
+    paramKeyMap: {
+      ORGANISATION_TABLE_NAME: "OrganisationTableName",
+      PROPERTY_TABLE_NAME: "PropertyTableName",
     },
   },
 };

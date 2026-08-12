@@ -60,10 +60,11 @@ export class OrganisationService extends Service {
 
         if (!lookup.Item) return null;
 
+        const { uuid } = JSON.parse(lookup.Item.data as string) as { uuid: string };
         const meta = await this.DB_Client.send(
             new GetCommand({
                 TableName: TABLE,
-                Key: { PK: 'ORG', SK: `META#${lookup.Item.uuid}` },
+                Key: { PK: 'ORG', SK: `META#${uuid}` },
             }),
         );
 

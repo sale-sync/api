@@ -29,6 +29,8 @@ async function main(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult>
 
 export const lambdaHandler = withCORS(main, [
     'https://admin.salesync.biz',
+    'https://staging-admin.salesync.biz',
+    'https://admin.salesync.local',
     'http://localhost:3003',
     'http://127.0.0.1:3003',
 ]);

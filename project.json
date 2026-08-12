@@ -38,6 +38,24 @@
       "options": {
         "command": "make admin.deploy"
       }
+    },
+    "queries.build": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "make queries.build"
+      }
+    },
+    "queries.dev": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "make queries.dev"
+      }
+    },
+    "queries.deploy": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "make queries.deploy"
+      }
     }
   }
 }

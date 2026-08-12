@@ -1,28 +1,21 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { Router, withCORS } from '@devyethiha/samjs';
-import DefaultController from './default/default.controller';
-import ByIdController from './by-id/by-id.controller';
-import { OrganisationService } from './services/organisation.service';
+import LoginController from './login/login.controller';
+import { AuthService } from './services/auth.service';
 
 async function main(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
     const region = 'ap-southeast-2';
     try {
-        const router = new Router(
-            event,
-            region,
-            [
-                { controller: DefaultController, services: [OrganisationService] },
-                { controller: ByIdController, services: [OrganisationService] },
-            ],
-            '/organisations',
-        );
+        const router = new Router(event, region, [{ controller: LoginController, services: [AuthService] }], '/auth');
 
         return await router.handle();
     } catch (err) {
-        console.log({ err });
+        console.error('admin auth handler error:', err);
         return {
             statusCode: 500,
-            body: JSON.stringify({ message: 'some error happened' }),
+            body: JSON.stringify({
+                message: 'some error happened',
+            }),
         };
     }
 }
