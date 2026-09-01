@@ -70,11 +70,15 @@ describe('GET /organisations', () => {
 
 describe('GET /organisations/by-id', () => {
     it('resolves an organisation by its id slug', async () => {
-        // Slug-lookup items store a flat `uuid` attribute, not a JSON-wrapped `data` blob (see
-        // docs/srs/dynamodb-schema.md — same convention as the Plan slug lookup).
+        // Org slug-lookup items are data-wrapped (matches every writer: client-api's
+        // createOrganisation(), admin-api's createOrganisationFromApprovedRequest()) — unlike the Plan
+        // slug lookup, which genuinely is a flat `uuid` attribute. These two diverged; this mock
+        // previously assumed they matched, which was wrong and made getOrganisationById() throw a real
+        // 500 (JSON.parse(undefined)) on every call. See backlogs/onboarding/children/
+        // admin-api-organisation-by-id-bug.
         ddbMock
             .on(GetCommand, { Key: { PK: `ORG#ID#${sampleOrg.id}`, SK: 'META' } })
-            .resolves({ Item: { uuid: sampleOrg.uuid } });
+            .resolves({ Item: { data: JSON.stringify({ uuid: sampleOrg.uuid }) } });
         ddbMock
             .on(GetCommand, { Key: { PK: 'ORG', SK: `META#${sampleOrg.uuid}` } })
             .resolves({ Item: { data: JSON.stringify(sampleOrg) } });

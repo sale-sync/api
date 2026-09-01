@@ -9,10 +9,16 @@ import TeamMemberController from './team-member/team-member.controller';
 import TemplatesController from './templates/templates.controller';
 import ThemeController from './templates/theme/theme.controller';
 import BrandingController from './branding/branding.controller';
+import TestimonialsController from './testimonials/testimonials.controller';
+import AboutController from './about/about.controller';
+import SignupRequestsController from './signup-requests/signup-requests.controller';
 import { OrganisationService } from './services/organisation.service';
 import { TemplateService } from './services/template.service';
 import { WebsiteTemplateService } from './services/website-template.service';
 import { BrandingService } from './services/branding.service';
+import { TestimonialsService } from './services/testimonials.service';
+import { AboutService } from './services/about.service';
+import { SignupRequestService } from './services/signup-request.service';
 
 async function main(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
     const region = 'ap-southeast-2';
@@ -21,7 +27,7 @@ async function main(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult>
             event,
             region,
             [
-                { controller: DefaultController, services: [OrganisationService] },
+                { controller: DefaultController, services: [OrganisationService, SignupRequestService] },
                 { controller: ByIdController, services: [OrganisationService] },
                 { controller: UsersController, services: [OrganisationService] },
                 { controller: ProfileController, services: [OrganisationService] },
@@ -30,6 +36,9 @@ async function main(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult>
                 { controller: TemplatesController, services: [TemplateService] },
                 { controller: ThemeController, services: [WebsiteTemplateService] },
                 { controller: BrandingController, services: [OrganisationService, BrandingService] },
+                { controller: TestimonialsController, services: [OrganisationService, TestimonialsService] },
+                { controller: AboutController, services: [OrganisationService, AboutService] },
+                { controller: SignupRequestsController, services: [SignupRequestService] },
             ],
             '/organisations',
         );

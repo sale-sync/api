@@ -52,15 +52,20 @@ const MODE_CONFIG = {
   admin: {
     envPrefix: "admin.env",
     tomlFile: "admin.samconfig.toml",
-    // admin.template.yaml's Parameters block (TableName is the OrganisationTable —
-    // admin only ever reads/writes that one table; CognitoCallbackUrl feeds the new
-    // apps/admin-api/auth app's OIDC redirect_uri).
+    // admin.template.yaml's Parameters block. OrganisationTableName (renamed from the former
+    // generic TableName, 2026-08-17, backlogs/onboarding/children/organisation-approval-gate — same
+    // physical sale-sync-organisation table, now named/keyed to match template.yaml's convention)
+    // is read by every admin-api function via Globals; InitWebsiteFunctionName is scoped to
+    // SignupRequestsFunction only, same cross-stack Parameter template.yaml's
+    // OrganisationDefaultFunction already uses. CognitoCallbackUrl feeds the
+    // apps/admin-api/auth app's OIDC redirect_uri.
     paramKeyMap: {
-      TABLE_NAME: "TableName",
+      ORGANISATION_TABLE_NAME: "OrganisationTableName",
       COGNITO_URL: "CognitoUrl",
       CLIENT_ID: "ClientId",
       CLIENT_SECRET: "ClientSecret",
       COGNITO_CALLBACK_URL: "CognitoCallbackUrl",
+      INIT_WEBSITE_FUNCTION_NAME: "InitWebsiteFunctionName",
     },
   },
   queries: {

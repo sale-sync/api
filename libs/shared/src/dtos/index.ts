@@ -1,3 +1,4 @@
+export * from './agent';
 export * from './blocks';
 export * from './contact';
 export * from './media';
@@ -5,5 +6,6 @@ export * from './organisation';
 export * from './plan';
 export * from './promo-code';
 export * from './property';
+export * from './signup-request';
 export * from './subscription';
 export * from './template';

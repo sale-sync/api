@@ -178,3 +178,43 @@ export const DeleteBrandingImageSchema = z.object({
 });
 
 export type DeleteBrandingImageInput = z.infer<typeof DeleteBrandingImageSchema>;
+
+export const ALLOWED_AGENT_IMAGE_MIME_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+
+export const UploadAgentImageSchema = z.object({
+    file_name: z.string().min(1, 'file_name is required').max(255, 'file_name must be 255 characters or less'),
+    mime_type: z
+        .string()
+        .min(1, 'mime_type is required')
+        .refine((type) => ALLOWED_AGENT_IMAGE_MIME_TYPES.includes(type), 'Unsupported image type'),
+});
+
+export type UploadAgentImageInput = z.infer<typeof UploadAgentImageSchema>;
+
+export const DeleteAgentImageSchema = z.object({
+    s3_key: z.string().min(1, 'Missing s3_key param'),
+});
+
+export type DeleteAgentImageInput = z.infer<typeof DeleteAgentImageSchema>;
+
+// Images embedded directly inside a BlockNote document (web-app's About editor — see
+// backlogs/home-thailand-estates-dynamic-about) via its `uploadFile` option, as opposed to a
+// user-pasted embed URL. Stored under the org's existing `organisation/` S3 prefix, in its own
+// `block/` subfolder — see docs/api/dynamodb/access-patterns/media.md.
+export const ALLOWED_BLOCK_IMAGE_MIME_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+
+export const UploadBlockImageSchema = z.object({
+    file_name: z.string().min(1, 'file_name is required').max(255, 'file_name must be 255 characters or less'),
+    mime_type: z
+        .string()
+        .min(1, 'mime_type is required')
+        .refine((type) => ALLOWED_BLOCK_IMAGE_MIME_TYPES.includes(type), 'Unsupported image type'),
+});
+
+export type UploadBlockImageInput = z.infer<typeof UploadBlockImageSchema>;
+
+export const DeleteBlockImageSchema = z.object({
+    s3_key: z.string().min(1, 'Missing s3_key param'),
+});
+
+export type DeleteBlockImageInput = z.infer<typeof DeleteBlockImageSchema>;

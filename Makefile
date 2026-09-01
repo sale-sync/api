@@ -258,10 +258,12 @@ define QUERIES_NODEMON_WATCH
 	npx nodemon -e ts,js,yml,yaml,json \
 	  -w apps/queries-api/branding \
 	  -w apps/queries-api/properties \
+	  -w apps/queries-api/testimonials \
 	  -w libs/shared/src \
 	  -w queries.template.yaml \
 	  -i apps/queries-api/branding/bundle \
 	  -i apps/queries-api/properties/bundle \
+	  -i apps/queries-api/testimonials/bundle \
 	  -i .aws-sam-queries \
 	  -i node_modules \
 	  -i libs/shared/dist \
@@ -323,7 +325,7 @@ queries.deploy.prod: queries.bundle
 
 queries.clean:
 	@echo "==> Cleaning queries API build artifacts"
-	rm -rf .aws-sam-queries apps/queries-api/branding/bundle apps/queries-api/properties/bundle
+	rm -rf .aws-sam-queries apps/queries-api/branding/bundle apps/queries-api/properties/bundle apps/queries-api/testimonials/bundle
 
 # === Resource audit (CloudFormation/DynamoDB/S3/Lambda, read-only) — queries stack ===
 queries.check.staging:

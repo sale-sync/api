@@ -62,6 +62,81 @@ Resources:
                         Method: ANY
 
     # -------------------------------------------------------------------------
+    # Testimonials Lambda
+    # -------------------------------------------------------------------------
+    # Read-only IAM, same rationale as BrandingFunction — publishing/editing testimonials happens
+    # through api/apps/api/organisation's write API, never through this stack.
+    TestimonialsFunction:
+        Type: AWS::Serverless::Function
+        Properties:
+            CodeUri: apps/queries-api/testimonials/bundle
+            Handler: app.lambdaHandler
+            Runtime: nodejs22.x
+            Architectures: [x86_64]
+            Policies:
+                - AWSLambdaBasicExecutionRole
+                - DynamoDBReadPolicy:
+                      TableName: !Ref OrganisationTableName
+            Events:
+                # Method: ANY, not GET — same CORS-preflight rationale as BrandingFunction.
+                ApiRouter:
+                    Type: Api
+                    Properties:
+                        RestApiId: !Ref SalesSyncQueriesApi
+                        Path: /testimonials
+                        Method: ANY
+
+    # -------------------------------------------------------------------------
+    # About Lambda
+    # -------------------------------------------------------------------------
+    # Read-only IAM, same rationale as BrandingFunction — editing the about page happens through
+    # api/apps/api/organisation's write API (about/), never through this stack.
+    AboutFunction:
+        Type: AWS::Serverless::Function
+        Properties:
+            CodeUri: apps/queries-api/about/bundle
+            Handler: app.lambdaHandler
+            Runtime: nodejs22.x
+            Architectures: [x86_64]
+            Policies:
+                - AWSLambdaBasicExecutionRole
+                - DynamoDBReadPolicy:
+                      TableName: !Ref OrganisationTableName
+            Events:
+                # Method: ANY, not GET — same CORS-preflight rationale as BrandingFunction.
+                ApiRouter:
+                    Type: Api
+                    Properties:
+                        RestApiId: !Ref SalesSyncQueriesApi
+                        Path: /about
+                        Method: ANY
+
+    # -------------------------------------------------------------------------
+    # Agents Lambda
+    # -------------------------------------------------------------------------
+    # Read-only IAM, same rationale as BrandingFunction — designating an agent happens through
+    # api/apps/api/organisation's write API (team-agent/), never through this stack.
+    AgentsFunction:
+        Type: AWS::Serverless::Function
+        Properties:
+            CodeUri: apps/queries-api/agents/bundle
+            Handler: app.lambdaHandler
+            Runtime: nodejs22.x
+            Architectures: [x86_64]
+            Policies:
+                - AWSLambdaBasicExecutionRole
+                - DynamoDBReadPolicy:
+                      TableName: !Ref OrganisationTableName
+            Events:
+                # Method: ANY, not GET — same CORS-preflight rationale as BrandingFunction.
+                ApiRouter:
+                    Type: Api
+                    Properties:
+                        RestApiId: !Ref SalesSyncQueriesApi
+                        Path: /agents
+                        Method: ANY
+
+    # -------------------------------------------------------------------------
     # Properties Lambda
     # -------------------------------------------------------------------------
     # Read-only IAM, same rationale as BrandingFunction — needs both tables: the property table
@@ -108,3 +183,15 @@ Outputs:
     PropertiesFunctionArn:
         Description: Properties Lambda Function ARN
         Value: !GetAtt PropertiesFunction.Arn
+
+    TestimonialsFunctionArn:
+        Description: Testimonials Lambda Function ARN
+        Value: !GetAtt TestimonialsFunction.Arn
+
+    AgentsFunctionArn:
+        Description: Agents Lambda Function ARN
+        Value: !GetAtt AgentsFunction.Arn
+
+    AboutFunctionArn:
+        Description: About Lambda Function ARN
+        Value: !GetAtt AboutFunction.Arn

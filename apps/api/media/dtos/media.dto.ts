@@ -30,6 +30,14 @@ import {
     UploadBrandingImageInput,
     DeleteBrandingImageSchema,
     DeleteBrandingImageInput,
+    UploadAgentImageSchema,
+    UploadAgentImageInput,
+    DeleteAgentImageSchema,
+    DeleteAgentImageInput,
+    UploadBlockImageSchema,
+    UploadBlockImageInput,
+    DeleteBlockImageSchema,
+    DeleteBlockImageInput,
 } from '@sale-sync/shared';
 
 export type {
@@ -48,6 +56,10 @@ export type {
     DeleteUserAvatarInput,
     UploadBrandingImageInput,
     DeleteBrandingImageInput,
+    UploadAgentImageInput,
+    DeleteAgentImageInput,
+    UploadBlockImageInput,
+    DeleteBlockImageInput,
 };
 
 export class ListContentsDTO extends DTO<typeof ListContentsSchema> {
@@ -137,5 +149,29 @@ export class UploadBrandingImageDTO extends DTO<typeof UploadBrandingImageSchema
 export class DeleteBrandingImageDTO extends DTO<typeof DeleteBrandingImageSchema> {
     constructor() {
         super(DeleteBrandingImageSchema);
+    }
+}
+
+export class UploadAgentImageDTO extends DTO<typeof UploadAgentImageSchema> {
+    constructor() {
+        super(UploadAgentImageSchema);
+    }
+}
+
+export class DeleteAgentImageDTO extends DTO<typeof DeleteAgentImageSchema> {
+    constructor() {
+        super(DeleteAgentImageSchema);
+    }
+}
+
+export class UploadBlockImageDTO extends DTO<typeof UploadBlockImageSchema> {
+    constructor() {
+        super(UploadBlockImageSchema);
+    }
+}
+
+export class DeleteBlockImageDTO extends DTO<typeof DeleteBlockImageSchema> {
+    constructor() {
+        super(DeleteBlockImageSchema);
     }
 }

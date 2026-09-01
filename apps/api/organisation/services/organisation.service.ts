@@ -12,7 +12,14 @@ import {
     buildPromoRedemptionTransactItems,
 } from './promo-code.service';
 
-const TABLE = process.env.ORGANISATION_TABLE_NAME || 'sale-sync-organisation';
+// No hardcoded fallback: staging (`staging-sale-sync-organisation`) and prod
+// (`sale-sync-organisation`) are different literal tables — a default here would mean a misconfigured
+// staging deploy silently writes to the prod table instead of erroring. Read lazily (not hoisted to a
+// module-level const) so a test's env var setup (which runs after this module is first imported) is
+// still picked up.
+function getTable(): string {
+    return process.env.ORGANISATION_TABLE_NAME as string;
+}
 const INIT_WEBSITE_FUNCTION_NAME = process.env.INIT_WEBSITE_FUNCTION_NAME;
 const lambdaClient = new LambdaClient({});
 
@@ -68,6 +75,13 @@ export class OwnerOnlyActionError extends Error {
     constructor() {
         super('Only an owner can remove or change the role of another owner');
         this.name = 'OwnerOnlyActionError';
+    }
+}
+
+export class AgentDesignationNotAllowedError extends Error {
+    constructor() {
+        super('Agent designation is only available for real-estate organisations');
+        this.name = 'AgentDesignationNotAllowedError';
     }
 }
 
@@ -154,7 +168,7 @@ export class OrganisationService extends Service {
                         // Organisation metadata — PK=ORG, SK=META#{uuid}
                         {
                             Put: {
-                                TableName: TABLE,
+                                TableName: getTable(),
                                 Item: {
                                     PK: 'ORG',
                                     SK: `META#${org.uuid}`,
@@ -166,7 +180,7 @@ export class OrganisationService extends Service {
                         // Organisation ID uniqueness / slug→uuid lookup — PK=ORG#ID#${id}, SK=META
                         {
                             Put: {
-                                TableName: TABLE,
+                                TableName: getTable(),
                                 Item: {
                                     PK: `ORG#ID#${org.id}`,
                                     SK: 'META',
@@ -178,7 +192,7 @@ export class OrganisationService extends Service {
                         // Organisation membership — PK=ORG#{uuid}, SK=USER#{user_id}
                         {
                             Put: {
-                                TableName: TABLE,
+                                TableName: getTable(),
                                 Item: {
                                     PK: `ORG#${org.uuid}`,
                                     SK: `USER#${param.user_id}`,
@@ -189,7 +203,7 @@ export class OrganisationService extends Service {
                         // User email lookup — PK=USER#{email}, SK=META
                         {
                             Put: {
-                                TableName: TABLE,
+                                TableName: getTable(),
                                 Item: {
                                     PK: `USER#${param.user_email}`,
                                     SK: 'META',
@@ -200,7 +214,7 @@ export class OrganisationService extends Service {
                         // User email↔user_id mapping for inverted-index — PK=USER#{email}, SK=USER#{user_id}
                         {
                             Put: {
-                                TableName: TABLE,
+                                TableName: getTable(),
                                 Item: {
                                     PK: `USER#${param.user_email}`,
                                     SK: `USER#${param.user_id}`,
@@ -215,7 +229,7 @@ export class OrganisationService extends Service {
                         // function itself, or admin/'s manual reactivation).
                         {
                             Put: {
-                                TableName: TABLE,
+                                TableName: getTable(),
                                 Item: {
                                     PK: `ORG#${org.uuid}`,
                                     SK: 'SUBSCRIPTION',
@@ -269,7 +283,7 @@ export class OrganisationService extends Service {
     public async getOrganisationsByUserId(userId: string): Promise<Organisation[]> {
         const res = await this.DB_Client.send(
             new QueryCommand({
-                TableName: TABLE,
+                TableName: getTable(),
                 IndexName: 'inverted-index',
                 KeyConditionExpression: 'SK = :sk AND begins_with(PK, :prefix)',
                 ExpressionAttributeValues: {
@@ -282,24 +296,25 @@ export class OrganisationService extends Service {
         const orgUuids = res.Items?.map((it: Record<string, unknown>) => String(it.PK).replace('ORG#', '')) ?? [];
         if (orgUuids.length === 0) return [];
 
+        const table = getTable();
         const batch = await this.DB_Client.send(
             new BatchGetCommand({
                 RequestItems: {
-                    [TABLE]: {
+                    [table]: {
                         Keys: orgUuids.map((uuid) => ({ PK: 'ORG', SK: `META#${uuid}` })),
                     },
                 },
             }),
         );
 
-        return (batch.Responses?.[TABLE] ?? []).map((item: Record<string, unknown>) => JSON.parse(item.data as string) as Organisation);
+        return (batch.Responses?.[table] ?? []).map((item: Record<string, unknown>) => JSON.parse(item.data as string) as Organisation);
     }
 
     // Lookup organisation by human-readable id (slug) — PK=ORG#ID#${id}, SK=META
     public async getOrganisationById(orgId: string): Promise<Organisation | null> {
         const lookup = await this.DB_Client.send(
             new GetCommand({
-                TableName: TABLE,
+                TableName: getTable(),
                 Key: { PK: `ORG#ID#${orgId}`, SK: 'META' },
             }),
         );
@@ -309,7 +324,7 @@ export class OrganisationService extends Service {
         const { uuid } = JSON.parse(lookup.Item.data as string) as { uuid: string };
         const meta = await this.DB_Client.send(
             new GetCommand({
-                TableName: TABLE,
+                TableName: getTable(),
                 Key: { PK: 'ORG', SK: `META#${uuid}` },
             }),
         );
@@ -329,7 +344,7 @@ export class OrganisationService extends Service {
 
         const res = await this.DB_Client.send(
             new GetCommand({
-                TableName: TABLE,
+                TableName: getTable(),
                 Key: { PK: 'ORG', SK: `META#${orgUuid}` },
             }),
         );
@@ -346,7 +361,7 @@ export class OrganisationService extends Service {
 
         await this.DB_Client.send(
             new PutCommand({
-                TableName: TABLE,
+                TableName: getTable(),
                 Item: { PK: 'ORG', SK: `META#${orgUuid}`, data: JSON.stringify(updated) },
             }),
         );
@@ -360,7 +375,7 @@ export class OrganisationService extends Service {
     ): Promise<Array<{ user_id: string; membership: OrganisationUser }>> {
         const res = await this.DB_Client.send(
             new QueryCommand({
-                TableName: TABLE,
+                TableName: getTable(),
                 KeyConditionExpression: 'PK = :pk AND begins_with(SK, :prefix)',
                 ExpressionAttributeValues: {
                     ':pk': `ORG#${orgUuid}`,
@@ -379,7 +394,7 @@ export class OrganisationService extends Service {
     public async getMembership(orgUuid: string, userId: string): Promise<OrganisationUser | null> {
         const res = await this.DB_Client.send(
             new GetCommand({
-                TableName: TABLE,
+                TableName: getTable(),
                 Key: { PK: `ORG#${orgUuid}`, SK: `USER#${userId}` },
             }),
         );
@@ -400,7 +415,7 @@ export class OrganisationService extends Service {
     public async updateProfile(
         orgUuid: string,
         userId: string,
-        patch: { phone?: string; bio?: string; timezone?: string; avatar?: Image | null },
+        patch: { name?: string; phone?: string; bio?: string; timezone?: string; avatar?: Image | null },
     ): Promise<OrganisationUser> {
         const current = await this.getMembership(orgUuid, userId);
         if (!current) {
@@ -409,6 +424,7 @@ export class OrganisationService extends Service {
 
         const updated: OrganisationUser = {
             ...current,
+            ...(patch.name !== undefined && { name: patch.name }),
             ...(patch.phone !== undefined && { phone: patch.phone }),
             ...(patch.bio !== undefined && { bio: patch.bio }),
             ...(patch.timezone !== undefined && { timezone: patch.timezone }),
@@ -417,7 +433,7 @@ export class OrganisationService extends Service {
 
         await this.DB_Client.send(
             new UpdateCommand({
-                TableName: TABLE,
+                TableName: getTable(),
                 Key: { PK: `ORG#${orgUuid}`, SK: `USER#${userId}` },
                 UpdateExpression: 'SET #data = :data',
                 ExpressionAttributeNames: { '#data': 'data' },
@@ -443,7 +459,7 @@ export class OrganisationService extends Service {
     public async getUserByEmail(email: string): Promise<{ user_id: string } | null> {
         const res = await this.DB_Client.send(
             new GetCommand({
-                TableName: TABLE,
+                TableName: getTable(),
                 Key: { PK: `USER#${email}`, SK: 'META' },
             }),
         );
@@ -455,7 +471,7 @@ export class OrganisationService extends Service {
     public async getUserById(userId: string): Promise<{ email: string } | null> {
         const res = await this.DB_Client.send(
             new QueryCommand({
-                TableName: TABLE,
+                TableName: getTable(),
                 IndexName: 'inverted-index',
                 KeyConditionExpression: 'SK = :sk AND begins_with(PK, :prefix)',
                 ExpressionAttributeValues: {
@@ -480,10 +496,11 @@ export class OrganisationService extends Service {
     ): Promise<{ added: string[]; not_found: string[] }> {
         await this.assertCanManageTeam(orgUuid, callerUserId);
 
+        const table = getTable();
         const batchGet = await this.DB_Client.send(
             new BatchGetCommand({
                 RequestItems: {
-                    [TABLE]: {
+                    [table]: {
                         Keys: emails.map((email) => ({ PK: `USER#${email}`, SK: 'META' })),
                     },
                 },
@@ -491,7 +508,7 @@ export class OrganisationService extends Service {
         );
 
         const registeredMap = new Map<string, string>();
-        for (const item of (batchGet.Responses?.[TABLE] ?? []) as Record<string, unknown>[]) {
+        for (const item of (batchGet.Responses?.[table] ?? []) as Record<string, unknown>[]) {
             const email = String(item.PK).replace('USER#', '');
             const { user_id } = JSON.parse(item.data as string) as { user_id: string };
             registeredMap.set(email, user_id);
@@ -512,7 +529,7 @@ export class OrganisationService extends Service {
             });
 
             await this.DB_Client.send(
-                new BatchWriteCommand({ RequestItems: { [TABLE]: writeRequests } }),
+                new BatchWriteCommand({ RequestItems: { [table]: writeRequests } }),
             );
         }
 
@@ -537,7 +554,7 @@ export class OrganisationService extends Service {
             userIds.map((userId) =>
                 this.DB_Client.send(
                     new QueryCommand({
-                        TableName: TABLE,
+                        TableName: getTable(),
                         IndexName: 'inverted-index',
                         KeyConditionExpression: 'SK = :sk AND begins_with(PK, :prefix)',
                         ExpressionAttributeValues: { ':sk': `USER#${userId}`, ':prefix': 'USER#' },
@@ -562,7 +579,7 @@ export class OrganisationService extends Service {
                 };
             });
 
-            await this.DB_Client.send(new BatchWriteCommand({ RequestItems: { [TABLE]: writeRequests } }));
+            await this.DB_Client.send(new BatchWriteCommand({ RequestItems: { [getTable()]: writeRequests } }));
         }
 
         return { added, not_found: notFound };
@@ -589,7 +606,7 @@ export class OrganisationService extends Service {
 
         await this.DB_Client.send(
             new DeleteCommand({
-                TableName: TABLE,
+                TableName: getTable(),
                 Key: { PK: `ORG#${orgUuid}`, SK: `USER#${userId}` },
             }),
         );
@@ -623,7 +640,7 @@ export class OrganisationService extends Service {
 
         await this.DB_Client.send(
             new UpdateCommand({
-                TableName: TABLE,
+                TableName: getTable(),
                 Key: { PK: `ORG#${orgUuid}`, SK: `USER#${userId}` },
                 UpdateExpression: 'SET #data = :data',
                 ExpressionAttributeNames: { '#data': 'data' },
@@ -631,4 +648,5 @@ export class OrganisationService extends Service {
             }),
         );
     }
+
 }

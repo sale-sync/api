@@ -4,8 +4,14 @@ Transform: AWS::Serverless-2016-10-31
 Description: Sale Sync Admin API
 
 Parameters:
-    TableName:
+    OrganisationTableName:
         Type: String
+        Description: >
+            Same Parameter name as api/template.yaml's OrganisationTableName (this app's DynamoDB
+            table is the same physical sale-sync-organisation table) — renamed from this template's
+            former generic TableName for consistency across both apps
+            (backlogs/onboarding/children/organisation-approval-gate). Every admin-api function reads
+            it via Globals below as ORGANISATION_TABLE_NAME, same env var name api/template.yaml uses.
     CognitoUrl:
         Type: String
     ClientId:
@@ -19,13 +25,20 @@ Parameters:
             /api/auth/callback route) — must exactly match one of the
             admin Cognito app client's CallbackURLs (see
             infra/admin-cognito.yaml).
+    InitWebsiteFunctionName:
+        Type: String
+        Description: >
+            Name of ss/infra's InitWebsiteFunction (see backlogs/sync-templates) — same cross-stack
+            Parameter reference api/template.yaml's OrganisationDefaultFunction already uses.
+            SignupRequestsFunction invokes it fire-and-forget from
+            createOrganisationFromApprovedRequest() when approving a real-estate signup request.
 
 Globals:
     Function:
         Timeout: 10
         Environment:
             Variables:
-                TABLE_NAME: !Ref TableName
+                ORGANISATION_TABLE_NAME: !Ref OrganisationTableName
                 COGNITO_URL: !Ref CognitoUrl
                 CLIENT_ID: !Ref ClientId
                 CLIENT_SECRET: !Ref ClientSecret
@@ -205,6 +218,55 @@ Resources:
                         Path: /organisations
                         Method: ANY
 
+    # -------------------------------------------------------------------------
+    # Signup Requests Lambdas (backlogs/onboarding/children/organisation-approval-gate)
+    # -------------------------------------------------------------------------
+    SignupRequestsFunction:
+        Type: AWS::Serverless::Function
+        Properties:
+            CodeUri: apps/admin-api/signup-requests/bundle
+            Handler: app.lambdaHandler
+            Runtime: nodejs22.x
+            Architectures: [x86_64]
+            Environment:
+                Variables:
+                    INIT_WEBSITE_FUNCTION_NAME: !Ref InitWebsiteFunctionName
+            Policies:
+                - AWSLambdaBasicExecutionRole
+                - arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess
+                - Statement:
+                      - Effect: Allow
+                        Action: lambda:InvokeFunction
+                        # Predictable ARN string (not !GetAtt), same idiom
+                        # api/template.yaml's OrganisationDefaultFunction uses — init-website lives in
+                        # a different SAM app/stack (ss/infra) than this one.
+                        Resource: !Sub 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${InitWebsiteFunctionName}'
+            Events:
+                ApiRouter:
+                    Type: Api
+                    Properties:
+                        RestApiId: !Ref SaleSyncAdminApi
+                        Path: /signup-requests/{proxy+}
+                        Method: ANY
+
+    SignupRequestsDefaultFunction:
+        Type: AWS::Serverless::Function
+        Properties:
+            CodeUri: apps/admin-api/signup-requests/bundle
+            Handler: app.lambdaHandler
+            Runtime: nodejs22.x
+            Architectures: [x86_64]
+            Policies:
+                - AWSLambdaBasicExecutionRole
+                - arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess
+            Events:
+                ApiRouter:
+                    Type: Api
+                    Properties:
+                        RestApiId: !Ref SaleSyncAdminApi
+                        Path: /signup-requests
+                        Method: ANY
+
 Outputs:
     AdminApiId:
         Description: API Gateway RestApi ID
@@ -229,3 +291,7 @@ Outputs:
     AuthFunctionArn:
         Description: Auth Lambda Function ARN
         Value: !GetAtt AuthFunction.Arn
+
+    SignupRequestsFunctionArn:
+        Description: Signup Requests Lambda Function ARN
+        Value: !GetAtt SignupRequestsFunction.Arn

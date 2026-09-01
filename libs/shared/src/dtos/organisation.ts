@@ -26,7 +26,6 @@ export const CreateOrganisationSchema = z.object({
     description: z.string().optional(),
     address: z.string().optional(),
     market: MarketSchema.default('AU'),
-    promo_code: z.string().optional(),
 });
 
 export type CreateOrganisationInput = z.infer<typeof CreateOrganisationSchema>;
@@ -78,13 +77,14 @@ export type UpdateTeamMemberRoleInput = z.infer<typeof UpdateTeamMemberRoleSchem
 
 export const UpdateProfileSchema = z
     .object({
+        name: z.string().optional(),
         phone: z.string().optional(),
         bio: z.string().optional(),
         timezone: z.string().optional(),
         avatar: ImageSchema.nullable().optional(),
     })
     .refine((data) => Object.keys(data).length > 0, {
-        message: 'At least one field (phone, bio, timezone, avatar) must be provided',
+        message: 'At least one field (name, phone, bio, timezone, avatar) must be provided',
     });
 
 export type UpdateProfileInput = z.infer<typeof UpdateProfileSchema>;
@@ -111,6 +111,58 @@ export const UpdateBrandingDraftSchema = z
     });
 
 export type UpdateBrandingDraftInput = z.infer<typeof UpdateBrandingDraftSchema>;
+
+export const TestimonialItemSchema = z.object({
+    name: z.string().trim().min(1, 'name is required').max(120, 'name must be 120 characters or fewer'),
+    testimonial: z
+        .string()
+        .trim()
+        .min(1, 'testimonial is required')
+        .max(1000, 'testimonial must be 1000 characters or fewer'),
+});
+
+export const UpdateTestimonialsDraftSchema = z
+    .object({
+        averageRating: z.string().trim().min(1).max(40).optional(),
+        happyTenants: z.string().trim().min(1).max(40).optional(),
+        verifiedListings: z.string().trim().min(1).max(40).optional(),
+        avgResponseTime: z.string().trim().min(1).max(40).optional(),
+        testimonials: z.array(TestimonialItemSchema).max(50, 'testimonials must be 50 items or fewer').optional(),
+    })
+    .refine((data) => Object.keys(data).length > 0, {
+        message:
+            'At least one field (averageRating, happyTenants, verifiedListings, avgResponseTime, testimonials) must be provided',
+    });
+
+export type UpdateTestimonialsDraftInput = z.infer<typeof UpdateTestimonialsDraftSchema>;
+
+// Structural validation only — mirrors BlockNoteBlock in types/organisation.ts. Deliberately doesn't
+// enumerate BlockNote's actual block-type union (paragraph/heading/bulletListItem/...) since that
+// schema lives in @blocknote/core, not here; this just confirms the shape is a well-formed block
+// tree before it's persisted, same lenient stance samjs takes elsewhere for editor-authored JSON.
+type BlockNoteBlockShape = {
+    id: string;
+    type: string;
+    props?: Record<string, unknown>;
+    content?: unknown;
+    children?: BlockNoteBlockShape[];
+};
+
+const BlockNoteBlockSchema: z.ZodType<BlockNoteBlockShape> = z.lazy(() =>
+    z.object({
+        id: z.string(),
+        type: z.string(),
+        props: z.record(z.string(), z.unknown()).optional(),
+        content: z.unknown().optional(),
+        children: z.array(BlockNoteBlockSchema).optional(),
+    }),
+);
+
+export const UpdateAboutDraftSchema = z.object({
+    blocks: z.array(BlockNoteBlockSchema).max(500, 'blocks must be 500 items or fewer'),
+});
+
+export type UpdateAboutDraftInput = z.infer<typeof UpdateAboutDraftSchema>;
 
 // ─── Admin-only ──────────────────────────
 // Staff-side org update: status/plan reassignment only — deliberately a separate schema from

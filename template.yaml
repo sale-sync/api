@@ -171,6 +171,47 @@ Resources:
                         Method: ANY
 
     # -------------------------------------------------------------------------
+    # Agents Lambdas (real-estate agent profiles — see docs/api/dynamodb/access-patterns/agent.md)
+    # -------------------------------------------------------------------------
+    AgentsFunction:
+        Type: AWS::Serverless::Function
+        Properties:
+            CodeUri: apps/api/agents/bundle
+            Handler: app.lambdaHandler
+            Runtime: nodejs22.x
+            Architectures: [x86_64]
+            Policies:
+                - AWSLambdaBasicExecutionRole
+                - DynamoDBCrudPolicy:
+                      TableName: !Ref OrganisationTableName
+            Events:
+                ApiRouter:
+                    Type: Api
+                    Properties:
+                        RestApiId: !Ref SalesSyncApi
+                        Path: /agents/{proxy+}
+                        Method: ANY
+
+    AgentsDefaultFunction:
+        Type: AWS::Serverless::Function
+        Properties:
+            CodeUri: apps/api/agents/bundle
+            Handler: app.lambdaHandler
+            Runtime: nodejs22.x
+            Architectures: [x86_64]
+            Policies:
+                - AWSLambdaBasicExecutionRole
+                - DynamoDBCrudPolicy:
+                      TableName: !Ref OrganisationTableName
+            Events:
+                ApiRouter:
+                    Type: Api
+                    Properties:
+                        RestApiId: !Ref SalesSyncApi
+                        Path: /agents
+                        Method: ANY
+
+    # -------------------------------------------------------------------------
     # Media Lambdas (uses infrastructure from the ss/infra stack)
     # -------------------------------------------------------------------------
     MediaFunction:
@@ -429,6 +470,10 @@ Outputs:
     OrganisationFunctionArn:
         Description: Organisation Lambda Function ARN
         Value: !GetAtt OrganisationFunction.Arn
+
+    AgentsFunctionArn:
+        Description: Agents Lambda Function ARN
+        Value: !GetAtt AgentsFunction.Arn
 
     MediaFunctionArn:
         Description: Media Lambda Function ARN

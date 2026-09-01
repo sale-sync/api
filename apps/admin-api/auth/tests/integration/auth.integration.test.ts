@@ -50,7 +50,7 @@ function buildEvent(overrides: Partial<APIGatewayProxyEvent> = {}): APIGatewayPr
 
 beforeEach(() => {
     ddbMock.reset();
-    process.env.TABLE_NAME = 'sale-sync-organisation';
+    process.env.ORGANISATION_TABLE_NAME = 'sale-sync-organisation';
     process.env.COGNITO_URL = 'https://cognito-idp.ap-southeast-2.amazonaws.com/ap-southeast-2_fake';
     process.env.CLIENT_ID = 'fake-client-id';
     process.env.CLIENT_SECRET = 'fake-client-secret';

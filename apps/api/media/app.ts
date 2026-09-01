@@ -8,6 +8,8 @@ import PropertiesController from './properties/properties.controller';
 import OrganisationController from './organisation/organisation.controller';
 import UserController from './user/user.controller';
 import BrandingController from './branding/branding.controller';
+import AgentsController from './agents/agents.controller';
+import BlockController from './block/block.controller';
 import { MediaService } from './services/media.service';
 import { FolderService } from './services/folder.service';
 import { S3Service } from './services/s3.service';
@@ -51,6 +53,14 @@ async function main(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult>
                 },
                 {
                     controller: BrandingController,
+                    services: [S3Service, OrganisationMembershipService],
+                },
+                {
+                    controller: AgentsController,
+                    services: [S3Service],
+                },
+                {
+                    controller: BlockController,
                     services: [S3Service, OrganisationMembershipService],
                 },
             ],

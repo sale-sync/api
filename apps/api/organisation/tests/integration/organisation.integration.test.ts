@@ -1,7 +1,7 @@
 import { mockClient } from 'aws-sdk-client-mock';
 import 'aws-sdk-client-mock-jest';
 import { DynamoDBClient, TransactionCanceledException } from '@aws-sdk/client-dynamodb';
-import { BatchGetCommand, GetCommand, QueryCommand, TransactWriteCommand } from '@aws-sdk/lib-dynamodb';
+import { BatchGetCommand, GetCommand, QueryCommand, TransactWriteCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import type { APIGatewayProxyEvent } from 'aws-lambda';
 import type { Organisation } from '@sale-sync/shared/src/types';
 import { lambdaHandler } from '../../app';
@@ -11,9 +11,11 @@ import { lambdaHandler } from '../../app';
 // assert on the generated uuid's exact value anywhere, so a fixed mock is sufficient.
 jest.mock('uuid', () => ({ v4: () => 'mocked-org-uuid' }));
 
-// Covers the two highest-traffic controllers (default: list/create, by-id: lookup) — the
-// team/profile/branding/templates/theme controllers aren't covered yet (same scope boundary as
-// the payments/auth suites: core flows first, not every sub-resource in one pass).
+// Covers the two highest-traffic controllers (default: list/create, by-id: lookup) and profile's
+// `name` field (BR-32) — the rest of team/profile/branding/templates/theme aren't covered yet (same
+// scope boundary as the payments/auth suites: core flows first, not every sub-resource in one
+// pass). BR-31 agent-designation coverage now lives in apps/api/agents/tests/integration/ instead
+// (the standalone Agent entity replaced the old team-agent boolean flag).
 const ddbMock = mockClient(DynamoDBClient);
 
 const ALLOWED_ORIGIN = 'http://localhost:3000';
@@ -67,6 +69,9 @@ const sampleOrg: Organisation = {
 
 beforeEach(() => {
     ddbMock.reset();
+    // signup-request.service.ts has no hardcoded fallback (unlike organisation.service.ts's
+    // pre-existing one) — see backlogs/onboarding/children/organisation-approval-gate.
+    process.env.ORGANISATION_TABLE_NAME = 'sale-sync-organisation';
 });
 
 describe('GET /organisations', () => {
@@ -91,7 +96,7 @@ describe('GET /organisations', () => {
     });
 });
 
-describe('POST /organisations', () => {
+describe('POST /organisations (backlogs/onboarding/children/organisation-approval-gate)', () => {
     const validBody = {
         organisation_id: 'potato-rocket',
         organisation_name: 'Potato Rocket',
@@ -100,49 +105,29 @@ describe('POST /organisations', () => {
         plan_id: '22222222-2222-4222-8222-222222222222',
     };
 
-    it('creates an organisation and returns 201', async () => {
+    it('creates a pending signup request and returns 202 (no live org created)', async () => {
         ddbMock.on(TransactWriteCommand).resolves({});
 
         const res = await lambdaHandler(
             buildEvent({ httpMethod: 'POST', path: '/organisations', body: JSON.stringify(validBody) }),
         );
 
-        expect(res.statusCode).toBe(201);
+        expect(res.statusCode).toBe(202);
         expect(JSON.parse(res.body)).toEqual({
-            message: 'Organisation created',
+            signup_request_id: 'mocked-org-uuid',
             organisation_id: 'potato-rocket',
             organisation_name: 'Potato Rocket',
+            status: 'pending',
         });
-        expect(ddbMock).toHaveReceivedCommandTimes(TransactWriteCommand, 1);
-    });
-
-    it('starts a 14-day trial subscription record alongside the organisation', async () => {
-        ddbMock.on(TransactWriteCommand).resolves({});
-
-        await lambdaHandler(
-            buildEvent({ httpMethod: 'POST', path: '/organisations', body: JSON.stringify(validBody) }),
-        );
 
         const call = ddbMock.commandCalls(TransactWriteCommand)[0];
-        const subscriptionItem = call.args[0].input.TransactItems?.find(
-            (item) => item.Put?.Item?.SK === 'SUBSCRIPTION',
-        );
-        expect(subscriptionItem).toBeDefined();
-        expect(subscriptionItem?.Put?.Item?.PK).toBe('ORG#mocked-org-uuid');
-
-        const subscription = JSON.parse(subscriptionItem?.Put?.Item?.data as string);
-        expect(subscription.organisation_id).toBe('mocked-org-uuid');
-        expect(subscription.plan_id).toBe(validBody.plan_id);
-        expect(subscription.status).toBe('trialing');
-        expect(subscription.payment_method).toBeNull();
-
-        const trialStart = new Date(subscription.trial_start).getTime();
-        const trialEnd = new Date(subscription.trial_end).getTime();
-        expect(trialEnd - trialStart).toBe(14 * 24 * 60 * 60 * 1000);
-
-        // trial-status-index sparse GSI (queried by infra/functions/check-trial-lapses)
-        expect(subscriptionItem?.Put?.Item?.GSI2PK).toBe('SUBSCRIPTION#TRIALING');
-        expect(subscriptionItem?.Put?.Item?.GSI2SK).toBe(subscription.trial_end);
+        const items = call.args[0].input.TransactItems ?? [];
+        expect(items).toHaveLength(3);
+        expect(items[0].Put?.Item?.PK).toBe('SIGNUP');
+        expect(items[0].Put?.Item?.GSI2PK).toBe('SIGNUP#PENDING');
+        expect(items[1].Put?.Item?.PK).toBe(`SIGNUP#ID#${validBody.organisation_id}`);
+        expect(items[2].Put?.Item?.PK).toBe('SIGNUP#mocked-org-uuid');
+        expect(items[2].Put?.Item?.SK).toBe(`USER#${USER_ID}`);
     });
 
     it('returns 400 when required fields are missing', async () => {
@@ -154,12 +139,12 @@ describe('POST /organisations', () => {
         expect(ddbMock).not.toHaveReceivedCommand(TransactWriteCommand);
     });
 
-    it('returns 409 when the organisation_id already exists', async () => {
+    it('returns 409 when a pending request for the organisation_id already exists', async () => {
         ddbMock.on(TransactWriteCommand).rejects(
             new TransactionCanceledException({
                 message: 'Transaction cancelled',
                 $metadata: {},
-                CancellationReasons: [{ Code: 'ConditionalCheckFailed' }],
+                CancellationReasons: [{ Code: 'None' }, { Code: 'ConditionalCheckFailed' }],
             }),
         );
 
@@ -168,206 +153,6 @@ describe('POST /organisations', () => {
         );
 
         expect(res.statusCode).toBe(409);
-    });
-});
-
-describe('POST /organisations — promo code redemption (backlogs/payments/children/promo-codes)', () => {
-    const validBody = {
-        organisation_id: 'potato-rocket',
-        organisation_name: 'Potato Rocket',
-        business_category: 'service-business',
-        template_id: '11111111-1111-4111-8111-111111111111',
-        plan_id: '22222222-2222-4222-8222-222222222222',
-    };
-
-    const PROMO_UUID = 'promo-uuid-1';
-
-    function mockPromoLookup(code: string, promoItem: Record<string, unknown> | undefined) {
-        const lookupChain = ddbMock.on(GetCommand, { Key: { PK: `PROMO#CODE#${code}`, SK: 'META' } });
-        if (!promoItem) {
-            lookupChain.resolves({});
-            return;
-        }
-        lookupChain.resolves({ Item: { uuid: PROMO_UUID } });
-        ddbMock
-            .on(GetCommand, { Key: { PK: 'PROMO', SK: `META#${PROMO_UUID}` } })
-            .resolves({ Item: promoItem });
-    }
-
-    it('redeems a valid percentage code, discounts the subscription, and consumes the code atomically', async () => {
-        mockPromoLookup('LAUNCH50', {
-            uuid: PROMO_UUID,
-            code: 'LAUNCH50',
-            type: 'percentage',
-            value: 20,
-            redemption_count: 0,
-            status: 'active',
-            created_by: 'staff-1',
-            created_at: '2026-01-01T00:00:00.000Z',
-            updated_at: '2026-01-01T00:00:00.000Z',
-        });
-        ddbMock.on(TransactWriteCommand).resolves({});
-
-        const res = await lambdaHandler(
-            buildEvent({
-                httpMethod: 'POST',
-                path: '/organisations',
-                // lowercase on input — redemption lookup is case-insensitive
-                body: JSON.stringify({ ...validBody, promo_code: 'launch50' }),
-            }),
-        );
-
-        expect(res.statusCode).toBe(201);
-
-        const call = ddbMock.commandCalls(TransactWriteCommand)[0];
-        const items = call.args[0].input.TransactItems ?? [];
-        expect(items).toHaveLength(8);
-
-        const subscriptionItem = items.find((item) => item.Put?.Item?.SK === 'SUBSCRIPTION');
-        const subscription = JSON.parse(subscriptionItem?.Put?.Item?.data as string);
-        expect(subscription.promo_code).toBe('LAUNCH50');
-        expect(subscription.discount_type).toBe('percentage');
-        expect(subscription.discount_value).toBe(20);
-
-        const promoUpdateItem = items[6];
-        expect(promoUpdateItem.Update?.Key).toEqual({ PK: 'PROMO', SK: `META#${PROMO_UUID}` });
-        expect(promoUpdateItem.Update?.UpdateExpression).toContain('ADD redemption_count');
-
-        const redemptionLockItem = items[7];
-        expect(redemptionLockItem.Put?.Item?.PK).toBe(`PROMO#${PROMO_UUID}`);
-        expect(redemptionLockItem.Put?.Item?.SK).toBe('REDEMPTION#mocked-org-uuid');
-    });
-
-    it('extends the trial by the code\'s value in days for a trial_extension_days code', async () => {
-        mockPromoLookup('EXTEND7', {
-            uuid: PROMO_UUID,
-            code: 'EXTEND7',
-            type: 'trial_extension_days',
-            value: 7,
-            redemption_count: 0,
-            status: 'active',
-            created_by: 'staff-1',
-            created_at: '2026-01-01T00:00:00.000Z',
-            updated_at: '2026-01-01T00:00:00.000Z',
-        });
-        ddbMock.on(TransactWriteCommand).resolves({});
-
-        await lambdaHandler(
-            buildEvent({
-                httpMethod: 'POST',
-                path: '/organisations',
-                body: JSON.stringify({ ...validBody, promo_code: 'EXTEND7' }),
-            }),
-        );
-
-        const call = ddbMock.commandCalls(TransactWriteCommand)[0];
-        const items = call.args[0].input.TransactItems ?? [];
-        const subscriptionItem = items.find((item) => item.Put?.Item?.SK === 'SUBSCRIPTION');
-        const subscription = JSON.parse(subscriptionItem?.Put?.Item?.data as string);
-
-        expect(subscription.discount_type).toBeNull();
-        expect(subscription.promo_code).toBe('EXTEND7');
-
-        const trialStart = new Date(subscription.trial_start).getTime();
-        const trialEnd = new Date(subscription.trial_end).getTime();
-        expect(trialEnd - trialStart).toBe(21 * 24 * 60 * 60 * 1000); // 14-day base trial + 7
-    });
-
-    it('returns 400 for an unknown promo code and never attempts org creation', async () => {
-        mockPromoLookup('BOGUS', undefined);
-
-        const res = await lambdaHandler(
-            buildEvent({
-                httpMethod: 'POST',
-                path: '/organisations',
-                body: JSON.stringify({ ...validBody, promo_code: 'BOGUS' }),
-            }),
-        );
-
-        expect(res.statusCode).toBe(400);
-        expect(ddbMock).not.toHaveReceivedCommand(TransactWriteCommand);
-    });
-
-    it('returns 400 for an expired promo code', async () => {
-        mockPromoLookup('OLDCODE', {
-            uuid: PROMO_UUID,
-            code: 'OLDCODE',
-            type: 'percentage',
-            value: 10,
-            redemption_count: 0,
-            status: 'active',
-            expires_at: '2020-01-01T00:00:00.000Z',
-            created_by: 'staff-1',
-            created_at: '2026-01-01T00:00:00.000Z',
-            updated_at: '2026-01-01T00:00:00.000Z',
-        });
-
-        const res = await lambdaHandler(
-            buildEvent({
-                httpMethod: 'POST',
-                path: '/organisations',
-                body: JSON.stringify({ ...validBody, promo_code: 'OLDCODE' }),
-            }),
-        );
-
-        expect(res.statusCode).toBe(400);
-        expect(ddbMock).not.toHaveReceivedCommand(TransactWriteCommand);
-    });
-
-    it('returns 400 for a promo code that has reached its redemption limit', async () => {
-        mockPromoLookup('MAXEDOUT', {
-            uuid: PROMO_UUID,
-            code: 'MAXEDOUT',
-            type: 'flat_amount',
-            value: 50,
-            max_redemptions: 1,
-            redemption_count: 1,
-            status: 'active',
-            created_by: 'staff-1',
-            created_at: '2026-01-01T00:00:00.000Z',
-            updated_at: '2026-01-01T00:00:00.000Z',
-        });
-
-        const res = await lambdaHandler(
-            buildEvent({
-                httpMethod: 'POST',
-                path: '/organisations',
-                body: JSON.stringify({ ...validBody, promo_code: 'MAXEDOUT' }),
-            }),
-        );
-
-        expect(res.statusCode).toBe(400);
-        expect(ddbMock).not.toHaveReceivedCommand(TransactWriteCommand);
-    });
-
-    it('returns 400 (not 409) when the promo condition loses a redemption race at write time', async () => {
-        mockPromoLookup('RACEY', {
-            uuid: PROMO_UUID,
-            code: 'RACEY',
-            type: 'percentage',
-            value: 10,
-            max_redemptions: 1,
-            redemption_count: 0,
-            status: 'active',
-            created_by: 'staff-1',
-            created_at: '2026-01-01T00:00:00.000Z',
-            updated_at: '2026-01-01T00:00:00.000Z',
-        });
-        // 8 items total; the promo redemption-count update (index 6) lost the race.
-        const reasons = Array.from({ length: 8 }, (_, i) => (i === 6 ? { Code: 'ConditionalCheckFailed' } : { Code: 'None' }));
-        ddbMock.on(TransactWriteCommand).rejects(
-            new TransactionCanceledException({ message: 'Transaction cancelled', $metadata: {}, CancellationReasons: reasons }),
-        );
-
-        const res = await lambdaHandler(
-            buildEvent({
-                httpMethod: 'POST',
-                path: '/organisations',
-                body: JSON.stringify({ ...validBody, promo_code: 'RACEY' }),
-            }),
-        );
-
-        expect(res.statusCode).toBe(400);
     });
 });
 
@@ -411,5 +196,103 @@ describe('GET /organisations/by-id', () => {
         );
 
         expect(res.statusCode).toBe(400);
+    });
+});
+
+describe('GET /organisations/signup-requests', () => {
+    it("returns the caller's own signup requests via the inverted-index", async () => {
+        const sampleRequest = {
+            uuid: 'mocked-org-uuid',
+            organisation_id: 'potato-rocket',
+            organisation_name: 'Potato Rocket',
+            business_category: 'service-business',
+            template_id: '11111111-1111-4111-8111-111111111111',
+            plan_id: '22222222-2222-4222-8222-222222222222',
+            market: 'AU',
+            status: 'pending',
+            requested_by_user_id: USER_ID,
+            requested_by_email: USER_EMAIL,
+            created_at: '2026-01-01T00:00:00.000Z',
+        };
+        ddbMock.on(QueryCommand).resolves({ Items: [{ PK: `SIGNUP#${sampleRequest.uuid}` }] });
+        ddbMock.on(BatchGetCommand).resolves({
+            Responses: { 'sale-sync-organisation': [{ data: JSON.stringify(sampleRequest) }] },
+        });
+
+        const res = await lambdaHandler(buildEvent({ httpMethod: 'GET', path: '/organisations/signup-requests' }));
+
+        expect(res.statusCode).toBe(200);
+        expect(JSON.parse(res.body)).toEqual([sampleRequest]);
+    });
+
+    it('returns 401 when unauthenticated', async () => {
+        const res = await lambdaHandler(
+            buildEvent({ httpMethod: 'GET', path: '/organisations/signup-requests', headers: { origin: ALLOWED_ORIGIN } }),
+        );
+
+        expect(res.statusCode).toBe(401);
+    });
+});
+
+describe('GET/PATCH /organisations/profile — name field (backlogs/real-estate-agents/children/agent-public-profile)', () => {
+    function buildProfileEvent(overrides: Partial<APIGatewayProxyEvent> = {}): APIGatewayProxyEvent {
+        const identifierJwt = fakeJwt({ sub: USER_ID, name: 'Test User', email: USER_EMAIL, email_verified: true });
+        const organisationJwt = fakeJwt({ organisation_id: sampleOrg.id, user_id: USER_ID, uuid: sampleOrg.uuid });
+        return buildEvent({
+            path: '/organisations/profile',
+            headers: {
+                origin: ALLOWED_ORIGIN,
+                cookie: `Authentication=fake-token; Identifier=${identifierJwt}; Organisation=${organisationJwt}`,
+            },
+            ...overrides,
+        });
+    }
+
+    it('GET falls back to the Cognito name when no name has been persisted', async () => {
+        ddbMock
+            .on(GetCommand, { Key: { PK: `ORG#${sampleOrg.uuid}`, SK: `USER#${USER_ID}` } })
+            .resolves({ Item: { data: JSON.stringify({ role: 'staff', joined_date: '2026-01-01T00:00:00.000Z' }) } });
+
+        const res = await lambdaHandler(buildProfileEvent({ httpMethod: 'GET' }));
+
+        expect(res.statusCode).toBe(200);
+        expect(JSON.parse(res.body).name).toBe('Test User');
+    });
+
+    it('GET prefers the persisted name once one has been set', async () => {
+        ddbMock.on(GetCommand, { Key: { PK: `ORG#${sampleOrg.uuid}`, SK: `USER#${USER_ID}` } }).resolves({
+            Item: { data: JSON.stringify({ role: 'staff', joined_date: '2026-01-01T00:00:00.000Z', name: 'Nichapa Suksawat' }) },
+        });
+
+        const res = await lambdaHandler(buildProfileEvent({ httpMethod: 'GET' }));
+
+        expect(res.statusCode).toBe(200);
+        expect(JSON.parse(res.body).name).toBe('Nichapa Suksawat');
+    });
+
+    it('PATCH persists a new name', async () => {
+        ddbMock
+            .on(GetCommand, { Key: { PK: `ORG#${sampleOrg.uuid}`, SK: `USER#${USER_ID}` } })
+            .resolves({ Item: { data: JSON.stringify({ role: 'staff', joined_date: '2026-01-01T00:00:00.000Z' }) } });
+
+        const res = await lambdaHandler(
+            buildProfileEvent({ httpMethod: 'PATCH', body: JSON.stringify({ name: 'Nichapa Suksawat' }) }),
+        );
+
+        expect(res.statusCode).toBe(200);
+        expect(ddbMock).toHaveReceivedCommandWith(UpdateCommand, {
+            Key: { PK: `ORG#${sampleOrg.uuid}`, SK: `USER#${USER_ID}` },
+            ExpressionAttributeValues: {
+                ':data': JSON.stringify({ role: 'staff', joined_date: '2026-01-01T00:00:00.000Z', name: 'Nichapa Suksawat' }),
+            },
+        });
+    });
+
+    it('returns 401 when unauthenticated', async () => {
+        const res = await lambdaHandler(
+            buildEvent({ httpMethod: 'GET', path: '/organisations/profile', headers: { origin: ALLOWED_ORIGIN } }),
+        );
+
+        expect(res.statusCode).toBe(401);
     });
 });

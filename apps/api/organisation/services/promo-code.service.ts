@@ -3,7 +3,14 @@ import { GetCommand, TransactWriteCommandInput } from '@aws-sdk/lib-dynamodb';
 import { Service } from '@devyethiha/samjs';
 import type { PromoCode, PromoCodeStatus, PromoCodeType, Subscription } from '@sale-sync/shared/src/types';
 
-const TABLE = process.env.ORGANISATION_TABLE_NAME || 'sale-sync-organisation';
+// No hardcoded fallback: staging (`staging-sale-sync-organisation`) and prod
+// (`sale-sync-organisation`) are different literal tables — a default here would mean a misconfigured
+// staging deploy silently writes to the prod table instead of erroring. Read lazily (not hoisted to a
+// module-level const) so a test's env var setup (which runs after this module is first imported) is
+// still picked up.
+function getTable(): string {
+    return process.env.ORGANISATION_TABLE_NAME as string;
+}
 
 type TransactItem = NonNullable<TransactWriteCommandInput['TransactItems']>[number];
 
@@ -48,7 +55,7 @@ export class PromoCodeService extends Service {
 
         const lookup = await this.DB_Client.send(
             new GetCommand({
-                TableName: TABLE,
+                TableName: getTable(),
                 Key: { PK: `PROMO#CODE#${normalized}`, SK: 'META' },
             }),
         );
@@ -57,7 +64,7 @@ export class PromoCodeService extends Service {
         const uuid = lookup.Item.uuid as string;
         const meta = await this.DB_Client.send(
             new GetCommand({
-                TableName: TABLE,
+                TableName: getTable(),
                 Key: { PK: 'PROMO', SK: `META#${uuid}` },
             }),
         );
@@ -110,7 +117,7 @@ export function buildPromoRedemptionTransactItems(promo: PromoCode, organisation
     return [
         {
             Update: {
-                TableName: TABLE,
+                TableName: getTable(),
                 Key: { PK: 'PROMO', SK: `META#${promo.uuid}` },
                 UpdateExpression: 'ADD redemption_count :one SET updated_at = :now',
                 ConditionExpression:
@@ -125,7 +132,7 @@ export function buildPromoRedemptionTransactItems(promo: PromoCode, organisation
         },
         {
             Put: {
-                TableName: TABLE,
+                TableName: getTable(),
                 Item: {
                     PK: `PROMO#${promo.uuid}`,
                     SK: `REDEMPTION#${organisationId}`,

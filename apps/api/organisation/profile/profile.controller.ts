@@ -21,7 +21,8 @@ class ProfileController extends Controller implements IControllerMethods {
     }
 
     // GET /organisations/profile → the caller's own profile within the active organisation
-    // (phone/bio/timezone/avatar from the membership record, name/email from Cognito).
+    // (phone/bio/timezone/avatar/name from the membership record if set, email always from Cognito,
+    // name falls back to Cognito's until the member sets their own — see updateProfile/BR-32).
     async get(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
         if (!isAuthorize(event)) {
             return UNAUTHORIZE_ERROR;
@@ -49,14 +50,17 @@ class ProfileController extends Controller implements IControllerMethods {
             statusCode: 200,
             body: JSON.stringify({
                 ...profile,
-                name: user.name,
+                // Prefer the persisted display name (BR-32, self-edited via PATCH) once set — the
+                // live Cognito name is only ever a default until then, since queries-api can never
+                // read it for an arbitrary member.
+                name: profile.name ?? user.name,
                 email: user.email,
             }),
         };
     }
 
-    // PATCH /organisations/profile → update the caller's own phone/bio/timezone/avatar within the
-    // active organisation. No owner/admin restriction — every member manages their own profile.
+    // PATCH /organisations/profile → update the caller's own name/phone/bio/timezone/avatar within
+    // the active organisation. No owner/admin restriction — every member manages their own profile.
     async patch(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
         if (!isAuthorize(event)) {
             return UNAUTHORIZE_ERROR;

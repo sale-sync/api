@@ -9,17 +9,19 @@ import {
     ValidationError,
 } from '@devyethiha/samjs';
 import { getOrganisation, NO_ORGANISATION } from '@sale-sync/shared';
-import { InsufficientRoleError, OrganisationAlreadyExistsError, OrganisationService } from '../services/organisation.service';
-import { InvalidPromoCodeError } from '../services/promo-code.service';
+import { InsufficientRoleError, OrganisationService } from '../services/organisation.service';
+import { SignupRequestAlreadyExistsError, SignupRequestService } from '../services/signup-request.service';
 import { CreateOrganisationDTO } from '../dtos/create-organisation.dto';
 import { UpdateOrganisationDTO } from '../dtos/update-organisation.dto';
 
 class DefaultController extends Controller implements IControllerMethods {
     private organisationService!: OrganisationService;
+    private signupRequestService!: SignupRequestService;
 
-    constructor(organisationService: OrganisationService) {
+    constructor(organisationService: OrganisationService, signupRequestService: SignupRequestService) {
         super('default');
         this.organisationService = organisationService;
+        this.signupRequestService = signupRequestService;
     }
 
     async get(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
@@ -52,7 +54,12 @@ class DefaultController extends Controller implements IControllerMethods {
             const dto = new CreateOrganisationDTO();
             const body = dto.validate(JSON.parse(event.body || '{}'));
 
-            await this.organisationService.createOrganisation({
+            // Organisation creation is gated behind admin approval (backlogs/onboarding/children/
+            // organisation-approval-gate) — this no longer creates a live org/membership/subscription
+            // or invokes init-website; it only records a pending SignupRequest for an admin to
+            // approve/reject via admin-api. The real org is created by
+            // createOrganisationFromApprovedRequest() on approval.
+            const signupRequest = await this.signupRequestService.createSignupRequest({
                 user_id: user.id,
                 user_email: user.email,
                 organisation_id: body.organisation_id,
@@ -63,15 +70,15 @@ class DefaultController extends Controller implements IControllerMethods {
                 description: body.description,
                 address: body.address,
                 market: body.market,
-                promo_code: body.promo_code,
             });
 
             return {
-                statusCode: 201,
+                statusCode: 202,
                 body: JSON.stringify({
-                    message: 'Organisation created',
-                    organisation_id: body.organisation_id,
-                    organisation_name: body.organisation_name,
+                    signup_request_id: signupRequest.uuid,
+                    organisation_id: signupRequest.organisation_id,
+                    organisation_name: signupRequest.organisation_name,
+                    status: signupRequest.status,
                 }),
             };
         } catch (error) {
@@ -84,17 +91,9 @@ class DefaultController extends Controller implements IControllerMethods {
                     }),
                 };
             }
-            if (error instanceof OrganisationAlreadyExistsError) {
+            if (error instanceof SignupRequestAlreadyExistsError) {
                 return {
                     statusCode: 409,
-                    body: JSON.stringify({
-                        message: error.message,
-                    }),
-                };
-            }
-            if (error instanceof InvalidPromoCodeError) {
-                return {
-                    statusCode: 400,
                     body: JSON.stringify({
                         message: error.message,
                     }),

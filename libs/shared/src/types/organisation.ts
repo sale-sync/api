@@ -48,6 +48,12 @@ export type OrganisationUser = {
     bio?: string;
     timezone?: string;
     avatar?: Image | null;
+    // Persisted display name (BR-32) — self-edited via PATCH /organisations/profile, same as
+    // phone/bio/timezone/avatar. Distinct from the live Cognito `name` claim (`getUser(event).name`):
+    // that's per-session and only ever known for the currently authenticated caller, never queryable
+    // for an arbitrary team member — this field is what lets queries-api show an agent's name
+    // publicly. GET /organisations/profile prefers this over the Cognito name once set.
+    name?: string;
 };
 
 export type User = {
@@ -98,6 +104,54 @@ export type BrandingContent = {
 export type BrandingRecord = {
     data: BrandingContent | null;
     draft: BrandingContent | null;
+    updated_at: string;
+    published_at: string | null;
+};
+
+// Same singleton-per-org, data/draft-split shape as BrandingContent/BrandingRecord above — see
+// backlogs/testimonials/plan.md. Stat fields are display strings (e.g. "4.9/5", "8,500+", "24 h"),
+// not numeric, matching the format the real-estate template's TestimonialsSlice already shows —
+// deliberately not structured {value, unit} pairs for v1.
+export type TestimonialItem = {
+    name: string;
+    testimonial: string;
+};
+
+export type TestimonialsContent = {
+    averageRating: string;
+    happyTenants: string;
+    verifiedListings: string;
+    avgResponseTime: string;
+    testimonials: TestimonialItem[];
+};
+
+export type TestimonialsRecord = {
+    data: TestimonialsContent | null;
+    draft: TestimonialsContent | null;
+    updated_at: string;
+    published_at: string | null;
+};
+
+// Same singleton-per-org, data/draft-split shape as BrandingContent/TestimonialsContent above — see
+// backlogs/home-thailand-estates-dynamic-about/plan.md. `blocks` is passed through unmodified: it's
+// the `editor.document` array BlockNote (@blocknote/core) produces in web-app's About editor, stored
+// and served as-is rather than re-modeled here (api/libs/shared has no BlockNote dependency). Only
+// the fields the renderer actually needs to walk are typed; `props`/`content` stay structurally loose.
+export type BlockNoteBlock = {
+    id: string;
+    type: string;
+    props?: Record<string, unknown>;
+    content?: unknown;
+    children?: BlockNoteBlock[];
+};
+
+export type AboutPageContent = {
+    blocks: BlockNoteBlock[];
+};
+
+export type AboutPageRecord = {
+    data: AboutPageContent | null;
+    draft: AboutPageContent | null;
     updated_at: string;
     published_at: string | null;
 };

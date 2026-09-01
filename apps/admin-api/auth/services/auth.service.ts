@@ -3,6 +3,14 @@ import { GetCommand, PutCommand } from '@aws-sdk/lib-dynamodb';
 import { Service } from '@devyethiha/samjs';
 import * as oc from 'openid-client';
 
+// No hardcoded fallback: staging and prod are different literal tables (see
+// admin.samconfig.toml) — a default here would mean a misconfigured staging deploy silently writes
+// to prod instead of erroring. Read lazily (not hoisted to a module-level const) so it reflects
+// process.env at call time, same as this file's Cognito env vars below.
+function getTable(): string {
+    return process.env.ORGANISATION_TABLE_NAME as string;
+}
+
 export interface IAuthService {
     storeNonce: () => Promise<string>;
     getNonce: (state: string) => Promise<NoncePair | null>;
@@ -19,7 +27,7 @@ export type CognitoCallbackRes = {
     tokenSet: any;
 };
 
-// Nonce/state CSRF bookkeeping is stored in admin-api's existing TableName
+// Nonce/state CSRF bookkeeping is stored in admin-api's existing OrganisationTableName
 // (sale-sync-organisation) under its own PK prefix, rather than a dedicated
 // auth table — admin-api has no separate auth table today (unlike
 // ss/api/apps/api/auth, which uses sale-sync-auth), and this keeps the
@@ -45,7 +53,7 @@ export class AuthService extends Service implements IAuthService {
             data: JSON.stringify(param),
         };
         const command = new PutCommand({
-            TableName: process.env.TABLE_NAME ?? 'sale-sync-organisation',
+            TableName: getTable(),
             Item,
         });
         const { COGNITO_CALLBACK_URL } = process.env;
@@ -77,7 +85,7 @@ export class AuthService extends Service implements IAuthService {
     public async getNonce(state: string): Promise<NoncePair | null> {
         try {
             const command = new GetCommand({
-                TableName: process.env.TABLE_NAME ?? 'sale-sync-organisation',
+                TableName: getTable(),
                 Key: {
                     PK: 'NONCE-STATE#' + state,
                     SK: 'META',

@@ -2,15 +2,24 @@ import { mockClient } from 'aws-sdk-client-mock';
 import 'aws-sdk-client-mock-jest';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { GetCommand, PutCommand, QueryCommand } from '@aws-sdk/lib-dynamodb';
+import { S3Client, DeleteObjectCommand } from '@aws-sdk/client-s3';
 import type { APIGatewayProxyEvent } from 'aws-lambda';
 import { lambdaHandler } from '../../app';
 
-// Media is the biggest app here (8 controllers: default, upload, folders, item, properties,
-// organisation, user, branding) — this suite deliberately covers just the core "list folder
-// contents" flow (GET /media), the entry point every media-browsing session starts from. The
-// upload/item/folders/branding/etc. controllers aren't covered yet — same scope boundary as the
-// other suites, flagged here since this app's surface is unusually large.
+// Media is the biggest app here (9 controllers: default, upload, folders, item, properties,
+// organisation, user, branding, agents) — this suite deliberately covers just the core "list
+// folder contents" flow (GET /media), the entry point every media-browsing session starts from,
+// plus the new agents presigned-upload controller. The upload/item/folders/branding/properties/
+// organisation/user controllers aren't covered yet — same scope boundary as the other suites,
+// flagged here since this app's surface is unusually large.
 const ddbMock = mockClient(DynamoDBClient);
+const s3Mock = mockClient(S3Client);
+
+// S3Service.generateUploadUrl calls the presigner's getSignedUrl() function directly (not a
+// mockable S3Client command) — stub it so agents-upload tests don't need real AWS credentials.
+jest.mock('@aws-sdk/s3-request-presigner', () => ({
+    getSignedUrl: jest.fn().mockResolvedValue('https://presigned.example.com/upload'),
+}));
 
 const ALLOWED_ORIGIN = 'http://localhost:3000';
 const ORG_UUID = 'org-uuid-1';
@@ -60,6 +69,9 @@ const rootFolder = {
 
 beforeEach(() => {
     ddbMock.reset();
+    s3Mock.reset();
+    process.env.MEDIA_CDN_DOMAIN = 'cdn.salesync.biz';
+    process.env.MEDIA_BUCKET_NAME = 'sale-sync-media';
 });
 
 describe('GET /media', () => {
@@ -115,5 +127,95 @@ describe('GET /media', () => {
         );
 
         expect(res.statusCode).toBe(404);
+    });
+});
+
+describe('POST /media/agents', () => {
+    const validBody = { file_name: 'headshot.jpg', mime_type: 'image/jpeg' };
+
+    it('returns 201 with a presigned upload URL + durable CDN URL', async () => {
+        const res = await lambdaHandler(
+            buildEvent({ httpMethod: 'POST', path: '/media/agents', body: JSON.stringify(validBody) }),
+        );
+
+        expect(res.statusCode).toBe(201);
+        const body = JSON.parse(res.body);
+        expect(body.upload_url).toBe('https://presigned.example.com/upload');
+        expect(body.image_url).toBe(`https://cdn.salesync.biz/cdn/${ORG_UUID}/agents/${body.s3_key.split('/').pop()}`);
+        expect(body.s3_key).toMatch(new RegExp(`^cdn/${ORG_UUID}/agents/.+-headshot\\.jpg$`));
+        expect(body.expires_at).toBeDefined();
+    });
+
+    it('returns 400 for an unsupported mime type', async () => {
+        const res = await lambdaHandler(
+            buildEvent({
+                httpMethod: 'POST',
+                path: '/media/agents',
+                body: JSON.stringify({ file_name: 'resume.pdf', mime_type: 'application/pdf' }),
+            }),
+        );
+
+        expect(res.statusCode).toBe(400);
+    });
+
+    it('returns 401 when unauthenticated', async () => {
+        const res = await lambdaHandler(
+            buildEvent({
+                httpMethod: 'POST',
+                path: '/media/agents',
+                headers: { origin: ALLOWED_ORIGIN },
+                body: JSON.stringify(validBody),
+            }),
+        );
+
+        expect(res.statusCode).toBe(401);
+    });
+});
+
+describe('DELETE /media/agents', () => {
+    it("returns 200 and deletes the object when the s3_key belongs to the caller's organisation", async () => {
+        s3Mock.on(DeleteObjectCommand).resolves({});
+        const s3Key = `cdn/${ORG_UUID}/agents/some-uuid-headshot.jpg`;
+
+        const res = await lambdaHandler(
+            buildEvent({ httpMethod: 'DELETE', path: '/media/agents', body: JSON.stringify({ s3_key: s3Key }) }),
+        );
+
+        expect(res.statusCode).toBe(200);
+        expect(s3Mock).toHaveReceivedCommandWith(DeleteObjectCommand, { Bucket: 'sale-sync-media', Key: s3Key });
+    });
+
+    it("returns 403 when the s3_key does not belong to the caller's organisation", async () => {
+        const res = await lambdaHandler(
+            buildEvent({
+                httpMethod: 'DELETE',
+                path: '/media/agents',
+                body: JSON.stringify({ s3_key: 'cdn/some-other-org/agents/some-uuid-headshot.jpg' }),
+            }),
+        );
+
+        expect(res.statusCode).toBe(403);
+        expect(s3Mock).not.toHaveReceivedCommand(DeleteObjectCommand);
+    });
+
+    it('returns 400 when s3_key is missing', async () => {
+        const res = await lambdaHandler(
+            buildEvent({ httpMethod: 'DELETE', path: '/media/agents', body: JSON.stringify({}) }),
+        );
+
+        expect(res.statusCode).toBe(400);
+    });
+
+    it('returns 401 when unauthenticated', async () => {
+        const res = await lambdaHandler(
+            buildEvent({
+                httpMethod: 'DELETE',
+                path: '/media/agents',
+                headers: { origin: ALLOWED_ORIGIN },
+                body: JSON.stringify({ s3_key: `cdn/${ORG_UUID}/agents/some-uuid-headshot.jpg` }),
+            }),
+        );
+
+        expect(res.statusCode).toBe(401);
     });
 });
