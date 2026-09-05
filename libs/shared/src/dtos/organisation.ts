@@ -164,6 +164,108 @@ export const UpdateAboutDraftSchema = z.object({
 
 export type UpdateAboutDraftInput = z.infer<typeof UpdateAboutDraftSchema>;
 
+// Slugs are used verbatim in the client site's /locations/<slug> URL — lowercase kebab-case only, no
+// leading/trailing/double hyphens, so a saved slug is always a safe, predictable path segment.
+export const SLUG_REGEX = /^[a-z0-9]+(-[a-z0-9]+)*$/;
+
+export const LocationItemSchema = z.object({
+    slug: z
+        .string()
+        .trim()
+        .min(1, 'slug is required')
+        .max(80, 'slug must be 80 characters or fewer')
+        .regex(SLUG_REGEX, 'slug must be lowercase kebab-case (e.g. "bangkok", "koh-samui")'),
+    name: z.string().trim().min(1, 'name is required').max(120, 'name must be 120 characters or fewer'),
+    tagline: z.string().trim().max(160, 'tagline must be 160 characters or fewer'),
+    description: z.string().trim().max(500, 'description must be 500 characters or fewer'),
+    label: z.string().trim().max(40, 'label must be 40 characters or fewer'),
+    heroImage: z.string().trim(),
+    body: z.array(BlockNoteBlockSchema).max(500, 'body must be 500 blocks or fewer'),
+});
+
+export const UpdateLocationsDraftSchema = z
+    .object({
+        locations: z.array(LocationItemSchema).max(100, 'locations must be 100 items or fewer'),
+    })
+    .refine(
+        (data) => {
+            const slugs = data.locations.map((l) => l.slug);
+            return new Set(slugs).size === slugs.length;
+        },
+        { message: 'Each location must have a unique slug', path: ['locations'] },
+    );
+
+export type UpdateLocationsDraftInput = z.infer<typeof UpdateLocationsDraftSchema>;
+
+// Slugs are used verbatim in the client site's /articles/<slug> URL — same constraint as
+// LocationItemSchema's slug above.
+export const ArticleItemSchema = z.object({
+    slug: z
+        .string()
+        .trim()
+        .min(1, 'slug is required')
+        .max(80, 'slug must be 80 characters or fewer')
+        .regex(SLUG_REGEX, 'slug must be lowercase kebab-case (e.g. "bangkok-rental-market-update")'),
+    title: z.string().trim().min(1, 'title is required').max(160, 'title must be 160 characters or fewer'),
+    category: z.string().trim().max(60, 'category must be 60 characters or fewer'),
+    readTime: z.string().trim().max(40, 'readTime must be 40 characters or fewer'),
+    excerpt: z.string().trim().max(500, 'excerpt must be 500 characters or fewer'),
+    coverImage: z.string().trim(),
+    body: z.array(BlockNoteBlockSchema).max(500, 'body must be 500 blocks or fewer'),
+});
+
+export const UpdateArticlesDraftSchema = z
+    .object({
+        articles: z.array(ArticleItemSchema).max(200, 'articles must be 200 items or fewer'),
+    })
+    .refine(
+        (data) => {
+            const slugs = data.articles.map((a) => a.slug);
+            return new Set(slugs).size === slugs.length;
+        },
+        { message: 'Each article must have a unique slug', path: ['articles'] },
+    );
+
+export type UpdateArticlesDraftInput = z.infer<typeof UpdateArticlesDraftSchema>;
+
+// No slug here (unlike locations/articles) — nothing is routed by these ids, they're only stable
+// keys for reorder/lookup in the editor, so ids are validated for uniqueness but not shaped like a
+// URL segment.
+export const FaqEntrySchema = z.object({
+    id: z.string().trim().min(1, 'id is required').max(80, 'id must be 80 characters or fewer'),
+    question: z.string().trim().min(1, 'question is required').max(300, 'question must be 300 characters or fewer'),
+    answer: z.string().trim().min(1, 'answer is required').max(3000, 'answer must be 3000 characters or fewer'),
+});
+
+export const FaqTopicSchema = z.object({
+    id: z.string().trim().min(1, 'id is required').max(80, 'id must be 80 characters or fewer'),
+    title: z.string().trim().min(1, 'title is required').max(120, 'title must be 120 characters or fewer'),
+    faqs: z.array(FaqEntrySchema).max(100, 'faqs must be 100 items or fewer'),
+});
+
+export const UpdateFaqDraftSchema = z
+    .object({
+        topics: z.array(FaqTopicSchema).max(50, 'topics must be 50 items or fewer'),
+    })
+    .refine(
+        (data) => {
+            const topicIds = data.topics.map((t) => t.id);
+            return new Set(topicIds).size === topicIds.length;
+        },
+        { message: 'Each topic must have a unique id', path: ['topics'] },
+    )
+    .refine(
+        (data) => {
+            return data.topics.every((topic) => {
+                const faqIds = topic.faqs.map((f) => f.id);
+                return new Set(faqIds).size === faqIds.length;
+            });
+        },
+        { message: 'Each FAQ within a topic must have a unique id', path: ['topics'] },
+    );
+
+export type UpdateFaqDraftInput = z.infer<typeof UpdateFaqDraftSchema>;
+
 // ─── Admin-only ──────────────────────────
 // Staff-side org update: status/plan reassignment only — deliberately a separate schema from
 // UpdateOrganisationSchema above (customer self-edit: name/description/address/image/market).

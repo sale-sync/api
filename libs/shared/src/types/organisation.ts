@@ -155,3 +155,87 @@ export type AboutPageRecord = {
     updated_at: string;
     published_at: string | null;
 };
+
+// Same singleton-per-org, data/draft-split shape as the records above — see
+// backlogs/real-estate-template/children/home-thailand-estates-dynamic-locations/plan.md. Unlike
+// About (one document), this holds a *list* of entries — closer to TestimonialsContent's repeater
+// shape, except each entry also carries a BlockNote `body` (reusing BlockNoteBlock, same as
+// AboutPageContent) for its own `/locations/<slug>` detail page. `slug` uniqueness is enforced by
+// the write API, not the key structure — this is one DynamoDB item for the whole list, not one per
+// location.
+export type LocationItem = {
+    slug: string;
+    name: string;
+    tagline: string;
+    description: string; // short teaser shown on the /locations grid card, distinct from `body`
+    label: string; // short badge text on the grid card image (e.g. "4,200+ properties") — free text,
+    // not necessarily a property count — renamed from `propertyCount` 2026-09-04
+    heroImage: string;
+    body: BlockNoteBlock[]; // full BlockNote document, rendered on the /locations/<slug> detail page
+};
+
+export type LocationsContent = {
+    locations: LocationItem[];
+};
+
+export type LocationsRecord = {
+    data: LocationsContent | null;
+    draft: LocationsContent | null;
+    updated_at: string;
+    published_at: string | null;
+};
+
+// Same singleton-per-org, data/draft-split shape as LocationsContent/LocationsRecord above — see
+// backlogs/real-estate-template/children/home-thailand-estates-dynamic-articles/plan.md. Each entry
+// carries its own BlockNote `body` (reusing BlockNoteBlock) for its own `/articles/<slug>` detail
+// page. `slug` uniqueness is enforced by the write API, not the key structure — this is one
+// DynamoDB item for the whole list, not one per article.
+export type ArticleItem = {
+    slug: string;
+    title: string;
+    category: string; // free text, e.g. "Guides", "Market Insights" — not a fixed enum
+    readTime: string; // plain label, e.g. "6 min read" — not computed from body length
+    excerpt: string; // short summary shown on the /articles grid card
+    coverImage: string;
+    body: BlockNoteBlock[]; // full BlockNote document, rendered on the /articles/<slug> detail page
+};
+
+export type ArticlesContent = {
+    articles: ArticleItem[];
+};
+
+export type ArticlesRecord = {
+    data: ArticlesContent | null;
+    draft: ArticlesContent | null;
+    updated_at: string;
+    published_at: string | null;
+};
+
+// Same singleton-per-org, data/draft-split shape as LocationsContent/ArticlesContent above — see
+// backlogs/real-estate-template/children/home-thailand-estates-dynamic-faq/plan.md. Unlike
+// locations/articles, this is a **two-level** repeater (topics, each holding its own faqs) rather
+// than a flat list, and there's no BlockNote body or slug anywhere here — no per-item detail page
+// exists, the whole page is one client-side sidebar+accordion view over this one payload. `id` on
+// both levels is a stable key for reorder/lookup, not a routable slug.
+export type FaqEntry = {
+    id: string;
+    question: string;
+    answer: string; // plain text — no rich formatting for now, see plan.md's open question
+};
+
+export type FaqTopic = {
+    id: string;
+    title: string; // e.g. "Buying Property", "Payments & Fees"
+    faqs: FaqEntry[];
+};
+
+export type FaqContent = {
+    topics: FaqTopic[];
+};
+
+export type FaqRecord = {
+    data: FaqContent | null;
+    draft: FaqContent | null;
+    updated_at: string;
+    published_at: string | null;
+};

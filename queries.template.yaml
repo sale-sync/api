@@ -112,6 +112,32 @@ Resources:
                         Method: ANY
 
     # -------------------------------------------------------------------------
+    # Locations Lambda
+    # -------------------------------------------------------------------------
+    # Read-only IAM, same rationale as BrandingFunction. No write-side counterpart yet (see
+    # backlogs/real-estate-template/children/home-thailand-estates-dynamic-locations/children/
+    # queries-api-locations-endpoint) — content is written directly to the table for now.
+    LocationsFunction:
+        Type: AWS::Serverless::Function
+        Properties:
+            CodeUri: apps/queries-api/locations/bundle
+            Handler: app.lambdaHandler
+            Runtime: nodejs22.x
+            Architectures: [x86_64]
+            Policies:
+                - AWSLambdaBasicExecutionRole
+                - DynamoDBReadPolicy:
+                      TableName: !Ref OrganisationTableName
+            Events:
+                # Method: ANY, not GET — same CORS-preflight rationale as BrandingFunction.
+                ApiRouter:
+                    Type: Api
+                    Properties:
+                        RestApiId: !Ref SalesSyncQueriesApi
+                        Path: /locations
+                        Method: ANY
+
+    # -------------------------------------------------------------------------
     # Agents Lambda
     # -------------------------------------------------------------------------
     # Read-only IAM, same rationale as BrandingFunction — designating an agent happens through
@@ -134,6 +160,56 @@ Resources:
                     Properties:
                         RestApiId: !Ref SalesSyncQueriesApi
                         Path: /agents
+                        Method: ANY
+
+    # -------------------------------------------------------------------------
+    # Articles Lambda
+    # -------------------------------------------------------------------------
+    # Read-only IAM, same rationale as BrandingFunction — editing articles happens through
+    # api/apps/api/organisation's write API (articles/), never through this stack.
+    ArticlesFunction:
+        Type: AWS::Serverless::Function
+        Properties:
+            CodeUri: apps/queries-api/articles/bundle
+            Handler: app.lambdaHandler
+            Runtime: nodejs22.x
+            Architectures: [x86_64]
+            Policies:
+                - AWSLambdaBasicExecutionRole
+                - DynamoDBReadPolicy:
+                      TableName: !Ref OrganisationTableName
+            Events:
+                # Method: ANY, not GET — same CORS-preflight rationale as BrandingFunction.
+                ApiRouter:
+                    Type: Api
+                    Properties:
+                        RestApiId: !Ref SalesSyncQueriesApi
+                        Path: /articles
+                        Method: ANY
+
+    # -------------------------------------------------------------------------
+    # FAQ Lambda
+    # -------------------------------------------------------------------------
+    # Read-only IAM, same rationale as BrandingFunction — editing FAQ content happens through
+    # api/apps/api/organisation's write API (faq/), never through this stack.
+    FaqFunction:
+        Type: AWS::Serverless::Function
+        Properties:
+            CodeUri: apps/queries-api/faq/bundle
+            Handler: app.lambdaHandler
+            Runtime: nodejs22.x
+            Architectures: [x86_64]
+            Policies:
+                - AWSLambdaBasicExecutionRole
+                - DynamoDBReadPolicy:
+                      TableName: !Ref OrganisationTableName
+            Events:
+                # Method: ANY, not GET — same CORS-preflight rationale as BrandingFunction.
+                ApiRouter:
+                    Type: Api
+                    Properties:
+                        RestApiId: !Ref SalesSyncQueriesApi
+                        Path: /faq
                         Method: ANY
 
     # -------------------------------------------------------------------------
@@ -195,3 +271,15 @@ Outputs:
     AboutFunctionArn:
         Description: About Lambda Function ARN
         Value: !GetAtt AboutFunction.Arn
+
+    LocationsFunctionArn:
+        Description: Locations Lambda Function ARN
+        Value: !GetAtt LocationsFunction.Arn
+
+    ArticlesFunctionArn:
+        Description: Articles Lambda Function ARN
+        Value: !GetAtt ArticlesFunction.Arn
+
+    FaqFunctionArn:
+        Description: FAQ Lambda Function ARN
+        Value: !GetAtt FaqFunction.Arn

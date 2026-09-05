@@ -24,6 +24,8 @@
     "apps/queries-api/testimonials",
     "apps/queries-api/agents",
     "apps/queries-api/about",
+    "apps/queries-api/locations",
+    "apps/queries-api/articles",
     "libs/shared"
   ],
   "scripts": {
@@ -43,17 +45,17 @@
     "admin.test": "nx run-many -t unit --projects=admin-payments,admin-organisation,admin-promo-codes,admin-auth,admin-signup-requests",
     "admin-openapi.start": "nx run admin-openapi:start",
     "admin-openapi.dev": "nx run admin-openapi:dev",
-    "queries.build": "nx run-many -t compile --projects=queries-branding,queries-properties,queries-testimonials,queries-agents,queries-about",
-    "queries.bundle": "nx run-many -t bundle --projects=queries-branding,queries-properties,queries-testimonials,queries-agents,queries-about",
-    "queries.lint": "nx run-many -t lint --projects=queries-branding,queries-properties,queries-testimonials,queries-agents,queries-about",
-    "queries.test": "nx run-many -t unit --projects=queries-branding,queries-properties,queries-testimonials,queries-agents,queries-about",
+    "queries.build": "nx run-many -t compile --projects=queries-branding,queries-properties,queries-testimonials,queries-agents,queries-about,queries-locations,queries-articles,queries-faq",
+    "queries.bundle": "nx run-many -t bundle --projects=queries-branding,queries-properties,queries-testimonials,queries-agents,queries-about,queries-locations,queries-articles,queries-faq",
+    "queries.lint": "nx run-many -t lint --projects=queries-branding,queries-properties,queries-testimonials,queries-agents,queries-about,queries-locations,queries-articles,queries-faq",
+    "queries.test": "nx run-many -t unit --projects=queries-branding,queries-properties,queries-testimonials,queries-agents,queries-about,queries-locations,queries-articles,queries-faq",
     "samconfig:sync:staging": "node scripts/sync-samconfig.js staging staging.deploy.parameters",
     "samconfig:sync:prod": "node scripts/sync-samconfig.js prod prod.deploy.parameters",
     "admin.samconfig:sync:staging": "node scripts/sync-samconfig.js staging staging.deploy.parameters admin",
     "admin.samconfig:sync:prod": "node scripts/sync-samconfig.js prod prod.deploy.parameters admin",
     "queries.samconfig:sync:staging": "node scripts/sync-samconfig.js staging staging.deploy.parameters queries",
     "queries.samconfig:sync:prod": "node scripts/sync-samconfig.js prod prod.deploy.parameters queries",
-    "clean": "rimraf node_modules apps/api/auth/node_modules apps/api/organisation/node_modules apps/admin-api/payments/node_modules apps/admin-api/organisation/node_modules apps/admin-api/promo-codes/node_modules apps/admin-api/signup-requests/node_modules apps/queries-api/branding/node_modules apps/queries-api/properties/node_modules apps/queries-api/testimonials/node_modules apps/queries-api/about/node_modules libs/shared/node_modules .aws-sam"
+    "clean": "rimraf node_modules apps/api/auth/node_modules apps/api/organisation/node_modules apps/admin-api/payments/node_modules apps/admin-api/organisation/node_modules apps/admin-api/promo-codes/node_modules apps/admin-api/signup-requests/node_modules apps/queries-api/branding/node_modules apps/queries-api/properties/node_modules apps/queries-api/testimonials/node_modules apps/queries-api/about/node_modules apps/queries-api/locations/node_modules apps/queries-api/articles/node_modules libs/shared/node_modules .aws-sam"
   },
   "repository": {
     "type": "git",
