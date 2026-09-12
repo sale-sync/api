@@ -103,7 +103,7 @@ check.both:
 # === Cleanup ===
 clean:
 	@echo "==> Cleaning build artifacts"
-	rm -rf .aws-sam apps/api/auth/bundle apps/api/organisation/bundle apps/api/media/bundle apps/api/blocks/bundle apps/api/templates/bundle apps/api/payments/bundle apps/api/properties/bundle libs/shared/dist
+	rm -rf .aws-sam apps/api/auth/bundle apps/api/organisation/bundle apps/api/media/bundle apps/api/blocks/bundle apps/api/payments/bundle apps/api/properties/bundle libs/shared/dist
 
 # === OpenAPI docs server ===
 docs:

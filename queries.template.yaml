@@ -213,6 +213,57 @@ Resources:
                         Method: ANY
 
     # -------------------------------------------------------------------------
+    # Privacy Policy Lambda
+    # -------------------------------------------------------------------------
+    # Read-only IAM, same rationale as BrandingFunction — editing the privacy-policy page happens
+    # through api/apps/api/organisation's write API (privacy-policy/), never through this stack.
+    PrivacyPolicyFunction:
+        Type: AWS::Serverless::Function
+        Properties:
+            CodeUri: apps/queries-api/privacy-policy/bundle
+            Handler: app.lambdaHandler
+            Runtime: nodejs22.x
+            Architectures: [x86_64]
+            Policies:
+                - AWSLambdaBasicExecutionRole
+                - DynamoDBReadPolicy:
+                      TableName: !Ref OrganisationTableName
+            Events:
+                # Method: ANY, not GET — same CORS-preflight rationale as BrandingFunction.
+                ApiRouter:
+                    Type: Api
+                    Properties:
+                        RestApiId: !Ref SalesSyncQueriesApi
+                        Path: /privacy-policy
+                        Method: ANY
+
+    # -------------------------------------------------------------------------
+    # Terms & Conditions Lambda
+    # -------------------------------------------------------------------------
+    # Read-only IAM, same rationale as BrandingFunction — editing the terms-and-conditions page
+    # happens through api/apps/api/organisation's write API (terms-and-conditions/), never through
+    # this stack.
+    TermsAndConditionsFunction:
+        Type: AWS::Serverless::Function
+        Properties:
+            CodeUri: apps/queries-api/terms-and-conditions/bundle
+            Handler: app.lambdaHandler
+            Runtime: nodejs22.x
+            Architectures: [x86_64]
+            Policies:
+                - AWSLambdaBasicExecutionRole
+                - DynamoDBReadPolicy:
+                      TableName: !Ref OrganisationTableName
+            Events:
+                # Method: ANY, not GET — same CORS-preflight rationale as BrandingFunction.
+                ApiRouter:
+                    Type: Api
+                    Properties:
+                        RestApiId: !Ref SalesSyncQueriesApi
+                        Path: /terms-and-conditions
+                        Method: ANY
+
+    # -------------------------------------------------------------------------
     # Properties Lambda
     # -------------------------------------------------------------------------
     # Read-only IAM, same rationale as BrandingFunction — needs both tables: the property table
@@ -283,3 +334,11 @@ Outputs:
     FaqFunctionArn:
         Description: FAQ Lambda Function ARN
         Value: !GetAtt FaqFunction.Arn
+
+    PrivacyPolicyFunctionArn:
+        Description: Privacy Policy Lambda Function ARN
+        Value: !GetAtt PrivacyPolicyFunction.Arn
+
+    TermsAndConditionsFunctionArn:
+        Description: Terms & Conditions Lambda Function ARN
+        Value: !GetAtt TermsAndConditionsFunction.Arn

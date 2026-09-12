@@ -10,6 +10,8 @@ const EMPTY_RECORD: BrandingRecord = {
     draft: null,
     updated_at: new Date(0).toISOString(),
     published_at: null,
+    status: 'idle',
+    status_reason: null,
 };
 
 // Read-only mirror of api/organisation/services/branding.service.ts's get() — this stack never

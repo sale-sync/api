@@ -2,20 +2,20 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { Controller, IControllerMethods, isAuthorize, UNAUTHORIZE_ERROR, ValidationError } from '@devyethiha/samjs';
 import { getOrganisation, NO_ORGANISATION } from '@sale-sync/shared';
 import { InsufficientRoleError, OrganisationService } from '../services/organisation.service';
-import { AboutService, NoDraftToPublishError } from '../services/about.service';
-import { UpdateAboutDraftDTO } from './about.dto';
+import { PrivacyPolicyService, NoDraftToPublishError } from '../services/privacy-policy.service';
+import { UpdatePrivacyPolicyDraftDTO } from './privacy-policy.dto';
 
-class AboutController extends Controller implements IControllerMethods {
+class PrivacyPolicyController extends Controller implements IControllerMethods {
     private organisationService: OrganisationService;
-    private aboutService: AboutService;
+    private privacyPolicyService: PrivacyPolicyService;
 
-    constructor(organisationService: OrganisationService, aboutService: AboutService) {
-        super('about');
+    constructor(organisationService: OrganisationService, privacyPolicyService: PrivacyPolicyService) {
+        super('privacy-policy');
         this.organisationService = organisationService;
-        this.aboutService = aboutService;
+        this.privacyPolicyService = privacyPolicyService;
     }
 
-    // GET /organisations/about — no role gate, any org member can view the current record.
+    // GET /organisations/privacy-policy — no role gate, any org member can view the current record.
     async get(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
         if (!isAuthorize(event)) {
             return UNAUTHORIZE_ERROR;
@@ -26,7 +26,7 @@ class AboutController extends Controller implements IControllerMethods {
             return NO_ORGANISATION;
         }
 
-        const record = await this.aboutService.get(organisation.uuid);
+        const record = await this.privacyPolicyService.get(organisation.uuid);
 
         return {
             statusCode: 200,
@@ -34,7 +34,8 @@ class AboutController extends Controller implements IControllerMethods {
         };
     }
 
-    // PATCH /organisations/about — replace the draft's BlockNote document. Restricted to owner/admin.
+    // PATCH /organisations/privacy-policy — replace the draft's BlockNote document. Restricted to
+    // owner/admin.
     async patch(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
         if (!isAuthorize(event)) {
             return UNAUTHORIZE_ERROR;
@@ -48,8 +49,8 @@ class AboutController extends Controller implements IControllerMethods {
         try {
             await this.organisationService.assertCanManageTeam(organisation.uuid, organisation.user_id);
 
-            const body = new UpdateAboutDraftDTO().validate(JSON.parse(event.body || '{}'));
-            const updated = await this.aboutService.updateDraft(organisation.uuid, body.blocks, body.seo);
+            const body = new UpdatePrivacyPolicyDraftDTO().validate(JSON.parse(event.body || '{}'));
+            const updated = await this.privacyPolicyService.updateDraft(organisation.uuid, body.blocks, body.seo);
 
             return {
                 statusCode: 200,
@@ -60,7 +61,7 @@ class AboutController extends Controller implements IControllerMethods {
         }
     }
 
-    // POST /organisations/about — publish (draft -> data). Restricted to owner/admin.
+    // POST /organisations/privacy-policy — publish (draft -> data). Restricted to owner/admin.
     async post(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
         if (!isAuthorize(event)) {
             return UNAUTHORIZE_ERROR;
@@ -74,7 +75,7 @@ class AboutController extends Controller implements IControllerMethods {
         try {
             await this.organisationService.assertCanManageTeam(organisation.uuid, organisation.user_id);
 
-            const updated = await this.aboutService.publish(organisation.uuid);
+            const updated = await this.privacyPolicyService.publish(organisation.uuid);
 
             return {
                 statusCode: 200,
@@ -102,4 +103,4 @@ class AboutController extends Controller implements IControllerMethods {
     }
 }
 
-export default AboutController;
+export default PrivacyPolicyController;

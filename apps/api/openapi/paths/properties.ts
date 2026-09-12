@@ -26,6 +26,22 @@ const UnitSchema = z.object({
     condition: z.string().nullable(),
     furnishing: z.string().nullable(),
     ownership: z.enum(['Freehold', 'Leasehold']).nullable(),
+    petFriendly: z.boolean(),
+    multipurposeRoom: z.boolean(),
+    poolVilla: z.boolean(),
+    livingRoom: z.number().nullable(),
+    commonAreaFees: z.number().nullable(),
+    sinkingFund: z.number().nullable(),
+    bookingFees: z.string().nullable(),
+    contractFees: z.string().nullable(),
+    contractFeesTimeline: z.string().nullable(),
+    paymentOptions: z.array(z.enum(['Complete', 'Installment'])),
+    finalPayment: z.string().nullable(),
+    finalPaymentTimeline: z.enum(['Within 30 Days from Contract Date', 'Project Completion Date']).nullable(),
+    installmentPayment: z.string().nullable(),
+    installmentPaymentTimeline: z
+        .enum(['Pay every 1 Month', 'Pay every 3 Months', 'Pay every 6 Months', 'Pay every 12 Months'])
+        .nullable(),
 });
 
 const PropertySchema = z.object({
@@ -47,6 +63,8 @@ const PropertySchema = z.object({
     sellMaxPrice: z.number().nullable(),
     code: z.string().nullable(),
     isLeasehold: z.boolean(),
+    swimmingPool: z.boolean(),
+    completion: z.enum(['Ready to Move', 'Off Plan']).nullable(),
     brochure: z.string().nullable(),
     image: z.string().nullable(),
     images: z.array(z.string()),

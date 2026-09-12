@@ -1,11 +1,46 @@
 import { z } from 'zod';
-import { CreateTemplateSchema, AddTemplateSchema, RemoveTemplateSchema, SetActiveTemplateSchema } from '@sale-sync/shared';
+import { AddTemplateSchema, RemoveTemplateSchema, SetActiveTemplateSchema } from '@sale-sync/shared';
 
-const security: Array<Record<string, string[]>> = [{ authenticationCookie: [], identifierCookie: [] }];
 const orgSecurity: Array<Record<string, string[]>> = [{ authenticationCookie: [], identifierCookie: [], organisationAuth: [] }];
 
 const BusinessCategorySchema = z.enum(['fitness', 'real-estate', 'service-business', 'restaurant', 'haircut-and-salon']);
 const ThemeFontSchema = z.enum(['sans', 'mono']);
+
+// Known values as of 2026-09-10 — free-form/consumer-declared in theme-maker itself, not exhaustive.
+const PageTypeSchema = z.enum([
+    'default',
+    'timetable',
+    'available-on',
+    'blocknote',
+    'property-map-view',
+    'agent-list',
+    'property-search',
+    'real-estate-home',
+    'real-estate-agents',
+    'real-estate-map-view',
+    'real-estate-properties',
+    'faq',
+    'locations',
+]);
+// Reusability scope, not rendering behavior: "normal" = usable across multiple business categories,
+// "feature" = exclusive to one business category. See PageRenderSchema below for rendering behavior.
+const PageCategorySchema = z.enum(['normal', 'feature']);
+
+const PageRenderSchema = z.enum(['csr', 'ssr', 'hybrid']);
+
+// Which regeneration Lambda handles this page's publish step, grouped by content shape (e.g.
+// 'blocknote-singleton' serves any page whose content is one BlockNote document). null = no
+// generator wired up yet.
+const PageGeneratorSchema = z.enum(['blocknote-singleton']).nullable();
+
+const PageSchema = z.object({
+    id: z.string(),
+    name: z.string(),
+    pageType: PageTypeSchema,
+    pageCategory: PageCategorySchema,
+    render: PageRenderSchema,
+    generator: PageGeneratorSchema,
+});
 
 const TemplateSchema = z.object({
     uuid: z.string().uuid(),
@@ -13,6 +48,8 @@ const TemplateSchema = z.object({
     business_category: BusinessCategorySchema,
     preview_image: z.string(),
     created_at: z.string().datetime(),
+    // Optional: existing catalogue rows predate this field and have no `pages` attribute at all yet.
+    pages: z.array(PageSchema).optional(),
 });
 
 const OrganisationTemplateSchema = z.object({
@@ -55,54 +92,6 @@ const PredefinedThemeSchema = z.object({
 });
 
 export const templatePaths = {
-    '/templates': {
-        get: {
-            tags: ['Template'],
-            summary: 'List global template catalogue by business category',
-            description: 'Returns all templates available for a given business category. Used during onboarding to let the user pick a template for their new organisation.',
-            security,
-            requestParams: {
-                query: z.object({
-                    category: BusinessCategorySchema.meta({ description: 'Business category to filter templates by' }),
-                }),
-            },
-            responses: {
-                '200': {
-                    description: 'List of templates for the given category',
-                    content: {
-                        'application/json': { schema: z.array(TemplateSchema) },
-                    },
-                },
-                '400': {
-                    description: 'Missing or invalid category',
-                    content: { 'application/json': { schema: z.object({ message: z.string() }) } },
-                },
-                '401': { description: 'Unauthorized' },
-            },
-        },
-        post: {
-            tags: ['Template'],
-            summary: 'Create a template in the global catalogue',
-            description: 'Adds a new template to the global catalogue for a business category. Intended for admin use — currently reachable by any authenticated user until admin tooling exists.',
-            security,
-            requestBody: {
-                required: true,
-                content: { 'application/json': { schema: CreateTemplateSchema } },
-            },
-            responses: {
-                '201': {
-                    description: 'Template created',
-                    content: { 'application/json': { schema: TemplateSchema } },
-                },
-                '400': {
-                    description: 'Validation error',
-                    content: { 'application/json': { schema: z.object({ message: z.string(), issues: z.array(z.unknown()) }) } },
-                },
-                '401': { description: 'Unauthorized' },
-            },
-        },
-    },
-
     '/organisations/templates': {
         get: {
             tags: ['Template'],

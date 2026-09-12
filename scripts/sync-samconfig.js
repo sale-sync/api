@@ -47,6 +47,8 @@ const MODE_CONFIG = {
       PROPERTY_TABLE_NAME: "PropertyTableName",
       INIT_WEBSITE_FUNCTION_NAME: "InitWebsiteFunctionName",
       WEBSITE_TABLE_NAME: "WebsiteTableName",
+      PUBLISH_PRIMITIVE_TOKENS_FUNCTION_NAME: "PublishPrimitiveTokensFunctionName",
+      PUBLISH_BLOCKNOTE_SINGLETON_FUNCTION_NAME: "PublishBlocknoteSingletonFunctionName",
     },
   },
   admin: {

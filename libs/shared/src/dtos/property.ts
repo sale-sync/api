@@ -26,6 +26,23 @@ const UnitInputSchema = z.object({
     condition: z.string().nullable().optional(),
     furnishing: z.string().nullable().optional(),
     ownership: z.enum(['Freehold', 'Leasehold']).nullable().optional(),
+    petFriendly: z.boolean().optional(),
+    multipurposeRoom: z.boolean().optional(),
+    poolVilla: z.boolean().optional(),
+    livingRoom: z.number().nullable().optional(),
+    commonAreaFees: z.number().nullable().optional(),
+    sinkingFund: z.number().nullable().optional(),
+    bookingFees: z.string().nullable().optional(),
+    contractFees: z.string().nullable().optional(),
+    contractFeesTimeline: z.string().nullable().optional(),
+    paymentOptions: z.array(z.enum(['Complete', 'Installment'])).optional(),
+    finalPayment: z.string().nullable().optional(),
+    finalPaymentTimeline: z.enum(['Within 30 Days from Contract Date', 'Project Completion Date']).nullable().optional(),
+    installmentPayment: z.string().nullable().optional(),
+    installmentPaymentTimeline: z
+        .enum(['Pay every 1 Month', 'Pay every 3 Months', 'Pay every 6 Months', 'Pay every 12 Months'])
+        .nullable()
+        .optional(),
     currency: z.string().length(3).optional(),
 });
 
@@ -50,6 +67,8 @@ export const CreatePropertySchema = z.object({
     sellMaxPrice: z.number().nullable().optional(),
     code: z.string().nullable().optional(),
     isLeasehold: z.boolean().optional(),
+    swimmingPool: z.boolean().optional(),
+    completion: z.enum(['Ready to Move', 'Off Plan']).nullable().optional(),
     brochure: z.string().nullable().optional(),
     image: z.string().nullable().optional(),
     images: z.array(z.string()).optional(),
@@ -82,6 +101,8 @@ export const UpdatePropertySchema = z.object({
     sellMaxPrice: z.number().nullable().optional(),
     code: z.string().nullable().optional(),
     isLeasehold: z.boolean().optional(),
+    swimmingPool: z.boolean().optional(),
+    completion: z.enum(['Ready to Move', 'Off Plan']).nullable().optional(),
     brochure: z.string().nullable().optional(),
     image: z.string().nullable().optional(),
     images: z.array(z.string()).optional(),

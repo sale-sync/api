@@ -1,0 +1,82 @@
+[
+  {
+    "id": "real-estate-home-page",
+    "name": "Real Estate Home Page",
+    "pageType": "real-estate-home",
+    "pageCategory": "feature",
+    "render": "hybrid",
+    "generator": null
+  },
+  {
+    "id": "about-page",
+    "name": "About Page",
+    "pageType": "blocknote",
+    "pageCategory": "normal",
+    "render": "ssr",
+    "generator": "blocknote-singleton"
+  },
+  {
+    "id": "real-estate-agents-page",
+    "name": "Real Estate Agents Page",
+    "pageType": "real-estate-agents",
+    "pageCategory": "feature",
+    "render": "csr",
+    "generator": null
+  },
+  {
+    "id": "articles-page",
+    "name": "Articles Page",
+    "pageType": "blocknote",
+    "pageCategory": "normal",
+    "render": "ssr",
+    "generator": null
+  },
+  {
+    "id": "faq-page",
+    "name": "Faq Page",
+    "pageType": "faq",
+    "pageCategory": "normal",
+    "render": "ssr",
+    "generator": null
+  },
+  {
+    "id": "locations-page",
+    "name": "Locations Page",
+    "pageType": "locations",
+    "pageCategory": "normal",
+    "render": "csr",
+    "generator": null
+  },
+  {
+    "id": "real-estate-map-view-page",
+    "name": "Real Estate Map View Page",
+    "pageType": "real-estate-map-view",
+    "pageCategory": "feature",
+    "render": "csr",
+    "generator": null
+  },
+  {
+    "id": "privacy-policy-page",
+    "name": "Privacy Policy Page",
+    "pageType": "blocknote",
+    "pageCategory": "normal",
+    "render": "ssr",
+    "generator": "blocknote-singleton"
+  },
+  {
+    "id": "real-estate-properties-page",
+    "name": "Real Estate Properties Page",
+    "pageType": "real-estate-properties",
+    "pageCategory": "feature",
+    "render": "csr",
+    "generator": null
+  },
+  {
+    "id": "terms-and-conditions-page",
+    "name": "Terms and Conditions Page",
+    "pageType": "blocknote",
+    "pageCategory": "normal",
+    "render": "ssr",
+    "generator": "blocknote-singleton"
+  }
+]

@@ -14,6 +14,8 @@ import AboutController from './about/about.controller';
 import LocationsController from './locations/locations.controller';
 import ArticlesController from './articles/articles.controller';
 import FaqController from './faq/faq.controller';
+import PrivacyPolicyController from './privacy-policy/privacy-policy.controller';
+import TermsAndConditionsController from './terms-and-conditions/terms-and-conditions.controller';
 import SignupRequestsController from './signup-requests/signup-requests.controller';
 import { OrganisationService } from './services/organisation.service';
 import { TemplateService } from './services/template.service';
@@ -24,6 +26,8 @@ import { AboutService } from './services/about.service';
 import { LocationsService } from './services/locations.service';
 import { ArticlesService } from './services/articles.service';
 import { FaqService } from './services/faq.service';
+import { PrivacyPolicyService } from './services/privacy-policy.service';
+import { TermsAndConditionsService } from './services/terms-and-conditions.service';
 import { SignupRequestService } from './services/signup-request.service';
 
 async function main(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
@@ -47,6 +51,11 @@ async function main(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult>
                 { controller: LocationsController, services: [OrganisationService, LocationsService] },
                 { controller: ArticlesController, services: [OrganisationService, ArticlesService] },
                 { controller: FaqController, services: [OrganisationService, FaqService] },
+                { controller: PrivacyPolicyController, services: [OrganisationService, PrivacyPolicyService] },
+                {
+                    controller: TermsAndConditionsController,
+                    services: [OrganisationService, TermsAndConditionsService],
+                },
                 { controller: SignupRequestsController, services: [SignupRequestService] },
             ],
             '/organisations',

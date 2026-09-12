@@ -101,11 +101,21 @@ export type BrandingContent = {
     font: ThemeFont | null;
 };
 
+// Tracks the async infra/functions/publish-primitive-tokens Lambda that regenerates a deployed
+// site's primitive-tokens.css after a publish — see backlogs/publish-render/children/publish-primitive-tokens.
+// 'idle': never published (or nothing pending). 'generating': publish() just flipped draft -> data
+// and fire-and-forget invoked the Lambda; the response returns before generation finishes.
+// 'success'/'fail': set by the Lambda itself once it finishes. A 'fail' surfaces status_reason and
+// is only cleared by a manual re-publish — there's no automatic retry.
+export type BrandingGenerationStatus = 'idle' | 'generating' | 'success' | 'fail';
+
 export type BrandingRecord = {
     data: BrandingContent | null;
     draft: BrandingContent | null;
     updated_at: string;
     published_at: string | null;
+    status: BrandingGenerationStatus;
+    status_reason: string | null;
 };
 
 // Same singleton-per-org, data/draft-split shape as BrandingContent/BrandingRecord above — see
@@ -145,13 +155,52 @@ export type BlockNoteBlock = {
     children?: BlockNoteBlock[];
 };
 
+// Per-page SEO override — mirrors theme-maker's own SEO type exactly (builder.ts), so
+// infra/functions/publish-blocknote-singleton needs no translation between the two. All fields
+// optional and independently overridable: a field left unset keeps the theme's static default
+// (see pages/about.ts's own seo.title/description/image) rather than being blanked out.
+export type SEO = {
+    title?: string;
+    description?: string;
+    image?: string;
+};
+
 export type AboutPageContent = {
     blocks: BlockNoteBlock[];
+    seo?: SEO;
 };
 
 export type AboutPageRecord = {
     data: AboutPageContent | null;
     draft: AboutPageContent | null;
+    updated_at: string;
+    published_at: string | null;
+};
+
+// Same singleton-per-org, data/draft-split shape as AboutPageContent/AboutPageRecord above — see
+// backlogs/real-estate-template/children/home-thailand-estates-dynamic-privacy-policy/plan.md.
+export type PrivacyPolicyContent = {
+    blocks: BlockNoteBlock[];
+    seo?: SEO;
+};
+
+export type PrivacyPolicyRecord = {
+    data: PrivacyPolicyContent | null;
+    draft: PrivacyPolicyContent | null;
+    updated_at: string;
+    published_at: string | null;
+};
+
+// Same singleton-per-org, data/draft-split shape as AboutPageContent/AboutPageRecord above — see
+// backlogs/real-estate-template/children/home-thailand-estates-dynamic-terms-and-conditions/plan.md.
+export type TermsAndConditionsContent = {
+    blocks: BlockNoteBlock[];
+    seo?: SEO;
+};
+
+export type TermsAndConditionsRecord = {
+    data: TermsAndConditionsContent | null;
+    draft: TermsAndConditionsContent | null;
     updated_at: string;
     published_at: string | null;
 };

@@ -54,6 +54,23 @@ Parameters:
             OrganisationTableName / InitWebsiteFunctionName above. Read by
             OrganisationFunction/OrganisationDefaultFunction's WebsiteTemplateService
             to serve the global template catalogue (GET /organisations/templates).
+    PublishPrimitiveTokensFunctionName:
+        Type: String
+        Description: >
+            Name of ss/infra's PublishPrimitiveTokensFunction (see
+            backlogs/publish-render/children/publish-primitive-tokens) — cross-stack
+            reference, same convention as InitWebsiteFunctionName above.
+            BrandingService.publish() invokes it fire-and-forget after flipping
+            draft -> data, to regenerate the deployed site's primitive-tokens.css.
+    PublishBlocknoteSingletonFunctionName:
+        Type: String
+        Description: >
+            Name of ss/infra's PublishBlocknoteSingletonFunction (see
+            backlogs/publish-render/children/ssr-pages) — cross-stack reference, same
+            convention as PublishPrimitiveTokensFunctionName above.
+            AboutService/PrivacyPolicyService/TermsAndConditionsService.publish() each
+            invoke it fire-and-forget after flipping draft -> data, to bake the
+            published content into the deployed site's dist/ HTML and ssr/ JSON.
 
 Globals:
     Function:
@@ -123,12 +140,27 @@ Resources:
             Environment:
                 Variables:
                     WEBSITE_TABLE_NAME: !Ref WebsiteTableName
+                    PUBLISH_PRIMITIVE_TOKENS_FUNCTION_NAME: !Ref PublishPrimitiveTokensFunctionName
+                    PUBLISH_BLOCKNOTE_SINGLETON_FUNCTION_NAME: !Ref PublishBlocknoteSingletonFunctionName
             Policies:
                 - AWSLambdaBasicExecutionRole
                 - DynamoDBCrudPolicy:
                       TableName: !Ref OrganisationTableName
                 - DynamoDBReadPolicy:
                       TableName: !Ref WebsiteTableName
+                - Statement:
+                      - Effect: Allow
+                        Action: lambda:InvokeFunction
+                        # Predictable ARN string (not !GetAtt), same idiom as
+                        # OrganisationDefaultFunction's INIT_WEBSITE_FUNCTION_NAME policy below —
+                        # publish-primitive-tokens lives in ss/infra, a different SAM app/stack.
+                        Resource: !Sub 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${PublishPrimitiveTokensFunctionName}'
+                - Statement:
+                      - Effect: Allow
+                        Action: lambda:InvokeFunction
+                        # Same cross-stack idiom as the PublishPrimitiveTokensFunctionName grant
+                        # above — publish-blocknote-singleton also lives in ss/infra.
+                        Resource: !Sub 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${PublishBlocknoteSingletonFunctionName}'
             Events:
                 ApiRouter:
                     Type: Api
@@ -274,47 +306,6 @@ Resources:
                     Properties:
                         RestApiId: !Ref SalesSyncApi
                         Path: /media
-                        Method: ANY
-
-    # -------------------------------------------------------------------------
-    # Template Catalogue Lambdas
-    # -------------------------------------------------------------------------
-    TemplateCatalogueFunction:
-        Type: AWS::Serverless::Function
-        Properties:
-            CodeUri: apps/api/templates/bundle
-            Handler: app.lambdaHandler
-            Runtime: nodejs22.x
-            Architectures: [x86_64]
-            Policies:
-                - AWSLambdaBasicExecutionRole
-                - DynamoDBCrudPolicy:
-                      TableName: !Ref OrganisationTableName
-            Events:
-                ApiRouter:
-                    Type: Api
-                    Properties:
-                        RestApiId: !Ref SalesSyncApi
-                        Path: /templates/{proxy+}
-                        Method: ANY
-
-    TemplateCatalogueDefaultFunction:
-        Type: AWS::Serverless::Function
-        Properties:
-            CodeUri: apps/api/templates/bundle
-            Handler: app.lambdaHandler
-            Runtime: nodejs22.x
-            Architectures: [x86_64]
-            Policies:
-                - AWSLambdaBasicExecutionRole
-                - DynamoDBCrudPolicy:
-                      TableName: !Ref OrganisationTableName
-            Events:
-                ApiRouter:
-                    Type: Api
-                    Properties:
-                        RestApiId: !Ref SalesSyncApi
-                        Path: /templates
                         Method: ANY
 
     # -------------------------------------------------------------------------
@@ -482,10 +473,6 @@ Outputs:
     BlocksFunctionArn:
         Description: Blocks Lambda Function ARN
         Value: !GetAtt BlocksFunction.Arn
-
-    TemplateCatalogueFunctionArn:
-        Description: Template Catalogue Lambda Function ARN
-        Value: !GetAtt TemplateCatalogueFunction.Arn
 
     PropertiesFunctionArn:
         Description: Properties Lambda Function ARN

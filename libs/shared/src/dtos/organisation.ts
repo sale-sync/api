@@ -158,11 +158,37 @@ const BlockNoteBlockSchema: z.ZodType<BlockNoteBlockShape> = z.lazy(() =>
     }),
 );
 
+// Per-page SEO override — see SEO in ../types/organisation.ts for the field-by-field rationale.
+// Length caps loosely match common search-engine truncation points (title ~60 chars, description
+// ~160 chars before a search result snippet gets cut off) with headroom, not a hard technical limit.
+export const SEOSchema = z.object({
+    title: z.string().trim().max(100, 'title must be 100 characters or fewer').optional(),
+    description: z.string().trim().max(300, 'description must be 300 characters or fewer').optional(),
+    image: z.string().trim().optional(),
+});
+
 export const UpdateAboutDraftSchema = z.object({
     blocks: z.array(BlockNoteBlockSchema).max(500, 'blocks must be 500 items or fewer'),
+    seo: SEOSchema.optional(),
 });
 
 export type UpdateAboutDraftInput = z.infer<typeof UpdateAboutDraftSchema>;
+
+// Same singleton-document shape as UpdateAboutDraftSchema above.
+export const UpdatePrivacyPolicyDraftSchema = z.object({
+    blocks: z.array(BlockNoteBlockSchema).max(500, 'blocks must be 500 items or fewer'),
+    seo: SEOSchema.optional(),
+});
+
+export type UpdatePrivacyPolicyDraftInput = z.infer<typeof UpdatePrivacyPolicyDraftSchema>;
+
+// Same singleton-document shape as UpdateAboutDraftSchema above.
+export const UpdateTermsAndConditionsDraftSchema = z.object({
+    blocks: z.array(BlockNoteBlockSchema).max(500, 'blocks must be 500 items or fewer'),
+    seo: SEOSchema.optional(),
+});
+
+export type UpdateTermsAndConditionsDraftInput = z.infer<typeof UpdateTermsAndConditionsDraftSchema>;
 
 // Slugs are used verbatim in the client site's /locations/<slug> URL — lowercase kebab-case only, no
 // leading/trailing/double hyphens, so a saved slug is always a safe, predictable path segment.

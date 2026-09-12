@@ -48,6 +48,19 @@ export type UnitAction = 'sell' | 'rent' | 'sold';
 // no default: stays null until a user explicitly sets it.
 export type UnitOwnership = 'Freehold' | 'Leasehold';
 
+// Project-level completion status. Optional, no default: stays null until a user explicitly sets it.
+export type PropertyCompletion = 'Ready to Move' | 'Off Plan';
+
+// A unit can offer multiple payment options at once (checkbox group, not radio) — mirrors
+// UnitAction's multi-select shape. Defaults to ['Complete'].
+export type PaymentOption = 'Complete' | 'Installment';
+export type FinalPaymentTimeline = 'Within 30 Days from Contract Date' | 'Project Completion Date';
+export type InstallmentPaymentTimeline =
+    | 'Pay every 1 Month'
+    | 'Pay every 3 Months'
+    | 'Pay every 6 Months'
+    | 'Pay every 12 Months';
+
 export type Unit = {
     uuid: string;
     title: string;
@@ -69,6 +82,28 @@ export type Unit = {
     condition: string | null;
     furnishing: string | null;
     ownership: UnitOwnership | null;
+    // Amenity flags — non-nullable, default false, same pattern as Property.isLeasehold.
+    petFriendly: boolean;
+    multipurposeRoom: boolean;
+    // Private per-unit pool — not the shared project-level pool tracked in Property.swimmingPool.
+    poolVilla: boolean;
+    // Count/size fields, no default — same nullability pattern as hall/kitchen/etc.
+    livingRoom: number | null;
+    commonAreaFees: number | null;
+    sinkingFund: number | null;
+    // Free text — non-numeric content (e.g. "10% of sell price"), no default.
+    bookingFees: string | null;
+    contractFees: string | null;
+    // Free text with a suggested default ("Within 14 Days from Booking Date") offered in the UI,
+    // no default enforced at the type/API level — same pattern as condition/furnishing.
+    contractFeesTimeline: string | null;
+    // Multi-select, defaults to ['Complete']. Unchecking an option hides but doesn't clear its
+    // conditional fields below — same precedent as actions/soldPrice/rentPrice.
+    paymentOptions: PaymentOption[];
+    finalPayment: string | null;
+    finalPaymentTimeline: FinalPaymentTimeline | null;
+    installmentPayment: string | null;
+    installmentPaymentTimeline: InstallmentPaymentTimeline | null;
     currency: PropertyCurrency;
 };
 
@@ -97,6 +132,9 @@ export type Property = {
     sellMaxPrice: number | null;
     code: string | null;
     isLeasehold: boolean;
+    // Project-level common-area amenity — not the private per-unit pool tracked in Unit.poolVilla.
+    swimmingPool: boolean;
+    completion: PropertyCompletion | null;
     brochure: string | null;
     image: string | null;
     images: string[];
