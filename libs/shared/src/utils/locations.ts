@@ -14,5 +14,7 @@ export function normalizeLocationItem(item: LocationItem & { propertyCount?: str
 
 export function normalizeLocationsContent(content: LocationsContent | null): LocationsContent | null {
     if (!content) return content;
-    return { locations: content.locations.map(normalizeLocationItem) };
+    // Spread first, then overwrite `locations` — `hero`/`seo` (added 2026-09-17) must survive this
+    // normalization pass unchanged, same as every other field this function doesn't touch.
+    return { ...content, locations: content.locations.map(normalizeLocationItem) };
 }

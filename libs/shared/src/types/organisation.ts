@@ -205,6 +205,39 @@ export type TermsAndConditionsRecord = {
     published_at: string | null;
 };
 
+// The home page's only editable section — Featured Properties/Testimonials are live/CSR from
+// queries-api, not org-authored content, so they have no place here. No BlockNoteBlock body: these
+// are plain fields, unlike About/Privacy Policy/Terms & Conditions. See
+// backlogs/real-estate-template/children/real-estate-home-page-hero/plan.md.
+export type HeroContent = {
+    badge: string;
+    title: string;
+    subtitle: string;
+    bannerImage: string;
+    // 0-1, darkness of the gradient overlay drawn over bannerImage (0 = no overlay, 1 = fully
+    // opaque black). Optional because records published before this field existed have none stored;
+    // the web-app editor shows/edits this as a 0-100% value and maps it to 0-1 here, and
+    // publish-real-estate-home-page.ts falls back to 0.55 (HeroStyle's static default) when absent.
+    overlayOpacity?: number;
+};
+
+export type HomePageContent = {
+    hero: HeroContent;
+    seo?: SEO;
+};
+
+// Same singleton-per-org, data/draft-split shape as AboutPageRecord above. Unlike About/Privacy
+// Policy/Terms & Conditions, publishing this does not yet trigger any site regeneration —
+// `real-estate-home-page` is `render: hybrid`, and its shell-regeneration mechanism is still an open
+// question owned by `csr-hybrid-pages` (see that backlog's plan.md), not `publish-blocknote-singleton`
+// (which only handles `render: ssr` pages).
+export type HomePageRecord = {
+    data: HomePageContent | null;
+    draft: HomePageContent | null;
+    updated_at: string;
+    published_at: string | null;
+};
+
 // Same singleton-per-org, data/draft-split shape as the records above — see
 // backlogs/real-estate-template/children/home-thailand-estates-dynamic-locations/plan.md. Unlike
 // About (one document), this holds a *list* of entries — closer to TestimonialsContent's repeater
@@ -221,10 +254,33 @@ export type LocationItem = {
     // not necessarily a property count — renamed from `propertyCount` 2026-09-04
     heroImage: string;
     body: BlockNoteBlock[]; // full BlockNote document, rendered on the /locations/<slug> detail page
+    // Per-location SEO override for its own /locations/<slug> detail page — added 2026-09-17, see
+    // backlogs/real-estate-template/children/locations-page-ssr-split/children/
+    // publish-location-detail-page. Independently optional per field, same convention as
+    // ArticleItem.seo: unset means "use this location's own name/tagline/heroImage," not blanked out.
+    seo?: SEO;
 };
 
+// The Locations listing page's editable Hero — added 2026-09-17, same shape as ArticlesHero
+// (title/subtitle + bannerImage/overlayOpacity), see
+// backlogs/real-estate-template/children/locations-page-ssr-split/children/locations-hero-content.
+export type LocationsHero = {
+    title: string;
+    subtitle: string;
+    bannerImage: string;
+    // 0-1, optional — same rationale as HeroContent.overlayOpacity/ArticlesHero.overlayOpacity
+    // (records saved before this field existed have none stored; the generator falls back to 0.55).
+    overlayOpacity?: number;
+};
+
+// `hero`/`seo` are independently optional and independently updatable — LocationsService.updateDraft()
+// merges each field from the existing draft when omitted, same rationale/bug-avoidance as
+// ArticlesContent's own comment: LocationComp's per-location save already PATCHes just
+// `{ locations }`, so a naive full-replace here would silently wipe out a separately-saved Hero/SEO.
 export type LocationsContent = {
     locations: LocationItem[];
+    hero?: LocationsHero;
+    seo?: SEO;
 };
 
 export type LocationsRecord = {
@@ -247,10 +303,34 @@ export type ArticleItem = {
     excerpt: string; // short summary shown on the /articles grid card
     coverImage: string;
     body: BlockNoteBlock[]; // full BlockNote document, rendered on the /articles/<slug> detail page
+    // Per-article SEO override for its own /articles/<slug> detail page — added 2026-09-15, see
+    // backlogs/real-estate-template/children/articles-page-ssr-split/children/
+    // publish-article-detail-page. Independently optional per field, same convention as every other
+    // page's SEO: unset means "use this article's own title/excerpt/coverImage," not blanked out.
+    seo?: SEO;
 };
 
+// The Articles listing page's editable Hero — added 2026-09-15 (title/subtitle only at first), then
+// extended same-day to add bannerImage/overlayOpacity for parity with Agents' banner — see
+// backlogs/real-estate-template/children/articles-page-ssr-split/children/articles-hero-content.
+export type ArticlesHero = {
+    title: string;
+    subtitle: string;
+    bannerImage: string;
+    // 0-1, optional — same rationale as HeroContent.overlayOpacity (records saved before this field
+    // existed have none stored; the generator falls back to 0.55).
+    overlayOpacity?: number;
+};
+
+// `hero`/`seo` are independently optional and independently updatable — `ArticlesService.updateDraft()`
+// merges each field from the existing draft when omitted from a PATCH, rather than requiring every
+// caller to resend the whole record. This matters because `ArticleForm.tsx` (web-app) already PATCHes
+// just `{ articles }` on every single-article save — a naive full-replace here would silently wipe
+// out `hero`/`seo` on every article add/edit, which is exactly the bug this merge behavior avoids.
 export type ArticlesContent = {
     articles: ArticleItem[];
+    hero?: ArticlesHero;
+    seo?: SEO;
 };
 
 export type ArticlesRecord = {
@@ -285,6 +365,33 @@ export type FaqContent = {
 export type FaqRecord = {
     data: FaqContent | null;
     draft: FaqContent | null;
+    updated_at: string;
+    published_at: string | null;
+};
+
+// The Agents page's editable section — title/subtitle + banner image/opacity, same fields as Home's
+// Hero minus `badge` (added 2026-09-15 after Home's own title/subtitle pattern, following a smoke
+// test). See backlogs/real-estate-template/children/real-estate-agents-page-banner/plan.md.
+export type AgentsBanner = {
+    title: string;
+    subtitle: string;
+    bannerImage: string;
+    // 0-1, optional — same rationale as HeroContent.overlayOpacity (records published before this
+    // field existed have none stored; the generator falls back to 0.55).
+    overlayOpacity?: number;
+};
+
+export type AgentsPageContent = {
+    banner: AgentsBanner;
+    seo?: SEO;
+};
+
+// Same singleton-per-org, data/draft-split shape as HomePageRecord above. SK=AGENTS_PAGE — confirmed
+// no collision with the existing per-item agent-profile feature (SK=AGENT#{agentId}, a completely
+// different feature: staff/team members, not this page's banner).
+export type AgentsPageRecord = {
+    data: AgentsPageContent | null;
+    draft: AgentsPageContent | null;
     updated_at: string;
     published_at: string | null;
 };

@@ -18,6 +18,15 @@ import type { BrandingColor, BusinessCategory, ThemeFont } from './organisation'
 // 'property-map-view'/'agent-list' values used by the actual real-estate/ page source — this is the
 // catalogue's own taxonomy for describing a template's pages, not required to match what the live
 // theme-maker project's pages/*.ts files literally set as their pageType.
+// 'articles' / 'article-detail' (added 2026-09-15, backlogs/real-estate-template/children/
+// articles-page-ssr-split): splits what was one 'blocknote'-mislabeled `articles-page` entry (stale
+// from before the real Articles feature existed) into the listing (Hero-editable, grid stays CSR)
+// and a new per-slug detail page type. 'normal' PageCategory, not 'feature' — Articles is a generic
+// page type, not real-estate-exclusive, same reasoning as 'faq'/'locations'.
+// 'location-detail' (added 2026-09-17, backlogs/real-estate-template/children/
+// locations-page-ssr-split): same split applied to Locations — the existing 'locations' value stays
+// on the listing entry unchanged, this new value is for the new per-slug detail page type, same
+// 'normal' PageCategory reasoning as 'article-detail'.
 export type PageType =
     | 'default'
     | 'timetable'
@@ -31,7 +40,10 @@ export type PageType =
     | 'real-estate-map-view'
     | 'real-estate-properties'
     | 'faq'
-    | 'locations';
+    | 'locations'
+    | 'articles'
+    | 'article-detail'
+    | 'location-detail';
 
 // Redefined 2026-09-10 for the catalogue's `Page` entry — no longer describes rendering behavior
 // (see `PageRender` below for that). Now describes reusability scope: "normal" = a generic page type
@@ -50,11 +62,42 @@ export type PageRender = 'csr' | 'ssr' | 'hybrid';
 // Which regeneration Lambda handles this page's publish → rebuilt-HTML/SSR-JSON step (see
 // backlogs/publish-render/children/ssr-pages). Generators are grouped by content shape, not one per
 // page — e.g. 'blocknote-singleton' serves any page whose content is a single BlockNote document
-// (About, Privacy Policy, Terms & Conditions all share this shape and this generator). `null` means
-// no generator is wired up yet — true for every `render: 'csr'` page (nothing to bake ahead of
-// time) and for any `render: 'ssr'`/`'hybrid'` page whose generator hasn't been built yet (e.g.
-// Articles' slug-list shape, FAQ's two-level-repeater shape, as of 2026-09-12).
-export type PageGenerator = 'blocknote-singleton' | null;
+// (About, Privacy Policy, Terms & Conditions all share this shape and this generator).
+// 'real-estate-home-page' (added 2026-09-13) serves that one page's Hero section — also a singleton
+// per-org record, but plain fields (badge/title/subtitle/bannerImage), not a BlockNote document, so
+// it patches specific tagged elements rather than one content div. Named after the page itself
+// rather than a shared content shape (unlike 'blocknote-singleton') since this shape isn't shared
+// with any other page yet — see backlogs/real-estate-template/children/real-estate-home-page-hero.
+// `null` means no generator is wired up yet — true for every `render: 'csr'` page (nothing to bake
+// ahead of time) and for any `render: 'ssr'`/`'hybrid'` page whose generator hasn't been built yet
+// (e.g. Articles' slug-list shape, FAQ's two-level-repeater shape, as of 2026-09-12).
+// 'real-estate-agents-page' (added 2026-09-15) patches just the banner image + overlay opacity on
+// the shared `PageHeroSlice` (via a new `id="agentsBanner"` hook passed only from `pages/agents.ts`)
+// — see backlogs/real-estate-template/children/real-estate-agents-page-banner. Named after the page
+// itself, same "don't invent a shared name preemptively" rule as 'real-estate-home-page': if
+// articles/faq/locations/properties (the other `PageHeroSlice` consumers) need the same banner
+// editing later, generalize this generator then rather than building a near-duplicate.
+// 'article-listing-page' / 'article-detail-page' (added 2026-09-15, shipped 2026-09-16 — see
+// backlogs/real-estate-template/children/articles-page-ssr-split): splits the (previously stale)
+// single `articles-page` entry into a Hero-only bake (the former) and a genuinely new per-slug
+// detail-page generator (the latter — not a copy of any existing generator, since every prior one
+// only ever patches an already-built page rather than creating one from nothing). Deliberately NOT
+// prefixed 'real-estate-' like 'real-estate-home-page'/'real-estate-agents-page' — Articles is
+// `pageCategory: 'normal'` (a generic page type usable across business categories), not `'feature'`
+// (real-estate-exclusive), so its generator name shouldn't imply a business-category binding either.
+// 'location-listing-page' / 'location-detail-page' (added and shipped 2026-09-17 — see
+// backlogs/real-estate-template/children/locations-page-ssr-split): same split as Articles, applied
+// to Locations. Singular 'location-' naming mirrors 'article-listing-page'/'article-detail-page'
+// exactly (plural pageType, singular generator name) for the same reasons.
+export type PageGenerator =
+    | 'blocknote-singleton'
+    | 'real-estate-home-page'
+    | 'real-estate-agents-page'
+    | 'article-listing-page'
+    | 'article-detail-page'
+    | 'location-listing-page'
+    | 'location-detail-page'
+    | null;
 
 export type Page = {
     id: string;

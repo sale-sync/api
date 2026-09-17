@@ -49,6 +49,12 @@ const MODE_CONFIG = {
       WEBSITE_TABLE_NAME: "WebsiteTableName",
       PUBLISH_PRIMITIVE_TOKENS_FUNCTION_NAME: "PublishPrimitiveTokensFunctionName",
       PUBLISH_BLOCKNOTE_SINGLETON_FUNCTION_NAME: "PublishBlocknoteSingletonFunctionName",
+      PUBLISH_REAL_ESTATE_HOME_PAGE_FUNCTION_NAME: "PublishRealEstateHomePageFunctionName",
+      PUBLISH_REAL_ESTATE_AGENTS_PAGE_FUNCTION_NAME: "PublishRealEstateAgentsPageFunctionName",
+      PUBLISH_ARTICLE_LISTING_PAGE_FUNCTION_NAME: "PublishArticleListingPageFunctionName",
+      PUBLISH_ARTICLE_DETAIL_PAGE_FUNCTION_NAME: "PublishArticleDetailPageFunctionName",
+      PUBLISH_LOCATION_LISTING_PAGE_FUNCTION_NAME: "PublishLocationListingPageFunctionName",
+      PUBLISH_LOCATION_DETAIL_PAGE_FUNCTION_NAME: "PublishLocationDetailPageFunctionName",
     },
   },
   admin: {

@@ -34,7 +34,9 @@ class LocationsController extends Controller implements IControllerMethods {
         };
     }
 
-    // PATCH /organisations/locations — replace the draft's full locations list. Restricted to owner/admin.
+    // PATCH /organisations/locations — merge-updates the draft's `locations`/`hero`/`seo` (each
+    // independently optional — see LocationsService.updateDraft()'s own comment). Restricted to
+    // owner/admin.
     async patch(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
         if (!isAuthorize(event)) {
             return UNAUTHORIZE_ERROR;
@@ -49,7 +51,11 @@ class LocationsController extends Controller implements IControllerMethods {
             await this.organisationService.assertCanManageTeam(organisation.uuid, organisation.user_id);
 
             const body = new UpdateLocationsDraftDTO().validate(JSON.parse(event.body || '{}'));
-            const updated = await this.locationsService.updateDraft(organisation.uuid, body.locations);
+            const updated = await this.locationsService.updateDraft(organisation.uuid, {
+                locations: body.locations,
+                hero: body.hero,
+                seo: body.seo,
+            });
 
             return {
                 statusCode: 200,

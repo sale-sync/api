@@ -5,7 +5,7 @@
     "pageType": "real-estate-home",
     "pageCategory": "feature",
     "render": "hybrid",
-    "generator": null
+    "generator": "real-estate-home-page"
   },
   {
     "id": "about-page",
@@ -20,16 +20,24 @@
     "name": "Real Estate Agents Page",
     "pageType": "real-estate-agents",
     "pageCategory": "feature",
-    "render": "csr",
-    "generator": null
+    "render": "hybrid",
+    "generator": "real-estate-agents-page"
   },
   {
     "id": "articles-page",
     "name": "Articles Page",
-    "pageType": "blocknote",
+    "pageType": "articles",
+    "pageCategory": "normal",
+    "render": "hybrid",
+    "generator": "article-listing-page"
+  },
+  {
+    "id": "articles-detail-page",
+    "name": "Article Detail Page",
+    "pageType": "article-detail",
     "pageCategory": "normal",
     "render": "ssr",
-    "generator": null
+    "generator": "article-detail-page"
   },
   {
     "id": "faq-page",
@@ -44,8 +52,16 @@
     "name": "Locations Page",
     "pageType": "locations",
     "pageCategory": "normal",
-    "render": "csr",
-    "generator": null
+    "render": "hybrid",
+    "generator": "location-listing-page"
+  },
+  {
+    "id": "locations-detail-page",
+    "name": "Location Detail Page",
+    "pageType": "location-detail",
+    "pageCategory": "normal",
+    "render": "ssr",
+    "generator": "location-detail-page"
   },
   {
     "id": "real-estate-map-view-page",

@@ -48,13 +48,24 @@ const VALID_PAGE_TYPES = [
     'real-estate-properties',
     'faq',
     'locations',
+    'articles',
+    'article-detail',
+    'location-detail',
 ];
 const VALID_PAGE_CATEGORIES = ['normal', 'feature'];
 const VALID_PAGE_RENDERS = ['csr', 'ssr', 'hybrid'];
 // Which regeneration Lambda handles this page's publish step — see libs/shared/src/types/
 // template.ts's PageGenerator. null = no generator wired up yet (every csr page, plus any
 // ssr/hybrid page whose generator isn't built yet).
-const VALID_GENERATORS = ['blocknote-singleton'];
+const VALID_GENERATORS = [
+    'blocknote-singleton',
+    'real-estate-home-page',
+    'real-estate-agents-page',
+    'article-listing-page',
+    'article-detail-page',
+    'location-listing-page',
+    'location-detail-page',
+];
 
 const args = process.argv.slice(2);
 const EXECUTE = args.includes('--execute');

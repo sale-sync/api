@@ -11,6 +11,8 @@ import ThemeController from './templates/theme/theme.controller';
 import BrandingController from './branding/branding.controller';
 import TestimonialsController from './testimonials/testimonials.controller';
 import AboutController from './about/about.controller';
+import HomeController from './home/home.controller';
+import AgentsPageController from './agents-page/agents-page.controller';
 import LocationsController from './locations/locations.controller';
 import ArticlesController from './articles/articles.controller';
 import FaqController from './faq/faq.controller';
@@ -23,6 +25,8 @@ import { WebsiteTemplateService } from './services/website-template.service';
 import { BrandingService } from './services/branding.service';
 import { TestimonialsService } from './services/testimonials.service';
 import { AboutService } from './services/about.service';
+import { HomeService } from './services/home.service';
+import { AgentsPageService } from './services/agents-page.service';
 import { LocationsService } from './services/locations.service';
 import { ArticlesService } from './services/articles.service';
 import { FaqService } from './services/faq.service';
@@ -48,6 +52,8 @@ async function main(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult>
                 { controller: BrandingController, services: [OrganisationService, BrandingService] },
                 { controller: TestimonialsController, services: [OrganisationService, TestimonialsService] },
                 { controller: AboutController, services: [OrganisationService, AboutService] },
+                { controller: HomeController, services: [OrganisationService, HomeService] },
+                { controller: AgentsPageController, services: [OrganisationService, AgentsPageService] },
                 { controller: LocationsController, services: [OrganisationService, LocationsService] },
                 { controller: ArticlesController, services: [OrganisationService, ArticlesService] },
                 { controller: FaqController, services: [OrganisationService, FaqService] },

@@ -71,6 +71,70 @@ Parameters:
             AboutService/PrivacyPolicyService/TermsAndConditionsService.publish() each
             invoke it fire-and-forget after flipping draft -> data, to bake the
             published content into the deployed site's dist/ HTML and ssr/ JSON.
+    PublishRealEstateHomePageFunctionName:
+        Type: String
+        Description: >
+            Name of ss/infra's PublishRealEstateHomePageFunction (see
+            backlogs/real-estate-template/children/real-estate-home-page-hero) —
+            cross-stack reference, same convention as
+            PublishBlocknoteSingletonFunctionName above. HomeService.publish()
+            invokes it fire-and-forget after flipping draft -> data, to bake the
+            published Hero section into real-estate-home-page's deployed dist/index
+            HTML and ssr/index JSON.
+    PublishRealEstateAgentsPageFunctionName:
+        Type: String
+        Description: >
+            Name of ss/infra's PublishRealEstateAgentsPageFunction (see
+            backlogs/real-estate-template/children/real-estate-agents-page-banner) —
+            cross-stack reference, same convention as
+            PublishRealEstateHomePageFunctionName above. AgentsPageService.publish()
+            invokes it fire-and-forget after flipping draft -> data, to bake the
+            published banner into real-estate-agents-page's deployed dist/agents
+            HTML and ssr/agents JSON.
+    PublishArticleListingPageFunctionName:
+        Type: String
+        Description: >
+            Name of ss/infra's PublishArticleListingPageFunction (see
+            backlogs/real-estate-template/children/articles-page-ssr-split) —
+            cross-stack reference, same convention as the two above (deliberately
+            not 'real-estate-'-prefixed — Articles is pageCategory 'normal', not
+            'feature'). ArticlesService.publish() invokes it fire-and-forget, but
+            only when `hero` actually changed since the last publish, to bake the
+            published Hero title/subtitle into articles-page's deployed
+            dist/articles HTML and ssr/articles JSON.
+    PublishArticleDetailPageFunctionName:
+        Type: String
+        Description: >
+            Name of ss/infra's PublishArticleDetailPageFunction (see
+            backlogs/real-estate-template/children/articles-page-ssr-split) —
+            cross-stack reference, same convention as the three above.
+            ArticlesService.publish() invokes it fire-and-forget with only the
+            article slug(s) that actually changed (never the whole list), to
+            generate/regenerate/delete real per-slug pages at
+            articles/<slug> + ssr/articles/<slug>.
+    PublishLocationListingPageFunctionName:
+        Type: String
+        Description: >
+            Name of ss/infra's PublishLocationListingPageFunction (see
+            backlogs/real-estate-template/children/locations-page-ssr-split) —
+            cross-stack reference, same convention as
+            PublishArticleListingPageFunctionName above (deliberately not
+            'real-estate-'-prefixed — Locations is pageCategory 'normal', not
+            'feature'). LocationsService.publish() invokes it fire-and-forget,
+            but only when `hero` actually changed since the last publish, to
+            bake the published Hero title/subtitle/bannerImage into
+            locations-page's deployed dist/locations HTML and ssr/locations
+            JSON.
+    PublishLocationDetailPageFunctionName:
+        Type: String
+        Description: >
+            Name of ss/infra's PublishLocationDetailPageFunction (see
+            backlogs/real-estate-template/children/locations-page-ssr-split) —
+            cross-stack reference, same convention as the five above.
+            LocationsService.publish() invokes it fire-and-forget with only the
+            location slug(s) that actually changed (never the whole list), to
+            generate/regenerate/delete real per-slug pages at
+            locations/<slug> + ssr/locations/<slug>.
 
 Globals:
     Function:
@@ -142,6 +206,12 @@ Resources:
                     WEBSITE_TABLE_NAME: !Ref WebsiteTableName
                     PUBLISH_PRIMITIVE_TOKENS_FUNCTION_NAME: !Ref PublishPrimitiveTokensFunctionName
                     PUBLISH_BLOCKNOTE_SINGLETON_FUNCTION_NAME: !Ref PublishBlocknoteSingletonFunctionName
+                    PUBLISH_REAL_ESTATE_HOME_PAGE_FUNCTION_NAME: !Ref PublishRealEstateHomePageFunctionName
+                    PUBLISH_REAL_ESTATE_AGENTS_PAGE_FUNCTION_NAME: !Ref PublishRealEstateAgentsPageFunctionName
+                    PUBLISH_ARTICLE_LISTING_PAGE_FUNCTION_NAME: !Ref PublishArticleListingPageFunctionName
+                    PUBLISH_ARTICLE_DETAIL_PAGE_FUNCTION_NAME: !Ref PublishArticleDetailPageFunctionName
+                    PUBLISH_LOCATION_LISTING_PAGE_FUNCTION_NAME: !Ref PublishLocationListingPageFunctionName
+                    PUBLISH_LOCATION_DETAIL_PAGE_FUNCTION_NAME: !Ref PublishLocationDetailPageFunctionName
             Policies:
                 - AWSLambdaBasicExecutionRole
                 - DynamoDBCrudPolicy:
@@ -161,6 +231,42 @@ Resources:
                         # Same cross-stack idiom as the PublishPrimitiveTokensFunctionName grant
                         # above — publish-blocknote-singleton also lives in ss/infra.
                         Resource: !Sub 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${PublishBlocknoteSingletonFunctionName}'
+                - Statement:
+                      - Effect: Allow
+                        Action: lambda:InvokeFunction
+                        # Same cross-stack idiom as the two grants above — publish-real-estate-home-page
+                        # also lives in ss/infra.
+                        Resource: !Sub 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${PublishRealEstateHomePageFunctionName}'
+                - Statement:
+                      - Effect: Allow
+                        Action: lambda:InvokeFunction
+                        # Same cross-stack idiom as the three grants above — publish-real-estate-agents-page
+                        # also lives in ss/infra.
+                        Resource: !Sub 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${PublishRealEstateAgentsPageFunctionName}'
+                - Statement:
+                      - Effect: Allow
+                        Action: lambda:InvokeFunction
+                        # Same cross-stack idiom as the four grants above — publish-article-listing-page
+                        # also lives in ss/infra.
+                        Resource: !Sub 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${PublishArticleListingPageFunctionName}'
+                - Statement:
+                      - Effect: Allow
+                        Action: lambda:InvokeFunction
+                        # Same cross-stack idiom as the five grants above — publish-article-detail-page
+                        # also lives in ss/infra.
+                        Resource: !Sub 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${PublishArticleDetailPageFunctionName}'
+                - Statement:
+                      - Effect: Allow
+                        Action: lambda:InvokeFunction
+                        # Same cross-stack idiom as the six grants above — publish-location-listing-page
+                        # also lives in ss/infra.
+                        Resource: !Sub 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${PublishLocationListingPageFunctionName}'
+                - Statement:
+                      - Effect: Allow
+                        Action: lambda:InvokeFunction
+                        # Same cross-stack idiom as the seven grants above — publish-location-detail-page
+                        # also lives in ss/infra.
+                        Resource: !Sub 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${PublishLocationDetailPageFunctionName}'
             Events:
                 ApiRouter:
                     Type: Api

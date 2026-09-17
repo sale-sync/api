@@ -190,6 +190,42 @@ export const UpdateTermsAndConditionsDraftSchema = z.object({
 
 export type UpdateTermsAndConditionsDraftInput = z.infer<typeof UpdateTermsAndConditionsDraftSchema>;
 
+// 100 chars matches the web-app editor's badge field limit (short eyebrow text — see
+// backlogs/real-estate-template/children/real-estate-home-page-hero/plan.md). title/subtitle are
+// plain multi-line strings (rendered `\n` handling is the renderer's concern, not validated here),
+// capped generously since they're free text, not a single-line label like badge.
+export const HeroContentSchema = z.object({
+    badge: z.string().trim().max(100, 'badge must be 100 characters or fewer'),
+    title: z.string().trim().max(200, 'title must be 200 characters or fewer'),
+    subtitle: z.string().trim().max(400, 'subtitle must be 400 characters or fewer'),
+    bannerImage: z.string().trim(),
+    // 0-1 — see HeroContent's own comment (types/organisation.ts) for why this stays optional.
+    overlayOpacity: z.number().min(0).max(1).optional(),
+});
+
+export const UpdateHomePageDraftSchema = z.object({
+    hero: HeroContentSchema,
+    seo: SEOSchema.optional(),
+});
+
+export type UpdateHomePageDraftInput = z.infer<typeof UpdateHomePageDraftSchema>;
+
+// Agents page's editable section — same title/subtitle limits as HeroContentSchema, no `badge`.
+export const AgentsBannerSchema = z.object({
+    title: z.string().trim().max(200, 'title must be 200 characters or fewer'),
+    subtitle: z.string().trim().max(400, 'subtitle must be 400 characters or fewer'),
+    bannerImage: z.string().trim(),
+    // 0-1 — see AgentsBanner's own comment (types/organisation.ts) for why this stays optional.
+    overlayOpacity: z.number().min(0).max(1).optional(),
+});
+
+export const UpdateAgentsPageDraftSchema = z.object({
+    banner: AgentsBannerSchema,
+    seo: SEOSchema.optional(),
+});
+
+export type UpdateAgentsPageDraftInput = z.infer<typeof UpdateAgentsPageDraftSchema>;
+
 // Slugs are used verbatim in the client site's /locations/<slug> URL — lowercase kebab-case only, no
 // leading/trailing/double hyphens, so a saved slug is always a safe, predictable path segment.
 export const SLUG_REGEX = /^[a-z0-9]+(-[a-z0-9]+)*$/;
@@ -207,14 +243,34 @@ export const LocationItemSchema = z.object({
     label: z.string().trim().max(40, 'label must be 40 characters or fewer'),
     heroImage: z.string().trim(),
     body: z.array(BlockNoteBlockSchema).max(500, 'body must be 500 blocks or fewer'),
+    // Per-location SEO override for its own detail page — see LocationItem's own comment
+    // (types/organisation.ts).
+    seo: SEOSchema.optional(),
 });
 
+// Same title/subtitle/bannerImage/overlayOpacity limits as ArticlesHeroSchema's.
+export const LocationsHeroSchema = z.object({
+    title: z.string().trim().max(200, 'title must be 200 characters or fewer'),
+    subtitle: z.string().trim().max(400, 'subtitle must be 400 characters or fewer'),
+    bannerImage: z.string().trim(),
+    // 0-1 — see LocationsHero's own comment (types/organisation.ts) for why this stays optional.
+    overlayOpacity: z.number().min(0).max(1).optional(),
+});
+
+// `locations`/`hero`/`seo` are all independently optional here — LocationsService.updateDraft()
+// merges each field from the existing draft when omitted, same convention as
+// UpdateArticlesDraftSchema, so a PATCH can update just one of the three without resending the
+// others. The slug-uniqueness refine only runs when `locations` is actually present in this
+// particular request.
 export const UpdateLocationsDraftSchema = z
     .object({
-        locations: z.array(LocationItemSchema).max(100, 'locations must be 100 items or fewer'),
+        locations: z.array(LocationItemSchema).max(100, 'locations must be 100 items or fewer').optional(),
+        hero: LocationsHeroSchema.optional(),
+        seo: SEOSchema.optional(),
     })
     .refine(
         (data) => {
+            if (!data.locations) return true;
             const slugs = data.locations.map((l) => l.slug);
             return new Set(slugs).size === slugs.length;
         },
@@ -238,14 +294,33 @@ export const ArticleItemSchema = z.object({
     excerpt: z.string().trim().max(500, 'excerpt must be 500 characters or fewer'),
     coverImage: z.string().trim(),
     body: z.array(BlockNoteBlockSchema).max(500, 'body must be 500 blocks or fewer'),
+    // Per-article SEO override for its own detail page — see ArticleItem's own comment
+    // (types/organisation.ts).
+    seo: SEOSchema.optional(),
 });
 
+// Same title/subtitle limits as HeroContentSchema's.
+export const ArticlesHeroSchema = z.object({
+    title: z.string().trim().max(200, 'title must be 200 characters or fewer'),
+    subtitle: z.string().trim().max(400, 'subtitle must be 400 characters or fewer'),
+    bannerImage: z.string().trim(),
+    // 0-1 — see ArticlesHero's own comment (types/organisation.ts) for why this stays optional.
+    overlayOpacity: z.number().min(0).max(1).optional(),
+});
+
+// `articles`/`hero`/`seo` are all independently optional here — ArticlesService.updateDraft() merges
+// each field from the existing draft when omitted, so a PATCH can update just one of the three
+// without resending the others. The slug-uniqueness refine only runs when `articles` is actually
+// present in this particular request.
 export const UpdateArticlesDraftSchema = z
     .object({
-        articles: z.array(ArticleItemSchema).max(200, 'articles must be 200 items or fewer'),
+        articles: z.array(ArticleItemSchema).max(200, 'articles must be 200 items or fewer').optional(),
+        hero: ArticlesHeroSchema.optional(),
+        seo: SEOSchema.optional(),
     })
     .refine(
         (data) => {
+            if (!data.articles) return true;
             const slugs = data.articles.map((a) => a.slug);
             return new Set(slugs).size === slugs.length;
         },

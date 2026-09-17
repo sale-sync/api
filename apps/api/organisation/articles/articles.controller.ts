@@ -49,7 +49,11 @@ class ArticlesController extends Controller implements IControllerMethods {
             await this.organisationService.assertCanManageTeam(organisation.uuid, organisation.user_id);
 
             const body = new UpdateArticlesDraftDTO().validate(JSON.parse(event.body || '{}'));
-            const updated = await this.articlesService.updateDraft(organisation.uuid, body.articles);
+            const updated = await this.articlesService.updateDraft(organisation.uuid, {
+                articles: body.articles,
+                hero: body.hero,
+                seo: body.seo,
+            });
 
             return {
                 statusCode: 200,
