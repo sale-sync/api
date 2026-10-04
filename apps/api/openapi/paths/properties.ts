@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { CreatePropertySchema, UpdatePropertySchema, DeletePropertySchema } from '@sale-sync/shared';
+import { PetFriendlySchema, CreatePropertySchema, UpdatePropertySchema, DeletePropertySchema } from '@sale-sync/shared';
 
 const security: Array<Record<string, string[]>> = [{ authenticationCookie: [], identifierCookie: [], organisationAuth: [] }];
 
@@ -26,12 +26,15 @@ const UnitSchema = z.object({
     condition: z.string().nullable(),
     furnishing: z.string().nullable(),
     ownership: z.enum(['Freehold', 'Leasehold']).nullable(),
-    petFriendly: z.boolean(),
-    multipurposeRoom: z.boolean(),
+    petFriendly: PetFriendlySchema.nullable().meta({ description: 'null = inherit the property-level value' }),
+    multipurposeRoom: z.number().nullable(),
     poolVilla: z.boolean(),
     livingRoom: z.number().nullable(),
     commonAreaFees: z.number().nullable(),
     sinkingFund: z.number().nullable(),
+    commonAreaFeesOverridden: z.boolean(),
+    sinkingFundOverridden: z.boolean(),
+    videos: z.array(z.string()).meta({ description: 'YouTube links' }),
     bookingFees: z.string().nullable(),
     contractFees: z.string().nullable(),
     contractFeesTimeline: z.string().nullable(),
@@ -65,6 +68,12 @@ const PropertySchema = z.object({
     isLeasehold: z.boolean(),
     swimmingPool: z.boolean(),
     completion: z.enum(['Ready to Move', 'Off Plan']).nullable(),
+    completionDate: z.string().nullable().meta({ description: 'YYYY-MM-DD' }),
+    totalFloor: z.number().nullable(),
+    petFriendly: PetFriendlySchema,
+    commonAreaFees: z.number().nullable().meta({ description: 'Baht per sqm' }),
+    sinkingFund: z.number().nullable().meta({ description: 'Baht per sqm' }),
+    videos: z.array(z.string()).meta({ description: 'YouTube links' }),
     brochure: z.string().nullable(),
     image: z.string().nullable(),
     images: z.array(z.string()),

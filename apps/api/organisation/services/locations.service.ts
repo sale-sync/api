@@ -2,6 +2,7 @@ import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { GetCommand, PutCommand } from '@aws-sdk/lib-dynamodb';
 import { LambdaClient, InvokeCommand } from '@aws-sdk/client-lambda';
 import { Service } from '@devyethiha/samjs';
+import { markJobFailedToStart, startFailureReason, tryStartPublish } from './publish-status';
 import type { LocationItem, LocationsContent, LocationsHero, LocationsRecord, SEO } from '@sale-sync/shared/src/types';
 import { normalizeLocationsContent } from '@sale-sync/shared';
 
@@ -145,7 +146,7 @@ export class LocationsService extends Service {
 
     // Flips draft -> data. Leaves `draft` equal to the just-published value (not nulled), same
     // rationale as ArticlesService.publish/AboutService.publish. Also fire-and-forget invokes
-    // infra/functions/publish-location-listing-page, but ONLY when `hero` actually changed since the
+    // infra/functions/publish-location-listing-page, but ONLY when `hero` or `seo` actually changed since the
     // last publish — unlike Home/Agents (one editable record, always worth re-baking), this record
     // also holds the location list, which changes far more often than the Hero and must never trigger
     // a Hero rebake on its own (see backlogs/real-estate-template/children/locations-page-ssr-split's
@@ -157,7 +158,12 @@ export class LocationsService extends Service {
             throw new NoDraftToPublishError();
         }
 
-        const heroChanged = JSON.stringify(current.data?.hero) !== JSON.stringify(current.draft.hero);
+        // `seo` is baked by the same generator as `hero` (it patches the page's <head> tags too), so an
+        // SEO-only edit must fire it as well — gating on `hero` alone left SEO-only publishes saved but
+        // never baked until the Hero next changed.
+        const heroOrSeoChanged =
+            JSON.stringify(current.data?.hero) !== JSON.stringify(current.draft.hero) ||
+            JSON.stringify(current.data?.seo) !== JSON.stringify(current.draft.seo);
 
         const updated: LocationsRecord = {
             ...current,
@@ -167,13 +173,31 @@ export class LocationsService extends Service {
 
         await this.put(orgUuid, updated);
 
-        if (heroChanged && PUBLISH_LOCATION_LISTING_PAGE_FUNCTION_NAME) {
+        // Per-location detail pages — only the slugs that actually changed since the last publish,
+        // never the whole list (see publish-location-detail-page's own comment in infra/template.yaml
+        // for the full rationale).
+        const { addedOrChanged, removed } = diffLocationSlugs(current.data?.locations ?? [], current.draft.locations);
+
+        // Decide up front which generators will actually fire so the status item knows what to wait for.
+        const willBakeListing = heroOrSeoChanged && !!PUBLISH_LOCATION_LISTING_PAGE_FUNCTION_NAME;
+        const willBakeDetail =
+            (addedOrChanged.length > 0 || removed.length > 0) && !!PUBLISH_LOCATION_DETAIL_PAGE_FUNCTION_NAME;
+        const expected: string[] = [];
+        if (willBakeListing) expected.push('location-listing-page');
+        if (willBakeDetail) expected.push('location-detail-page');
+        const publishId = await tryStartPublish(orgUuid, 'locations', expected);
+
+        if (willBakeListing) {
             try {
                 await lambdaClient.send(
                     new InvokeCommand({
                         FunctionName: PUBLISH_LOCATION_LISTING_PAGE_FUNCTION_NAME,
                         InvocationType: 'Event',
-                        Payload: JSON.stringify({ organisation_uuid: orgUuid }),
+                        Payload: JSON.stringify({
+                            organisation_uuid: orgUuid,
+                            publish_id: publishId,
+                            page_key: 'locations',
+                        }),
                     }),
                 );
             } catch (error) {
@@ -181,15 +205,17 @@ export class LocationsService extends Service {
                     'Failed to invoke publish-location-listing-page — locations published, but Hero regeneration was not started',
                     error,
                 );
+                await markJobFailedToStart(
+                    orgUuid,
+                    'locations',
+                    publishId,
+                    'location-listing-page',
+                    startFailureReason(error),
+                );
             }
         }
 
-        // Per-location detail pages — only the slugs that actually changed since the last publish,
-        // never the whole list (see publish-location-detail-page's own comment in infra/template.yaml
-        // for the full rationale).
-        const { addedOrChanged, removed } = diffLocationSlugs(current.data?.locations ?? [], current.draft.locations);
-
-        if ((addedOrChanged.length > 0 || removed.length > 0) && PUBLISH_LOCATION_DETAIL_PAGE_FUNCTION_NAME) {
+        if (willBakeDetail) {
             try {
                 await lambdaClient.send(
                     new InvokeCommand({
@@ -199,6 +225,8 @@ export class LocationsService extends Service {
                             organisation_uuid: orgUuid,
                             added_or_changed_slugs: addedOrChanged,
                             removed_slugs: removed,
+                            publish_id: publishId,
+                            page_key: 'locations',
                         }),
                     }),
                 );
@@ -206,6 +234,13 @@ export class LocationsService extends Service {
                 console.error(
                     'Failed to invoke publish-location-detail-page — locations published, but detail page regeneration was not started',
                     error,
+                );
+                await markJobFailedToStart(
+                    orgUuid,
+                    'locations',
+                    publishId,
+                    'location-detail-page',
+                    startFailureReason(error),
                 );
             }
         }

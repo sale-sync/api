@@ -44,8 +44,8 @@
     "name": "Faq Page",
     "pageType": "faq",
     "pageCategory": "normal",
-    "render": "ssr",
-    "generator": null
+    "render": "hybrid",
+    "generator": "faq-page"
   },
   {
     "id": "locations-page",
@@ -69,7 +69,7 @@
     "pageType": "real-estate-map-view",
     "pageCategory": "feature",
     "render": "csr",
-    "generator": null
+    "generator": "real-estate-map-view-page"
   },
   {
     "id": "privacy-policy-page",
@@ -85,7 +85,7 @@
     "pageType": "real-estate-properties",
     "pageCategory": "feature",
     "render": "csr",
-    "generator": null
+    "generator": "real-estate-properties-page"
   },
   {
     "id": "terms-and-conditions-page",

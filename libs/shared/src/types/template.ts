@@ -68,8 +68,9 @@ export type PageRender = 'csr' | 'ssr' | 'hybrid';
 // it patches specific tagged elements rather than one content div. Named after the page itself
 // rather than a shared content shape (unlike 'blocknote-singleton') since this shape isn't shared
 // with any other page yet — see backlogs/real-estate-template/children/real-estate-home-page-hero.
-// `null` means no generator is wired up yet — true for every `render: 'csr'` page (nothing to bake
-// ahead of time) and for any `render: 'ssr'`/`'hybrid'` page whose generator hasn't been built yet
+// `null` means no generator is wired up yet — true for a `render: 'csr'` page with nothing to bake
+// ahead of time (see 'real-estate-map-view-page'/'real-estate-properties-page' below for csr pages
+// that DO have one, baking only <head> SEO / a Hero) and for any `render: 'ssr'`/`'hybrid'` page whose generator hasn't been built yet
 // (e.g. Articles' slug-list shape, FAQ's two-level-repeater shape, as of 2026-09-12).
 // 'real-estate-agents-page' (added 2026-09-15) patches just the banner image + overlay opacity on
 // the shared `PageHeroSlice` (via a new `id="agentsBanner"` hook passed only from `pages/agents.ts`)
@@ -89,6 +90,20 @@ export type PageRender = 'csr' | 'ssr' | 'hybrid';
 // backlogs/real-estate-template/children/locations-page-ssr-split): same split as Articles, applied
 // to Locations. Singular 'location-' naming mirrors 'article-listing-page'/'article-detail-page'
 // exactly (plural pageType, singular generator name) for the same reasons.
+// 'faq-page' (added 2026-09-17 — see backlogs/real-estate-template/children/faq-page-hero): Hero +
+// SEO become editable/baked for the FAQ page, same pattern as Articles'/Locations' Hero-bake
+// generator. Deliberately NOT named 'faq-listing-page' — that '-listing-' qualifier exists on the
+// Articles/Locations generators specifically to disambiguate from a sibling '-detail-page'
+// generator, which FAQ has no equivalent of (no slugs, no per-item detail route). Named like
+// 'real-estate-home-page'/'real-estate-agents-page' instead — single catalogue entry gains a Hero,
+// no split.
+// 'real-estate-map-view-page' / 'real-estate-properties-page' (added 2026-09-19 — see
+// backlogs/real-estate-template/children/real-estate-map-view-seo and real-estate-properties-page-hero):
+// two `render: 'csr'` pages that stay CSR (their live map/filter+grid sections are untouched) but gain a
+// generator anyway, because their <head> SEO (Map) or Hero + SEO (Properties) becomes editable and
+// baked. `render` deliberately stays 'csr' — nothing branches on it. Named after the page itself,
+// with the 'real-estate-' prefix since both are `pageCategory: 'feature'`, no shared generator
+// (Map has no Hero, Properties does).
 export type PageGenerator =
     | 'blocknote-singleton'
     | 'real-estate-home-page'
@@ -97,6 +112,9 @@ export type PageGenerator =
     | 'article-detail-page'
     | 'location-listing-page'
     | 'location-detail-page'
+    | 'faq-page'
+    | 'real-estate-map-view-page'
+    | 'real-estate-properties-page'
     | null;
 
 export type Page = {

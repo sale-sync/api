@@ -3,6 +3,7 @@ import { GetCommand, QueryCommand, TransactWriteCommand } from '@aws-sdk/lib-dyn
 import { Service } from '@devyethiha/samjs';
 import { MARKET_CURRENCY } from '@sale-sync/shared/src/types';
 import type { Organisation, OrganisationRole, OrganisationUser, Property, PropertyCurrency, PropertyScope, PropertyType, Unit } from '@sale-sync/shared/src/types';
+import { normalizeStoredProperty, normalizeUnitFees } from '@sale-sync/shared/src/utils/property';
 import type { CreatePropertyInput, UpdatePropertyInput } from '@sale-sync/shared/src/dtos';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -106,15 +107,23 @@ export class PropertyService extends Service {
             isLeasehold: input.isLeasehold ?? false,
             swimmingPool: input.swimmingPool ?? false,
             completion: input.completion ?? null,
+            completionDate: input.completionDate ?? null,
+            totalFloor: input.totalFloor ?? null,
+            petFriendly: input.petFriendly ?? 'No Pets',
+            commonAreaFees: input.commonAreaFees ?? null,
+            sinkingFund: input.sinkingFund ?? null,
+            videos: input.videos ?? [],
             brochure: input.brochure ?? null,
             image: input.image ?? null,
             images: input.images ?? [],
             description: input.description ?? null,
             payment: input.payment ?? null,
-            units: (input.units ?? []).map((unit) => this.normalizeUnit(unit, currency)),
+            units: [],
             created_at: now,
             updated_at: now,
         };
+
+        property.units = (input.units ?? []).map((unit) => this.normalizeUnit(unit, currency, property));
 
         try {
             await this.DB_Client.send(
@@ -319,21 +328,24 @@ export class PropertyService extends Service {
             ...(updates.isLeasehold !== undefined && { isLeasehold: updates.isLeasehold }),
             ...(updates.swimmingPool !== undefined && { swimmingPool: updates.swimmingPool }),
             ...(updates.completion !== undefined && { completion: updates.completion }),
+            ...(updates.completionDate !== undefined && { completionDate: updates.completionDate }),
+            ...(updates.totalFloor !== undefined && { totalFloor: updates.totalFloor }),
+            ...(updates.petFriendly !== undefined && { petFriendly: updates.petFriendly }),
+            ...(updates.commonAreaFees !== undefined && { commonAreaFees: updates.commonAreaFees }),
+            ...(updates.sinkingFund !== undefined && { sinkingFund: updates.sinkingFund }),
+            ...(updates.videos !== undefined && { videos: updates.videos }),
             ...(updates.brochure !== undefined && { brochure: updates.brochure }),
             ...(updates.image !== undefined && { image: updates.image }),
             ...(updates.images !== undefined && { images: updates.images }),
             ...(updates.description !== undefined && { description: updates.description }),
             ...(updates.payment !== undefined && { payment: updates.payment }),
-            // Units are re-normalized whenever the payload includes units OR the currency changed —
-            // the latter case cascades the new currency onto every existing unit, even ones not
-            // present in this update's payload.
-            ...(updates.units !== undefined
-                ? { units: updates.units.map((unit) => this.normalizeUnit(unit, currency)) }
-                : updates.currency !== undefined
-                  ? { units: existing.units.map((unit) => this.normalizeUnit(unit, currency)) }
-                  : {}),
             updated_at: new Date().toISOString(),
         };
+
+        // Units are re-normalized on every update — not just when the payload carries units — because
+        // a changed currency or fee rate cascades onto every existing unit (non-overridden fees are
+        // unitSize x Property rate), even ones absent from this payload.
+        updated.units = (updates.units ?? existing.units).map((unit) => this.normalizeUnit(unit, currency, updated));
 
         // GSI3 (region) and GSI4 (postcode) are both sparse — SET when their source field is
         // populated, REMOVE (not just cleared) when it isn't, same pattern GSI3 already used before
@@ -429,7 +441,7 @@ export class PropertyService extends Service {
 
     // currency is always set from the property-level value, ignoring any per-unit currency the
     // client sends — a property has one currency, cascaded to every unit.
-    private normalizeUnit(unit: Partial<Unit> & { title: string }, currency: PropertyCurrency): Unit {
+    private normalizeUnit(unit: Partial<Unit> & { title: string }, currency: PropertyCurrency, property: Pick<Property, 'commonAreaFees' | 'sinkingFund'>): Unit {
         return {
             uuid: unit.uuid ?? uuidv4(),
             title: unit.title,
@@ -451,12 +463,12 @@ export class PropertyService extends Service {
             condition: unit.condition ?? null,
             furnishing: unit.furnishing ?? null,
             ownership: unit.ownership ?? null,
-            petFriendly: unit.petFriendly ?? false,
-            multipurposeRoom: unit.multipurposeRoom ?? false,
+            petFriendly: unit.petFriendly ?? null,
+            multipurposeRoom: unit.multipurposeRoom ?? null,
             poolVilla: unit.poolVilla ?? false,
             livingRoom: unit.livingRoom ?? null,
-            commonAreaFees: unit.commonAreaFees ?? null,
-            sinkingFund: unit.sinkingFund ?? null,
+            ...normalizeUnitFees(unit, property),
+            videos: unit.videos ?? [],
             bookingFees: unit.bookingFees ?? null,
             contractFees: unit.contractFees ?? null,
             contractFeesTimeline: unit.contractFeesTimeline ?? null,
@@ -492,7 +504,7 @@ export class PropertyService extends Service {
     // public; slug simply stays null (not publicly linkable until edited to add one).
     private parseItem(data: string): Property {
         const property = JSON.parse(data) as Property;
-        return { ...property, scope: property.scope ?? 'staff', slug: property.slug ?? null };
+        return normalizeStoredProperty({ ...property, scope: property.scope ?? 'staff', slug: property.slug ?? null });
     }
 
     private parseItems(items: Record<string, unknown>[] | undefined): Property[] {

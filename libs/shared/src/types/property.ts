@@ -48,6 +48,10 @@ export type UnitAction = 'sell' | 'rent' | 'sold';
 // no default: stays null until a user explicitly sets it.
 export type UnitOwnership = 'Freehold' | 'Leasehold';
 
+// Pet policy. Property level defaults to 'No Pets'; a Unit with no value (null) inherits the
+// Property's value at read time.
+export type PetFriendly = 'Pet Friendly' | 'Dog Friendly' | 'Cat Friendly' | 'No Pets';
+
 // Project-level completion status. Optional, no default: stays null until a user explicitly sets it.
 export type PropertyCompletion = 'Ready to Move' | 'Off Plan';
 
@@ -82,15 +86,23 @@ export type Unit = {
     condition: string | null;
     furnishing: string | null;
     ownership: UnitOwnership | null;
-    // Amenity flags — non-nullable, default false, same pattern as Property.isLeasehold.
-    petFriendly: boolean;
-    multipurposeRoom: boolean;
+    // null = inherit Property.petFriendly (resolved at read, not copied at save).
+    petFriendly: PetFriendly | null;
+    // Count of multi-purpose rooms, no default.
+    multipurposeRoom: number | null;
+    // Amenity flag — non-nullable, default false, same pattern as Property.isLeasehold.
     // Private per-unit pool — not the shared project-level pool tracked in Property.swimmingPool.
     poolVilla: boolean;
     // Count/size fields, no default — same nullability pattern as hall/kitchen/etc.
     livingRoom: number | null;
+    // Total amounts in currency. Not overridden: unitSize x Property rate (see normalizeUnitFees).
+    // Overridden: the user-entered value, kept when unitSize or the Property rate changes.
     commonAreaFees: number | null;
     sinkingFund: number | null;
+    commonAreaFeesOverridden: boolean;
+    sinkingFundOverridden: boolean;
+    // YouTube links, raw URLs (validated on write, converted to embed URLs when rendering).
+    videos: string[];
     // Free text — non-numeric content (e.g. "10% of sell price"), no default.
     bookingFees: string | null;
     contractFees: string | null;
@@ -135,6 +147,14 @@ export type Property = {
     // Project-level common-area amenity — not the private per-unit pool tracked in Unit.poolVilla.
     swimmingPool: boolean;
     completion: PropertyCompletion | null;
+    // Calendar date, 'YYYY-MM-DD'. Independent of `completion`.
+    completionDate: string | null;
+    totalFloor: number | null;
+    petFriendly: PetFriendly;
+    // Baht per sqm — the rate unit fees are calculated from.
+    commonAreaFees: number | null;
+    sinkingFund: number | null;
+    videos: string[];
     brochure: string | null;
     image: string | null;
     images: string[];

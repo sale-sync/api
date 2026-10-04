@@ -26,7 +26,7 @@ export default class BrandingController extends Controller implements IControlle
     }
 
     /**
-     * POST /media/branding - Get presigned upload URL + durable CDN URL for a website branding logo.
+     * POST /media/branding - Get presigned upload URL + durable CDN URL for a website branding image (logo, favicon, etc).
      * Stored separately from the Folder/Media library and from the org's own account logo
      * (/media/organisation): no DynamoDB record is created here, just an S3 object under its own prefix.
      * Restricted to owner/admin (website branding is organisation-editing).
@@ -68,7 +68,7 @@ export default class BrandingController extends Controller implements IControlle
     }
 
     /**
-     * DELETE /media/branding - Delete a branding logo object from S3.
+     * DELETE /media/branding - Delete a branding image object (logo, favicon, etc) from S3.
      * No DynamoDB record exists for it; the client supplies the s3_key returned at upload time.
      * Restricted to owner/admin.
      *

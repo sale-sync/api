@@ -135,6 +135,38 @@ Parameters:
             location slug(s) that actually changed (never the whole list), to
             generate/regenerate/delete real per-slug pages at
             locations/<slug> + ssr/locations/<slug>.
+    PublishFaqPageFunctionName:
+        Type: String
+        Description: >
+            Name of ss/infra's PublishFaqPageFunction (see
+            backlogs/real-estate-template/children/faq-page-hero) — cross-stack
+            reference, same convention as the six above (deliberately not
+            'real-estate-'-prefixed or '-listing-'-qualified — FAQ is
+            pageCategory 'normal' with no detail-page sibling to disambiguate
+            from). FaqService.publish() invokes it fire-and-forget, but only
+            when `hero` actually changed since the last publish, to bake the
+            published Hero title/subtitle/bannerImage into faq-page's deployed
+            dist/faq HTML and ssr/faq JSON.
+    PublishRealEstateMapViewPageFunctionName:
+        Type: String
+        Description: >
+            Name of ss/infra's PublishRealEstateMapViewPageFunction (see
+            backlogs/real-estate-template/children/real-estate-map-view-seo) —
+            cross-stack reference, same convention as the parameters above.
+            MapViewService.publish() invokes it fire-and-forget after flipping
+            draft -> data, to bake the published SEO (title/description/image)
+            into real-estate-map-view-page's deployed dist/map HTML and
+            ssr/map JSON.
+    PublishRealEstatePropertiesPageFunctionName:
+        Type: String
+        Description: >
+            Name of ss/infra's PublishRealEstatePropertiesPageFunction (see
+            backlogs/real-estate-template/children/real-estate-properties-page-hero) —
+            cross-stack reference, same convention as the parameters above.
+            PropertiesPageService.publish() invokes it fire-and-forget after
+            flipping draft -> data, to bake the published Hero + SEO into
+            real-estate-properties-page's deployed dist/properties HTML and
+            ssr/properties JSON.
 
 Globals:
     Function:
@@ -212,6 +244,9 @@ Resources:
                     PUBLISH_ARTICLE_DETAIL_PAGE_FUNCTION_NAME: !Ref PublishArticleDetailPageFunctionName
                     PUBLISH_LOCATION_LISTING_PAGE_FUNCTION_NAME: !Ref PublishLocationListingPageFunctionName
                     PUBLISH_LOCATION_DETAIL_PAGE_FUNCTION_NAME: !Ref PublishLocationDetailPageFunctionName
+                    PUBLISH_FAQ_PAGE_FUNCTION_NAME: !Ref PublishFaqPageFunctionName
+                    PUBLISH_REAL_ESTATE_MAP_VIEW_PAGE_FUNCTION_NAME: !Ref PublishRealEstateMapViewPageFunctionName
+                    PUBLISH_REAL_ESTATE_PROPERTIES_PAGE_FUNCTION_NAME: !Ref PublishRealEstatePropertiesPageFunctionName
             Policies:
                 - AWSLambdaBasicExecutionRole
                 - DynamoDBCrudPolicy:
@@ -267,6 +302,24 @@ Resources:
                         # Same cross-stack idiom as the seven grants above — publish-location-detail-page
                         # also lives in ss/infra.
                         Resource: !Sub 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${PublishLocationDetailPageFunctionName}'
+                - Statement:
+                      - Effect: Allow
+                        Action: lambda:InvokeFunction
+                        # Same cross-stack idiom as the eight grants above — publish-faq-page also
+                        # lives in ss/infra.
+                        Resource: !Sub 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${PublishFaqPageFunctionName}'
+                - Statement:
+                      - Effect: Allow
+                        Action: lambda:InvokeFunction
+                        # Same cross-stack idiom as the nine grants above — publish-real-estate-map-view-page
+                        # also lives in ss/infra.
+                        Resource: !Sub 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${PublishRealEstateMapViewPageFunctionName}'
+                - Statement:
+                      - Effect: Allow
+                        Action: lambda:InvokeFunction
+                        # Same cross-stack idiom as the ten grants above — publish-real-estate-properties-page
+                        # also lives in ss/infra.
+                        Resource: !Sub 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${PublishRealEstatePropertiesPageFunctionName}'
             Events:
                 ApiRouter:
                     Type: Api

@@ -1,6 +1,7 @@
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { GetCommand, QueryCommand } from '@aws-sdk/lib-dynamodb';
 import { Service } from '@devyethiha/samjs';
+import { normalizeStoredProperty } from '@sale-sync/shared/src/utils/property';
 import type { Property, PropertyType } from '@sale-sync/shared/src/types';
 
 const TABLE = process.env.PROPERTY_TABLE_NAME || 'sale-sync-properties';
@@ -50,7 +51,7 @@ export class PropertyService extends Service {
         );
         if (!res.Item) return null;
 
-        const property = JSON.parse(res.Item.data as string) as Property;
+        const property = normalizeStoredProperty(JSON.parse(res.Item.data as string) as Property);
         return property.scope === 'public' ? property : null;
     }
 
@@ -166,7 +167,7 @@ export class PropertyService extends Service {
     // the "public only" rule lives in exactly one place.
     private parsePublicItems(items: Record<string, unknown>[] | undefined): Property[] {
         return (items ?? [])
-            .map((item) => JSON.parse(item.data as string) as Property)
+            .map((item) => normalizeStoredProperty(JSON.parse(item.data as string) as Property))
             .filter((property) => property.scope === 'public');
     }
 }

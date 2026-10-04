@@ -96,6 +96,7 @@ export type ThemeFont = 'sans' | 'mono';
 
 export type BrandingContent = {
     logo: Image | null;
+    favicon: Image | null;
     primaryColor: BrandingColor | null;
     secondaryColor: BrandingColor | null;
     font: ThemeFont | null;
@@ -341,25 +342,55 @@ export type ArticlesRecord = {
 };
 
 // Same singleton-per-org, data/draft-split shape as LocationsContent/ArticlesContent above — see
-// backlogs/real-estate-template/children/home-thailand-estates-dynamic-faq/plan.md. Unlike
-// locations/articles, this is a **two-level** repeater (topics, each holding its own faqs) rather
-// than a flat list, and there's no BlockNote body or slug anywhere here — no per-item detail page
-// exists, the whole page is one client-side sidebar+accordion view over this one payload. `id` on
-// both levels is a stable key for reorder/lookup, not a routable slug.
+// backlogs/real-estate-template/children/home-thailand-estates-dynamic-faq/plan.md. There's no
+// BlockNote body or slug anywhere here — no per-item detail page exists, the whole page is one
+// client-side sidebar+accordion view over this one payload. `id` on both levels is a stable key for
+// reorder/lookup, not a routable slug.
+//
+// Many-to-many relationship (added 2026-09-17, client feedback — see backlogs/
+// real-estate-template/children/faq-many-to-many-topics): originally a **two-level** repeater
+// (topics, each holding its own embedded `faqs`), changed to two flat, related top-level lists — a
+// Topic can have multiple FAQs and an FAQ can belong to multiple Topics. The join lives on the FAQ
+// side (`FaqEntry.topicIds`), not a separate junction structure, since this is still one singleton
+// per-org record. `topicIds` is deliberately NOT required to be non-empty at this type/schema level
+// — see `UpdateFaqDraftSchema`'s own comment for why (the topic-delete cascade needs to legitimately
+// write an empty array here; "at least one topic" is a web-app form-level rule instead). No
+// backward-compat normalization for the old nested shape — confirmed 2026-09-17 there is no live
+// FAQ data yet to migrate.
 export type FaqEntry = {
     id: string;
     question: string;
     answer: string; // plain text — no rich formatting for now, see plan.md's open question
+    topicIds: string[];
 };
 
 export type FaqTopic = {
     id: string;
     title: string; // e.g. "Buying Property", "Payments & Fees"
-    faqs: FaqEntry[];
 };
 
+// The FAQ page's editable Hero — added 2026-09-17 (backlogs/real-estate-template/children/
+// faq-page-hero), same shape as ArticlesHero/LocationsHero exactly. Independently optional and
+// independently updatable alongside `topics`/`faqs` — see FaqContent's own comment below.
+export type FaqHero = {
+    title: string;
+    subtitle: string;
+    bannerImage: string;
+    // 0-1, optional — same rationale as HeroContent.overlayOpacity (records saved before this field
+    // existed have none stored; the generator falls back to 0.55).
+    overlayOpacity?: number;
+};
+
+// `topics`/`faqs`/`hero`/`seo` are all independently optional and independently updatable —
+// FaqService.updateDraft() merges each field from the existing draft when omitted, so the Topics
+// editor can PATCH just `{ topics }`, the Questions editor just `{ faqs }`, and the Hero/SEO editor
+// just `{ hero, seo }`, without any of them wiping out the others. Same convention
+// ArticlesContent's hero/seo-vs-articles merge established.
 export type FaqContent = {
     topics: FaqTopic[];
+    faqs: FaqEntry[];
+    hero?: FaqHero;
+    seo?: SEO;
 };
 
 export type FaqRecord = {
@@ -394,4 +425,93 @@ export type AgentsPageRecord = {
     draft: AgentsPageContent | null;
     updated_at: string;
     published_at: string | null;
+};
+
+// The Map View page's only editable content is its SEO — the page itself is 100% CSR (one
+// fullscreen PropertyMapViewSlice, no Hero), so publish-real-estate-map-view-page only ever patches
+// <head>. Same singleton-per-org, data/draft-split shape as AgentsPageRecord above. SK=MAP_VIEW. See
+// backlogs/real-estate-template/children/real-estate-map-view-seo.
+export type MapViewContent = {
+    seo?: SEO;
+};
+
+export type MapViewRecord = {
+    data: MapViewContent | null;
+    draft: MapViewContent | null;
+    updated_at: string;
+    published_at: string | null;
+};
+
+// The Properties page's editable Hero — same title/subtitle/bannerImage/overlayOpacity shape as
+// FaqHero/ArticlesHero/LocationsHero. The filter panel + results grid below it stay pure CSR. See
+// backlogs/real-estate-template/children/real-estate-properties-page-hero.
+export type PropertiesPageHero = {
+    title: string;
+    subtitle: string;
+    bannerImage: string;
+    // 0-1, optional — same rationale as HeroContent.overlayOpacity.
+    overlayOpacity?: number;
+};
+
+export type PropertiesPageContent = {
+    hero: PropertiesPageHero;
+    seo?: SEO;
+};
+
+// Same singleton-per-org, data/draft-split shape as AgentsPageRecord above. SK=PROPERTIES_PAGE — the
+// property listings themselves live in a different table (PropertyTable, SK=PROPERTY#<uuid>).
+export type PropertiesPageRecord = {
+    data: PropertiesPageContent | null;
+    draft: PropertiesPageContent | null;
+    updated_at: string;
+    published_at: string | null;
+};
+
+// Publish completion status. Publishing a page flips draft -> data and fire-and-forgets a generator
+// Lambda in ss/infra, so the POST returns before anything is baked to S3. To let the client tell when
+// the bake actually finished, each publish also writes one status item per org per page
+// (PK=ORG#{orgUuid}, SK=PUBLISH_STATUS#{pageKey}) into the ORGANISATION table, and each generator
+// reports its own result into that item's `results` map. Branding is excluded: it has its own
+// status lifecycle (BrandingRecord.status).
+export const PUBLISH_STATUS_KEYS = [
+    'home',
+    'agents',
+    'map-view',
+    'properties',
+    'about',
+    'privacy-policy',
+    'terms-and-conditions',
+    'articles',
+    'locations',
+    'faq',
+] as const;
+
+export type PublishStatusKey = (typeof PUBLISH_STATUS_KEYS)[number];
+
+export type PublishStatus = 'idle' | 'generating' | 'success' | 'fail';
+
+export type PublishJobResult = {
+    ok: boolean;
+    reason?: string;
+    finished_at: string;
+};
+
+// The stored item shape. Native attributes (not a JSON `data` string) so a generator can UpdateItem a
+// single `results.<generatorName>` key without a read-modify-write race.
+export type PublishStatusItem = {
+    publish_id: string;
+    page: PublishStatusKey;
+    expected: string[];
+    results: Record<string, PublishJobResult>;
+    started_at: string;
+};
+
+export type PublishStatusResponse = {
+    page: PublishStatusKey;
+    publish_id: string | null;
+    status: PublishStatus;
+    expected: string[];
+    results: Record<string, PublishJobResult>;
+    reason: string | null;
+    started_at: string | null;
 };

@@ -55,6 +55,9 @@ const MODE_CONFIG = {
       PUBLISH_ARTICLE_DETAIL_PAGE_FUNCTION_NAME: "PublishArticleDetailPageFunctionName",
       PUBLISH_LOCATION_LISTING_PAGE_FUNCTION_NAME: "PublishLocationListingPageFunctionName",
       PUBLISH_LOCATION_DETAIL_PAGE_FUNCTION_NAME: "PublishLocationDetailPageFunctionName",
+      PUBLISH_FAQ_PAGE_FUNCTION_NAME: "PublishFaqPageFunctionName",
+      PUBLISH_REAL_ESTATE_MAP_VIEW_PAGE_FUNCTION_NAME: "PublishRealEstateMapViewPageFunctionName",
+      PUBLISH_REAL_ESTATE_PROPERTIES_PAGE_FUNCTION_NAME: "PublishRealEstatePropertiesPageFunctionName",
     },
   },
   admin: {

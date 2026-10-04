@@ -61,10 +61,22 @@ export class BrandingService extends Service {
 
     public async updateDraft(
         orgUuid: string,
-        patch: { primary_hex?: string; secondary_hex?: string; logo?: Image | null; font?: ThemeFont },
+        patch: {
+            primary_hex?: string;
+            secondary_hex?: string;
+            logo?: Image | null;
+            favicon?: Image | null;
+            font?: ThemeFont;
+        },
     ): Promise<BrandingRecord> {
         const current = await this.get(orgUuid);
-        const currentDraft: BrandingContent = current.draft ?? { logo: null, primaryColor: null, secondaryColor: null, font: null };
+        const currentDraft: BrandingContent = current.draft ?? {
+            logo: null,
+            favicon: null,
+            primaryColor: null,
+            secondaryColor: null,
+            font: null,
+        };
 
         const updatedDraft: BrandingContent = {
             ...currentDraft,
@@ -75,6 +87,7 @@ export class BrandingService extends Service {
                 secondaryColor: { hex: patch.secondary_hex, scale: generateColorScale(patch.secondary_hex) },
             }),
             ...(patch.logo !== undefined && { logo: patch.logo }),
+            ...(patch.favicon !== undefined && { favicon: patch.favicon }),
             ...(patch.font !== undefined && { font: patch.font }),
         };
 

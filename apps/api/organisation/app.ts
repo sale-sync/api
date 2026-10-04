@@ -13,11 +13,14 @@ import TestimonialsController from './testimonials/testimonials.controller';
 import AboutController from './about/about.controller';
 import HomeController from './home/home.controller';
 import AgentsPageController from './agents-page/agents-page.controller';
+import MapViewController from './map-view/map-view.controller';
+import PropertiesPageController from './properties-page/properties-page.controller';
 import LocationsController from './locations/locations.controller';
 import ArticlesController from './articles/articles.controller';
 import FaqController from './faq/faq.controller';
 import PrivacyPolicyController from './privacy-policy/privacy-policy.controller';
 import TermsAndConditionsController from './terms-and-conditions/terms-and-conditions.controller';
+import PublishStatusController from './publish-status/publish-status.controller';
 import SignupRequestsController from './signup-requests/signup-requests.controller';
 import { OrganisationService } from './services/organisation.service';
 import { TemplateService } from './services/template.service';
@@ -27,6 +30,8 @@ import { TestimonialsService } from './services/testimonials.service';
 import { AboutService } from './services/about.service';
 import { HomeService } from './services/home.service';
 import { AgentsPageService } from './services/agents-page.service';
+import { MapViewService } from './services/map-view.service';
+import { PropertiesPageService } from './services/properties-page.service';
 import { LocationsService } from './services/locations.service';
 import { ArticlesService } from './services/articles.service';
 import { FaqService } from './services/faq.service';
@@ -54,6 +59,8 @@ async function main(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult>
                 { controller: AboutController, services: [OrganisationService, AboutService] },
                 { controller: HomeController, services: [OrganisationService, HomeService] },
                 { controller: AgentsPageController, services: [OrganisationService, AgentsPageService] },
+                { controller: MapViewController, services: [OrganisationService, MapViewService] },
+                { controller: PropertiesPageController, services: [OrganisationService, PropertiesPageService] },
                 { controller: LocationsController, services: [OrganisationService, LocationsService] },
                 { controller: ArticlesController, services: [OrganisationService, ArticlesService] },
                 { controller: FaqController, services: [OrganisationService, FaqService] },
@@ -62,6 +69,7 @@ async function main(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult>
                     controller: TermsAndConditionsController,
                     services: [OrganisationService, TermsAndConditionsService],
                 },
+                { controller: PublishStatusController, services: [] },
                 { controller: SignupRequestsController, services: [SignupRequestService] },
             ],
             '/organisations',

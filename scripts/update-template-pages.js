@@ -65,6 +65,9 @@ const VALID_GENERATORS = [
     'article-detail-page',
     'location-listing-page',
     'location-detail-page',
+    'faq-page',
+    'real-estate-map-view-page',
+    'real-estate-properties-page',
 ];
 
 const args = process.argv.slice(2);

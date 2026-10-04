@@ -104,10 +104,11 @@ export const UpdateBrandingDraftSchema = z
             .regex(HEX_COLOR_REGEX, 'secondary_hex must be a valid hex color (e.g. #3C53FF)')
             .optional(),
         logo: ImageSchema.nullable().optional(),
+        favicon: ImageSchema.nullable().optional(),
         font: ThemeFontSchema.optional(),
     })
     .refine((data) => Object.keys(data).length > 0, {
-        message: 'At least one field (primary_hex, secondary_hex, logo, font) must be provided',
+        message: 'At least one field (primary_hex, secondary_hex, logo, favicon, font) must be provided',
     });
 
 export type UpdateBrandingDraftInput = z.infer<typeof UpdateBrandingDraftSchema>;
@@ -226,6 +227,30 @@ export const UpdateAgentsPageDraftSchema = z.object({
 
 export type UpdateAgentsPageDraftInput = z.infer<typeof UpdateAgentsPageDraftSchema>;
 
+// Map View page: SEO only, no Hero. `seo` is required here (unlike the other drafts, where it rides
+// along optionally) since it's the page's entire content.
+export const UpdateMapViewDraftSchema = z.object({
+    seo: SEOSchema,
+});
+
+export type UpdateMapViewDraftInput = z.infer<typeof UpdateMapViewDraftSchema>;
+
+// Same title/subtitle/bannerImage/overlayOpacity limits as AgentsBannerSchema's.
+export const PropertiesPageHeroSchema = z.object({
+    title: z.string().trim().max(200, 'title must be 200 characters or fewer'),
+    subtitle: z.string().trim().max(400, 'subtitle must be 400 characters or fewer'),
+    bannerImage: z.string().trim(),
+    // 0-1 — see PropertiesPageHero's own comment (types/organisation.ts) for why this stays optional.
+    overlayOpacity: z.number().min(0).max(1).optional(),
+});
+
+export const UpdatePropertiesPageDraftSchema = z.object({
+    hero: PropertiesPageHeroSchema,
+    seo: SEOSchema.optional(),
+});
+
+export type UpdatePropertiesPageDraftInput = z.infer<typeof UpdatePropertiesPageDraftSchema>;
+
 // Slugs are used verbatim in the client site's /locations/<slug> URL — lowercase kebab-case only, no
 // leading/trailing/double hyphens, so a saved slug is always a safe, predictable path segment.
 export const SLUG_REGEX = /^[a-z0-9]+(-[a-z0-9]+)*$/;
@@ -332,24 +357,55 @@ export type UpdateArticlesDraftInput = z.infer<typeof UpdateArticlesDraftSchema>
 // No slug here (unlike locations/articles) — nothing is routed by these ids, they're only stable
 // keys for reorder/lookup in the editor, so ids are validated for uniqueness but not shaped like a
 // URL segment.
+//
+// `topicIds` is deliberately NOT `.min(1)` here — see FaqEntry's own comment (types/organisation.ts)
+// for why: the topic-delete cascade needs to write an empty array through this same schema when a
+// topic is deleted out from under an FAQ's only assignment. "At least one topic" is a web-app
+// form-level validation on the FAQ create/edit form, not a schema-level invariant.
 export const FaqEntrySchema = z.object({
     id: z.string().trim().min(1, 'id is required').max(80, 'id must be 80 characters or fewer'),
     question: z.string().trim().min(1, 'question is required').max(300, 'question must be 300 characters or fewer'),
     answer: z.string().trim().min(1, 'answer is required').max(3000, 'answer must be 3000 characters or fewer'),
+    topicIds: z.array(z.string()).max(50, 'topicIds must be 50 items or fewer'),
 });
 
 export const FaqTopicSchema = z.object({
     id: z.string().trim().min(1, 'id is required').max(80, 'id must be 80 characters or fewer'),
     title: z.string().trim().min(1, 'title is required').max(120, 'title must be 120 characters or fewer'),
-    faqs: z.array(FaqEntrySchema).max(100, 'faqs must be 100 items or fewer'),
 });
 
+// The FAQ page's editable Hero — added 2026-09-17 (backlogs/real-estate-template/children/
+// faq-page-hero). Same title/subtitle/bannerImage/overlayOpacity limits as ArticlesHeroSchema's.
+export const FaqHeroSchema = z.object({
+    title: z.string().trim().max(200, 'title must be 200 characters or fewer'),
+    subtitle: z.string().trim().max(400, 'subtitle must be 400 characters or fewer'),
+    bannerImage: z.string().trim(),
+    overlayOpacity: z.number().min(0).max(1).optional(),
+});
+
+// `topics`/`faqs`/`hero`/`seo` are all independently optional here, same merge convention as
+// UpdateArticlesDraftSchema's `articles`/`hero`/`seo` — FaqService.updateDraft() merges each field
+// from the existing draft when omitted, so the Topic editor can PATCH just `{ topics }`, the FAQ
+// editor just `{ faqs }`, and the Hero/SEO editor just `{ hero, seo }`, without any of them wiping
+// out the others.
+//
+// The faq-id-uniqueness refine is now GLOBAL across `faqs[]` (previously only checked within one
+// topic's own embedded list, since nesting made cross-topic collisions impossible). The
+// topicId-referential-integrity refine (every `faqs[].topicIds` entry must name a real topic) only
+// runs when BOTH `topics` and `faqs` are present in the same request — a request that only patches
+// one side can't validate against the other without a DB read, and every normal UI flow (the FAQ
+// form's Topics multi-select is populated from the currently-loaded real topic list, and the
+// topic-delete cascade always sends both `topics` and `faqs` together) never actually needs to.
 export const UpdateFaqDraftSchema = z
     .object({
-        topics: z.array(FaqTopicSchema).max(50, 'topics must be 50 items or fewer'),
+        topics: z.array(FaqTopicSchema).max(50, 'topics must be 50 items or fewer').optional(),
+        faqs: z.array(FaqEntrySchema).max(500, 'faqs must be 500 items or fewer').optional(),
+        hero: FaqHeroSchema.optional(),
+        seo: SEOSchema.optional(),
     })
     .refine(
         (data) => {
+            if (!data.topics) return true;
             const topicIds = data.topics.map((t) => t.id);
             return new Set(topicIds).size === topicIds.length;
         },
@@ -357,12 +413,19 @@ export const UpdateFaqDraftSchema = z
     )
     .refine(
         (data) => {
-            return data.topics.every((topic) => {
-                const faqIds = topic.faqs.map((f) => f.id);
-                return new Set(faqIds).size === faqIds.length;
-            });
+            if (!data.faqs) return true;
+            const faqIds = data.faqs.map((f) => f.id);
+            return new Set(faqIds).size === faqIds.length;
         },
-        { message: 'Each FAQ within a topic must have a unique id', path: ['topics'] },
+        { message: 'Each FAQ must have a unique id', path: ['faqs'] },
+    )
+    .refine(
+        (data) => {
+            if (!data.topics || !data.faqs) return true;
+            const validTopicIds = new Set(data.topics.map((t) => t.id));
+            return data.faqs.every((faq) => faq.topicIds.every((id) => validTopicIds.has(id)));
+        },
+        { message: 'Each FAQ can only reference topics included in this request', path: ['faqs'] },
     );
 
 export type UpdateFaqDraftInput = z.infer<typeof UpdateFaqDraftSchema>;

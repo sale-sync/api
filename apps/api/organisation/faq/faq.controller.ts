@@ -34,8 +34,9 @@ class FaqController extends Controller implements IControllerMethods {
         };
     }
 
-    // PATCH /organisations/faq — replace the draft's full topics list (each carrying its own faqs).
-    // Restricted to owner/admin.
+    // PATCH /organisations/faq — merge-updates the draft's `topics`/`faqs`/`hero`/`seo` (each
+    // independently optional — see FaqService.updateDraft()'s own comment). Restricted to
+    // owner/admin.
     async patch(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
         if (!isAuthorize(event)) {
             return UNAUTHORIZE_ERROR;
@@ -50,7 +51,12 @@ class FaqController extends Controller implements IControllerMethods {
             await this.organisationService.assertCanManageTeam(organisation.uuid, organisation.user_id);
 
             const body = new UpdateFaqDraftDTO().validate(JSON.parse(event.body || '{}'));
-            const updated = await this.faqService.updateDraft(organisation.uuid, body.topics);
+            const updated = await this.faqService.updateDraft(organisation.uuid, {
+                topics: body.topics,
+                faqs: body.faqs,
+                hero: body.hero,
+                seo: body.seo,
+            });
 
             return {
                 statusCode: 200,

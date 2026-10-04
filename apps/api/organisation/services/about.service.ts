@@ -2,6 +2,7 @@ import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { GetCommand, PutCommand } from '@aws-sdk/lib-dynamodb';
 import { LambdaClient, InvokeCommand } from '@aws-sdk/client-lambda';
 import { Service } from '@devyethiha/samjs';
+import { markJobFailedToStart, startFailureReason, tryStartPublish } from './publish-status';
 import type { AboutPageContent, AboutPageRecord, BlockNoteBlock, SEO } from '@sale-sync/shared/src/types';
 
 // No hardcoded fallback: staging (`staging-sale-sync-organisation`) and prod
@@ -97,19 +98,37 @@ export class AboutService extends Service {
 
         await this.put(orgUuid, updated);
 
+        const publishId = await tryStartPublish(
+            orgUuid,
+            'about',
+            PUBLISH_BLOCKNOTE_SINGLETON_FUNCTION_NAME ? ['blocknote-singleton'] : [],
+        );
+
         if (PUBLISH_BLOCKNOTE_SINGLETON_FUNCTION_NAME) {
             try {
                 await lambdaClient.send(
                     new InvokeCommand({
                         FunctionName: PUBLISH_BLOCKNOTE_SINGLETON_FUNCTION_NAME,
                         InvocationType: 'Event',
-                        Payload: JSON.stringify({ organisation_uuid: orgUuid, page: 'about' }),
+                        Payload: JSON.stringify({
+                            organisation_uuid: orgUuid,
+                            page: 'about',
+                            publish_id: publishId,
+                            page_key: 'about',
+                        }),
                     }),
                 );
             } catch (error) {
                 console.error(
                     'Failed to invoke publish-blocknote-singleton — about page published, but SSR regeneration was not started',
                     error,
+                );
+                await markJobFailedToStart(
+                    orgUuid,
+                    'about',
+                    publishId,
+                    'blocknote-singleton',
+                    startFailureReason(error),
                 );
             }
         }

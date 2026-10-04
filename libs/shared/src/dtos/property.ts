@@ -5,6 +5,11 @@ export const PropertyScopeSchema = z.enum(['public', 'staff', 'guest']);
 // Lowercase, numbers, single hyphens between segments — no leading/trailing/double hyphens.
 export const PROPERTY_SLUG_REGEX = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
+export const PetFriendlySchema = z.enum(['Pet Friendly', 'Dog Friendly', 'Cat Friendly', 'No Pets']);
+// youtube.com/watch?v=, youtu.be/, youtube.com/embed/, youtube.com/shorts/ — raw URL kept as entered.
+export const YOUTUBE_URL_REGEX = /^https?:\/\/(?:www\.|m\.)?(?:youtube\.com\/(?:watch\?(?:.*&)?v=|embed\/|shorts\/)|youtu\.be\/)[\w-]{11}(?:[?&#].*)?$/;
+export const VideoUrlsSchema = z.array(z.string().regex(YOUTUBE_URL_REGEX, 'must be a YouTube link'));
+
 const UnitInputSchema = z.object({
     uuid: z.string().uuid().optional(),
     title: z.string(),
@@ -26,12 +31,15 @@ const UnitInputSchema = z.object({
     condition: z.string().nullable().optional(),
     furnishing: z.string().nullable().optional(),
     ownership: z.enum(['Freehold', 'Leasehold']).nullable().optional(),
-    petFriendly: z.boolean().optional(),
-    multipurposeRoom: z.boolean().optional(),
+    petFriendly: PetFriendlySchema.nullable().optional(),
+    multipurposeRoom: z.number().nullable().optional(),
     poolVilla: z.boolean().optional(),
     livingRoom: z.number().nullable().optional(),
     commonAreaFees: z.number().nullable().optional(),
     sinkingFund: z.number().nullable().optional(),
+    commonAreaFeesOverridden: z.boolean().optional(),
+    sinkingFundOverridden: z.boolean().optional(),
+    videos: VideoUrlsSchema.optional(),
     bookingFees: z.string().nullable().optional(),
     contractFees: z.string().nullable().optional(),
     contractFeesTimeline: z.string().nullable().optional(),
@@ -69,6 +77,12 @@ export const CreatePropertySchema = z.object({
     isLeasehold: z.boolean().optional(),
     swimmingPool: z.boolean().optional(),
     completion: z.enum(['Ready to Move', 'Off Plan']).nullable().optional(),
+    completionDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'must be YYYY-MM-DD').nullable().optional(),
+    totalFloor: z.number().int().nonnegative().nullable().optional(),
+    petFriendly: PetFriendlySchema.optional(),
+    commonAreaFees: z.number().nonnegative().nullable().optional(),
+    sinkingFund: z.number().nonnegative().nullable().optional(),
+    videos: VideoUrlsSchema.optional(),
     brochure: z.string().nullable().optional(),
     image: z.string().nullable().optional(),
     images: z.array(z.string()).optional(),
@@ -103,6 +117,12 @@ export const UpdatePropertySchema = z.object({
     isLeasehold: z.boolean().optional(),
     swimmingPool: z.boolean().optional(),
     completion: z.enum(['Ready to Move', 'Off Plan']).nullable().optional(),
+    completionDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'must be YYYY-MM-DD').nullable().optional(),
+    totalFloor: z.number().int().nonnegative().nullable().optional(),
+    petFriendly: PetFriendlySchema.optional(),
+    commonAreaFees: z.number().nonnegative().nullable().optional(),
+    sinkingFund: z.number().nonnegative().nullable().optional(),
+    videos: VideoUrlsSchema.optional(),
     brochure: z.string().nullable().optional(),
     image: z.string().nullable().optional(),
     images: z.array(z.string()).optional(),

@@ -5,3 +5,4 @@ export * from './utils/locations';
 export * from './middleware';
 export * from './types';
 export * from './dtos';
+export * from './utils/property';
