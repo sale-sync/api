@@ -65,6 +65,11 @@ export type InstallmentPaymentTimeline =
     | 'Pay every 6 Months'
     | 'Pay every 12 Months';
 
+// Draft/published state of a property or unit, computed on dashboard reads (never stored):
+// 'unpublished' = never published, 'published' = live copy matches the draft, 'changed' = live copy
+// exists but the draft has edits that aren't published yet.
+export type PropertyPublishStatus = 'unpublished' | 'published' | 'changed';
+
 export type Unit = {
     uuid: string;
     title: string;
@@ -117,6 +122,8 @@ export type Unit = {
     installmentPayment: string | null;
     installmentPaymentTimeline: InstallmentPaymentTimeline | null;
     currency: PropertyCurrency;
+    // Dashboard reads only (see PropertyPublishStatus) — absent on the public read path.
+    publishStatus?: PropertyPublishStatus;
 };
 
 export type Property = {
@@ -161,6 +168,9 @@ export type Property = {
     description: string | null;
     payment: string | null;
     units: Unit[];
+    // Dashboard reads only (see PropertyPublishStatus) — absent on the public read path.
+    publishStatus?: PropertyPublishStatus;
+    published_at?: string | null;
     created_at: string;
     updated_at: string;
 };

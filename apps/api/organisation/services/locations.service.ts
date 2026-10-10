@@ -152,7 +152,15 @@ export class LocationsService extends Service {
     // a Hero rebake on its own (see backlogs/real-estate-template/children/locations-page-ssr-split's
     // whole point: decouple Hero-bake frequency from location-list churn). Also fire-and-forget
     // invokes publish-location-detail-page with only the slug(s) that actually changed.
-    public async publish(orgUuid: string): Promise<LocationsRecord> {
+    //
+    // `rebakeListing` forces the listing-page generator even when hero/seo are unchanged. The
+    // Hero card on /location-listing sends it: publishing there means "make the live page match this",
+    // which must work when nothing was edited (e.g. the site was rebuilt/redeployed and its baked Hero
+    // was overwritten by the static template, or an earlier bake failed). Without it that publish saved
+    // nothing new, invoked nothing, and silently left the page stale; Home never had this problem because
+    // it always bakes. The location-list publish (LocationsPage) never sends it, so list churn still
+    // can't trigger a Hero rebake.
+    public async publish(orgUuid: string, options: { rebakeListing?: boolean } = {}): Promise<LocationsRecord> {
         const current = await this.get(orgUuid);
         if (!current.draft) {
             throw new NoDraftToPublishError();
@@ -163,7 +171,8 @@ export class LocationsService extends Service {
         // never baked until the Hero next changed.
         const heroOrSeoChanged =
             JSON.stringify(current.data?.hero) !== JSON.stringify(current.draft.hero) ||
-            JSON.stringify(current.data?.seo) !== JSON.stringify(current.draft.seo);
+            JSON.stringify(current.data?.seo) !== JSON.stringify(current.draft.seo) ||
+            options.rebakeListing === true;
 
         const updated: LocationsRecord = {
             ...current,

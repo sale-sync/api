@@ -80,7 +80,18 @@ class LocationsController extends Controller implements IControllerMethods {
         try {
             await this.organisationService.assertCanManageTeam(organisation.uuid, organisation.user_id);
 
-            const updated = await this.locationsService.publish(organisation.uuid);
+            // Optional body: { rebakeListing: true } from the Hero card (see LocationsService.publish()).
+            // Only a literal `true` counts; anything else, including no body, is the plain publish.
+            let rebakeListing = false;
+            if (event.body) {
+                try {
+                    rebakeListing = JSON.parse(event.body)?.rebakeListing === true;
+                } catch {
+                    rebakeListing = false;
+                }
+            }
+
+            const updated = await this.locationsService.publish(organisation.uuid, { rebakeListing });
 
             return {
                 statusCode: 200,

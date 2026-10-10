@@ -167,6 +167,23 @@ Parameters:
             flipping draft -> data, to bake the published Hero + SEO into
             real-estate-properties-page's deployed dist/properties HTML and
             ssr/properties JSON.
+    PublishPropertyDetailPageFunctionName:
+        Type: String
+        Description: >
+            Name of ss/infra's PublishPropertyDetailPageFunction (see
+            backlogs/real-estate-template/children/property-detail-pages) —
+            cross-stack reference, same convention as the parameters above.
+            PropertyService.publishProperty()/deleteProperty() invoke it
+            fire-and-forget to bake/remove the per-slug SEO page at
+            properties/<slug> + ssr/properties/<slug>.
+    PublishPropertyUnitDetailPageFunctionName:
+        Type: String
+        Description: >
+            Name of ss/infra's PublishPropertyUnitDetailPageFunction —
+            cross-stack reference, as above. PropertyService.publishUnit()/
+            deleteUnit() (and publishProperty() when a slug or scope change
+            moves the unit pages) invoke it fire-and-forget to bake/remove
+            per-unit SEO pages at properties/<slug>/units/<unit-id>.
 
 Globals:
     Function:
@@ -247,6 +264,9 @@ Resources:
                     PUBLISH_FAQ_PAGE_FUNCTION_NAME: !Ref PublishFaqPageFunctionName
                     PUBLISH_REAL_ESTATE_MAP_VIEW_PAGE_FUNCTION_NAME: !Ref PublishRealEstateMapViewPageFunctionName
                     PUBLISH_REAL_ESTATE_PROPERTIES_PAGE_FUNCTION_NAME: !Ref PublishRealEstatePropertiesPageFunctionName
+                    # Only SocialsService.publish() invokes it from here (footer_only re-bake of the existing
+                    # property/unit detail pages); the properties app owns the normal per-property bakes.
+                    PUBLISH_PROPERTY_DETAIL_PAGE_FUNCTION_NAME: !Ref PublishPropertyDetailPageFunctionName
             Policies:
                 - AWSLambdaBasicExecutionRole
                 - DynamoDBCrudPolicy:
@@ -320,6 +340,12 @@ Resources:
                         # Same cross-stack idiom as the ten grants above — publish-real-estate-properties-page
                         # also lives in ss/infra.
                         Resource: !Sub 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${PublishRealEstatePropertiesPageFunctionName}'
+                - Statement:
+                      - Effect: Allow
+                        Action: lambda:InvokeFunction
+                        # Same cross-stack idiom as the grants above — publish-property-detail-page also
+                        # lives in ss/infra (SocialsService.publish()'s footer_only re-bake).
+                        Resource: !Sub 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${PublishPropertyDetailPageFunctionName}'
             Events:
                 ApiRouter:
                     Type: Api
@@ -562,12 +588,22 @@ Resources:
             Environment:
                 Variables:
                     PROPERTY_TABLE_NAME: !Ref PropertyTableName
+                    PUBLISH_PROPERTY_DETAIL_PAGE_FUNCTION_NAME: !Ref PublishPropertyDetailPageFunctionName
+                    PUBLISH_PROPERTY_UNIT_DETAIL_PAGE_FUNCTION_NAME: !Ref PublishPropertyUnitDetailPageFunctionName
             Policies:
                 - AWSLambdaBasicExecutionRole
                 - DynamoDBCrudPolicy:
                       TableName: !Ref PropertyTableName
                 - DynamoDBReadPolicy:
                       TableName: !Ref OrganisationTableName
+                - Statement:
+                      - Effect: Allow
+                        Action: lambda:InvokeFunction
+                        # Cross-stack idiom, same as OrganisationDefaultFunction's grants — the two
+                        # property page generators live in ss/infra.
+                        Resource:
+                            - !Sub 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${PublishPropertyDetailPageFunctionName}'
+                            - !Sub 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${PublishPropertyUnitDetailPageFunctionName}'
             Events:
                 ApiRouter:
                     Type: Api
@@ -586,12 +622,22 @@ Resources:
             Environment:
                 Variables:
                     PROPERTY_TABLE_NAME: !Ref PropertyTableName
+                    PUBLISH_PROPERTY_DETAIL_PAGE_FUNCTION_NAME: !Ref PublishPropertyDetailPageFunctionName
+                    PUBLISH_PROPERTY_UNIT_DETAIL_PAGE_FUNCTION_NAME: !Ref PublishPropertyUnitDetailPageFunctionName
             Policies:
                 - AWSLambdaBasicExecutionRole
                 - DynamoDBCrudPolicy:
                       TableName: !Ref PropertyTableName
                 - DynamoDBReadPolicy:
                       TableName: !Ref OrganisationTableName
+                - Statement:
+                      - Effect: Allow
+                        Action: lambda:InvokeFunction
+                        # Cross-stack idiom, same as OrganisationDefaultFunction's grants — the two
+                        # property page generators live in ss/infra.
+                        Resource:
+                            - !Sub 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${PublishPropertyDetailPageFunctionName}'
+                            - !Sub 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${PublishPropertyUnitDetailPageFunctionName}'
             Events:
                 ApiRouter:
                     Type: Api

@@ -139,7 +139,14 @@ export class ArticlesService extends Service {
     // also holds the article list, which changes far more often than the Hero and must never trigger
     // a Hero rebake on its own (see backlogs/real-estate-template/children/articles-page-ssr-split's
     // whole point: decouple Hero-bake frequency from article-list churn).
-    public async publish(orgUuid: string): Promise<ArticlesRecord> {
+    //
+    // `rebakeListing` forces the listing-page generator even when hero/seo are unchanged. The Hero card
+    // on /article-listing sends it: publishing there means "make the live page match this", which must
+    // work when nothing was edited (e.g. the site was rebuilt/redeployed and its baked Hero was
+    // overwritten by the static template, or an earlier bake failed). Without it that publish saved
+    // nothing new, invoked nothing, and silently left the page stale. The article-list publish
+    // (ArticlesPage) never sends it, so list churn still can't trigger a Hero rebake.
+    public async publish(orgUuid: string, options: { rebakeListing?: boolean } = {}): Promise<ArticlesRecord> {
         const current = await this.get(orgUuid);
         if (!current.draft) {
             throw new NoDraftToPublishError();
@@ -150,7 +157,8 @@ export class ArticlesService extends Service {
         // never baked until the Hero next changed.
         const heroOrSeoChanged =
             JSON.stringify(current.data?.hero) !== JSON.stringify(current.draft.hero) ||
-            JSON.stringify(current.data?.seo) !== JSON.stringify(current.draft.seo);
+            JSON.stringify(current.data?.seo) !== JSON.stringify(current.draft.seo) ||
+            options.rebakeListing === true;
 
         const updated: ArticlesRecord = {
             ...current,

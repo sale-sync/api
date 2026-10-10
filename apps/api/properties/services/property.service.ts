@@ -1,10 +1,11 @@
-import { DynamoDBClient, TransactionCanceledException } from '@aws-sdk/client-dynamodb';
-import { GetCommand, QueryCommand, TransactWriteCommand } from '@aws-sdk/lib-dynamodb';
+import { ConditionalCheckFailedException, DynamoDBClient, TransactionCanceledException } from '@aws-sdk/client-dynamodb';
+import { GetCommand, QueryCommand, TransactWriteCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
+import { LambdaClient, InvokeCommand } from '@aws-sdk/client-lambda';
 import { Service } from '@devyethiha/samjs';
 import { MARKET_CURRENCY } from '@sale-sync/shared/src/types';
-import type { Organisation, OrganisationRole, OrganisationUser, Property, PropertyCurrency, PropertyScope, PropertyType, Unit } from '@sale-sync/shared/src/types';
+import type { Organisation, OrganisationRole, OrganisationUser, Property, PropertyCurrency, PropertyScope, PropertyType, PropertyPublishStatus, Unit } from '@sale-sync/shared/src/types';
 import { normalizeStoredProperty, normalizeUnitFees } from '@sale-sync/shared/src/utils/property';
-import type { CreatePropertyInput, UpdatePropertyInput } from '@sale-sync/shared/src/dtos';
+import type { CreatePropertyInput, CreateUnitInput, UpdatePropertyInput, UpdateUnitInput } from '@sale-sync/shared/src/dtos';
 import { v4 as uuidv4 } from 'uuid';
 
 const TABLE = process.env.PROPERTY_TABLE_NAME || 'sale-sync-properties';
@@ -38,6 +39,77 @@ export class SlugAlreadyExistsError extends Error {
     }
 }
 
+export class UnitNotFoundError extends Error {
+    constructor(unitUuid: string) {
+        super(`Unit '${unitUuid}' not found`);
+        this.name = 'UnitNotFoundError';
+    }
+}
+
+// The draft changed between this request reading it and writing it (another tab, another user, or a
+// unit save racing a property save) — the caller should reload and retry rather than overwrite.
+export class ConcurrentModificationError extends Error {
+    constructor() {
+        super('This property was changed by someone else while you were saving. Reload and try again.');
+        this.name = 'ConcurrentModificationError';
+    }
+}
+
+export class PropertyNotPublishedError extends Error {
+    constructor(propertyUuid: string) {
+        super(`Property '${propertyUuid}' must be published before its units can be published`);
+        this.name = 'PropertyNotPublishedError';
+    }
+}
+
+// Same fire-and-forget cross-stack invoke idiom the organisation app's services use — the two
+// generator Lambdas (publish-property-detail-page / publish-property-unit-detail-page) live in
+// ss/infra, a different SAM stack. Unlike the table names, these are deliberately allowed to be
+// unset: until a generator is deployed the publish itself must still succeed, it just bakes nothing.
+const PUBLISH_PROPERTY_DETAIL_PAGE_FUNCTION_NAME = process.env.PUBLISH_PROPERTY_DETAIL_PAGE_FUNCTION_NAME;
+const PUBLISH_PROPERTY_UNIT_DETAIL_PAGE_FUNCTION_NAME = process.env.PUBLISH_PROPERTY_UNIT_DETAIL_PAGE_FUNCTION_NAME;
+const lambdaClient = new LambdaClient({});
+
+async function invokeGenerator(functionName: string | undefined, label: string, payload: Record<string, unknown>): Promise<void> {
+    if (!functionName) {
+        console.warn(`${label} function name is not configured — skipping page generation`);
+        return;
+    }
+    try {
+        await lambdaClient.send(new InvokeCommand({ FunctionName: functionName, InvocationType: 'Event', Payload: JSON.stringify(payload) }));
+    } catch (error) {
+        // The publish itself already succeeded — a failed bake must not turn it into an error.
+        console.error(`Failed to invoke ${label} — published, but page generation was not started`, error);
+    }
+}
+
+// Key-order-independent JSON, so two copies of the same unit/property compare equal regardless of
+// how their objects were built.
+function stableStringify(value: unknown): string {
+    if (Array.isArray(value)) return `[${value.map(stableStringify).join(',')}]`;
+    if (value && typeof value === 'object') {
+        const obj = value as Record<string, unknown>;
+        return `{${Object.keys(obj)
+            .sort()
+            .filter((key) => obj[key] !== undefined)
+            .map((key) => `${JSON.stringify(key)}:${stableStringify(obj[key])}`)
+            .join(',')}}`;
+    }
+    return JSON.stringify(value);
+}
+
+// Property fields that don't count as a publishable edit: units publish on their own, the rest are
+// bookkeeping.
+function propertyContent(property: Property): string {
+    const { units: _units, created_at: _c, updated_at: _u, publishStatus: _s, published_at: _p, ...content } = property;
+    return stableStringify(content);
+}
+
+function unitContent(unit: Unit): string {
+    const { publishStatus: _s, ...content } = unit;
+    return stableStringify(content);
+}
+
 // See docs/api/dynamodb/access-patterns/properties.md for the full key-schema rationale.
 const pk = (orgUuid: string) => `ORG#${orgUuid}#PROPERTY`;
 const sk = (propertyUuid: string) => `PROPERTY#${propertyUuid}`;
@@ -62,6 +134,12 @@ const gsi4sk = (propertyUuid: string) => `PROPERTY#${propertyUuid}`;
 // property slugs not to collide with each other.
 const slugPk = (orgUuid: string, slug: string) => `ORG#${orgUuid}#PROPERTY#SLUG#${slug}`;
 const SLUG_SK = 'META';
+
+// The first TransactItem in updateProperty is always the main item's Update, so a failed condition
+// there (CancellationReasons[0]) means the optimistic lock, not the slug-uniqueness Put.
+function isMainItemConditionFailure(error: unknown): boolean {
+    return error instanceof TransactionCanceledException && error.CancellationReasons?.[0]?.Code === 'ConditionalCheckFailed';
+}
 
 function isConditionalCheckFailure(error: unknown): boolean {
     return error instanceof TransactionCanceledException && (error.CancellationReasons ?? []).some((r) => r.Code === 'ConditionalCheckFailed');
@@ -123,8 +201,6 @@ export class PropertyService extends Service {
             updated_at: now,
         };
 
-        property.units = (input.units ?? []).map((unit) => this.normalizeUnit(unit, currency, property));
-
         try {
             await this.DB_Client.send(
                 new TransactWriteCommand({
@@ -160,7 +236,7 @@ export class PropertyService extends Service {
             throw error;
         }
 
-        return property;
+        return { ...property, publishStatus: 'unpublished', published_at: null };
     }
 
     // Get a single property by ID, scoped to what viewerRole is allowed to see (per
@@ -299,8 +375,9 @@ export class PropertyService extends Service {
 
     // Update a property. Rewrites GSI1/GSI2/GSI3 attributes in place if their source fields change.
     public async updateProperty(orgUuid: string, propertyUuid: string, updates: Omit<UpdatePropertyInput, 'property_uuid'>): Promise<Property> {
-        const existing = await this.getPropertyRecord(orgUuid, propertyUuid);
-        if (!existing) throw new PropertyNotFoundError(propertyUuid);
+        const raw = await this.getRawItem(orgUuid, propertyUuid);
+        if (!raw) throw new PropertyNotFoundError(propertyUuid);
+        const existing = this.parseStored(raw.data as string);
 
         const currency = updates.currency !== undefined ? updates.currency : existing.currency;
 
@@ -342,10 +419,10 @@ export class PropertyService extends Service {
             updated_at: new Date().toISOString(),
         };
 
-        // Units are re-normalized on every update — not just when the payload carries units — because
-        // a changed currency or fee rate cascades onto every existing unit (non-overridden fees are
-        // unitSize x Property rate), even ones absent from this payload.
-        updated.units = (updates.units ?? existing.units).map((unit) => this.normalizeUnit(unit, currency, updated));
+        // Units aren't part of this payload any more (they have their own endpoints) but are still
+        // re-normalized on every property update, because a changed currency or fee rate cascades onto
+        // every existing unit (non-overridden fees are unitSize x Property rate).
+        updated.units = existing.units.map((unit) => this.normalizeUnit(unit, currency, updated));
 
         // GSI3 (region) and GSI4 (postcode) are both sparse — SET when their source field is
         // populated, REMOVE (not just cleared) when it isn't, same pattern GSI3 already used before
@@ -388,9 +465,13 @@ export class PropertyService extends Service {
                                 TableName: TABLE,
                                 Key: { PK: pk(orgUuid), SK: sk(propertyUuid) },
                                 UpdateExpression: updateExpression,
+                                // Optimistic lock: refuse to overwrite a draft that changed since it was read
+                                // (e.g. a unit saved from another tab in the meantime).
+                                ConditionExpression: '#data = :prevData',
                                 ExpressionAttributeNames: { '#data': 'data' },
                                 ExpressionAttributeValues: {
                                     ':data': JSON.stringify(updated),
+                                    ':prevData': raw.data as string,
                                     ...gsiValues,
                                 },
                             },
@@ -417,17 +498,20 @@ export class PropertyService extends Service {
                 }),
             );
         } catch (error) {
+            if (isMainItemConditionFailure(error)) throw new ConcurrentModificationError();
             if (isConditionalCheckFailure(error)) throw new SlugAlreadyExistsError(updates.slug as string);
             throw error;
         }
 
-        return updated;
+        return this.annotate(updated, raw.published ? this.parseStored(raw.published as string) : null, (raw.published_at as string | undefined) ?? null);
     }
 
     // Delete a property. Also removes its slug lookup item, if it had one, so nothing dangles.
     public async deleteProperty(orgUuid: string, propertyUuid: string): Promise<void> {
-        const existing = await this.getPropertyRecord(orgUuid, propertyUuid);
-        if (!existing) return;
+        const raw = await this.getRawItem(orgUuid, propertyUuid);
+        if (!raw) return;
+        const existing = this.parseStored(raw.data as string);
+        const published = raw.published ? this.parseStored(raw.published as string) : null;
 
         await this.DB_Client.send(
             new TransactWriteCommand({
@@ -437,6 +521,204 @@ export class PropertyService extends Service {
                 ],
             }),
         );
+
+        // Remove whatever was baked: the property's page and every published unit's page. Nothing was
+        // baked if it was never published.
+        if (published?.slug) {
+            await invokeGenerator(PUBLISH_PROPERTY_DETAIL_PAGE_FUNCTION_NAME, 'publish-property-detail-page', {
+                organisation_uuid: orgUuid,
+                property_uuid: propertyUuid,
+                removed_slugs: [published.slug],
+            });
+            await invokeGenerator(PUBLISH_PROPERTY_UNIT_DETAIL_PAGE_FUNCTION_NAME, 'publish-property-unit-detail-page', {
+                organisation_uuid: orgUuid,
+                property_uuid: propertyUuid,
+                removed: published.units.map((unit) => ({ property_slug: published.slug, unit_uuid: unit.uuid })),
+            });
+        }
+    }
+
+    // ── Units ───────────────────────────────────────────────
+    // Units stay embedded on the property item (docs/api/dynamodb/access-patterns/properties.md: they
+    // are only ever read with their parent, and the public read path wants them in one point read), but
+    // each one is created/edited/deleted/published through its own call. Every write below is a
+    // read-modify-write guarded by the same optimistic lock as updateProperty, so two saves racing can't
+    // silently drop each other's unit.
+
+    public async createUnit(orgUuid: string, input: CreateUnitInput): Promise<Unit> {
+        const { property_uuid, ...fields } = input;
+        const { raw, draft } = await this.loadDraft(orgUuid, property_uuid);
+
+        const unit = this.normalizeUnit(fields, draft.currency, draft);
+        await this.writeDraft(raw, { ...draft, units: [...draft.units, unit], updated_at: new Date().toISOString() });
+        return { ...unit, publishStatus: 'unpublished' };
+    }
+
+    public async getUnit(orgUuid: string, propertyUuid: string, unitUuid: string, viewerRole: OrganisationRole | null): Promise<Unit | null> {
+        const property = await this.getPropertyById(orgUuid, propertyUuid, viewerRole);
+        return property?.units.find((unit) => unit.uuid === unitUuid) ?? null;
+    }
+
+    public async updateUnit(orgUuid: string, input: UpdateUnitInput): Promise<Unit> {
+        const { property_uuid, unit_uuid, ...updates } = input;
+        const { raw, draft, published } = await this.loadDraft(orgUuid, property_uuid);
+
+        const existing = draft.units.find((unit) => unit.uuid === unit_uuid);
+        if (!existing) throw new UnitNotFoundError(unit_uuid);
+
+        const definedUpdates = Object.fromEntries(Object.entries(updates).filter(([, value]) => value !== undefined));
+        const updated = this.normalizeUnit({ ...existing, ...definedUpdates, uuid: unit_uuid } as Partial<Unit> & { title: string }, draft.currency, draft);
+        await this.writeDraft(raw, {
+            ...draft,
+            units: draft.units.map((unit) => (unit.uuid === unit_uuid ? updated : unit)),
+            updated_at: new Date().toISOString(),
+        });
+
+        const live = published?.units.find((unit) => unit.uuid === unit_uuid);
+        return { ...updated, publishStatus: !live ? 'unpublished' : unitContent(live) === unitContent(updated) ? 'published' : 'changed' };
+    }
+
+    // Deleting is immediate on the public side too: a deleted unit is removed from the published
+    // snapshot in the same write (there is nothing to "unpublish" afterwards), and its baked page is
+    // removed.
+    public async deleteUnit(orgUuid: string, propertyUuid: string, unitUuid: string): Promise<void> {
+        const { raw, draft, published } = await this.loadDraft(orgUuid, propertyUuid);
+        if (!draft.units.some((unit) => unit.uuid === unitUuid)) return;
+
+        const wasPublished = !!published?.units.some((unit) => unit.uuid === unitUuid);
+        await this.writeDraft(
+            raw,
+            { ...draft, units: draft.units.filter((unit) => unit.uuid !== unitUuid), updated_at: new Date().toISOString() },
+            wasPublished && published ? { ...published, units: published.units.filter((unit) => unit.uuid !== unitUuid) } : undefined,
+        );
+
+        if (wasPublished && published?.slug) {
+            await invokeGenerator(PUBLISH_PROPERTY_UNIT_DETAIL_PAGE_FUNCTION_NAME, 'publish-property-unit-detail-page', {
+                organisation_uuid: orgUuid,
+                property_uuid: propertyUuid,
+                removed: [{ property_slug: published.slug, unit_uuid: unitUuid }],
+            });
+        }
+    }
+
+    // ── Publishing ──────────────────────────────────────────
+
+    // Copies the draft's property fields onto the published snapshot. Published units are left exactly
+    // as they are — each unit publishes on its own.
+    public async publishProperty(orgUuid: string, propertyUuid: string): Promise<Property> {
+        const { raw, draft, published } = await this.loadDraft(orgUuid, propertyUuid);
+
+        const next: Property = { ...draft, units: published?.units ?? [] };
+        const publishedAt = new Date().toISOString();
+        await this.writePublished(raw, next, publishedAt);
+
+        // Unit pages live under the property's slug (/properties/<slug>/units/<id>) and only exist for a
+        // public property, so a slug change or a scope change (public <-> staff/guest) re-bakes, or
+        // removes, every published unit's page. The generator turns "bake" into "delete" for a
+        // property that is no longer public, so the payload is the same either way.
+        const previousSlug = published?.slug ?? null;
+        const slugChanged = !!previousSlug && previousSlug !== next.slug;
+        const scopeChanged = !!published && (published.scope === 'public') !== (next.scope === 'public');
+        await invokeGenerator(PUBLISH_PROPERTY_DETAIL_PAGE_FUNCTION_NAME, 'publish-property-detail-page', {
+            organisation_uuid: orgUuid,
+            property_uuid: propertyUuid,
+            slug: next.slug,
+            removed_slugs: slugChanged ? [previousSlug] : [],
+        });
+        if ((slugChanged || scopeChanged) && next.units.length > 0) {
+            await invokeGenerator(PUBLISH_PROPERTY_UNIT_DETAIL_PAGE_FUNCTION_NAME, 'publish-property-unit-detail-page', {
+                organisation_uuid: orgUuid,
+                property_uuid: propertyUuid,
+                property_slug: next.slug,
+                unit_uuids: next.units.map((unit) => unit.uuid),
+                removed: slugChanged ? next.units.map((unit) => ({ property_slug: previousSlug, unit_uuid: unit.uuid })) : [],
+            });
+        }
+
+        return this.annotate(draft, next, publishedAt);
+    }
+
+    // Copies one unit from the draft onto the published snapshot. Requires the property itself to be
+    // published first — an unpublished property has no public page for the unit to hang off.
+    public async publishUnit(orgUuid: string, propertyUuid: string, unitUuid: string): Promise<Unit> {
+        const { raw, draft, published } = await this.loadDraft(orgUuid, propertyUuid);
+        if (!published) throw new PropertyNotPublishedError(propertyUuid);
+
+        const unit = draft.units.find((candidate) => candidate.uuid === unitUuid);
+        if (!unit) throw new UnitNotFoundError(unitUuid);
+
+        const units = published.units.some((candidate) => candidate.uuid === unitUuid)
+            ? published.units.map((candidate) => (candidate.uuid === unitUuid ? unit : candidate))
+            : [...published.units, unit];
+        await this.writePublished(raw, { ...published, units }, (raw.published_at as string | undefined) ?? new Date().toISOString());
+
+        await invokeGenerator(PUBLISH_PROPERTY_UNIT_DETAIL_PAGE_FUNCTION_NAME, 'publish-property-unit-detail-page', {
+            organisation_uuid: orgUuid,
+            property_uuid: propertyUuid,
+            property_slug: published.slug,
+            unit_uuids: [unitUuid],
+            removed: [],
+        });
+
+        return { ...unit, publishStatus: 'published' };
+    }
+
+    private async loadDraft(orgUuid: string, propertyUuid: string): Promise<{ raw: Record<string, unknown>; draft: Property; published: Property | null }> {
+        const raw = await this.getRawItem(orgUuid, propertyUuid);
+        if (!raw) throw new PropertyNotFoundError(propertyUuid);
+        return {
+            raw,
+            draft: this.parseStored(raw.data as string),
+            published: raw.published ? this.parseStored(raw.published as string) : null,
+        };
+    }
+
+    // Writes a new draft (and optionally a new published snapshot in the same update), only if the
+    // stored draft is still exactly what was read.
+    private async writeDraft(raw: Record<string, unknown>, draft: Property, published?: Property): Promise<void> {
+        try {
+            await this.DB_Client.send(
+                new UpdateCommand({
+                    TableName: TABLE,
+                    Key: { PK: raw.PK as string, SK: raw.SK as string },
+                    UpdateExpression: published ? 'SET #data = :data, published = :published' : 'SET #data = :data',
+                    ConditionExpression: '#data = :prevData',
+                    ExpressionAttributeNames: { '#data': 'data' },
+                    ExpressionAttributeValues: {
+                        ':data': JSON.stringify(draft),
+                        ':prevData': raw.data as string,
+                        ...(published && { ':published': JSON.stringify(published) }),
+                    },
+                }),
+            );
+        } catch (error) {
+            if (error instanceof ConditionalCheckFailedException) throw new ConcurrentModificationError();
+            throw error;
+        }
+    }
+
+    // Writes the published snapshot only if the draft is still what was read, so publishing never
+    // goes live with something other than what the user last saw.
+    private async writePublished(raw: Record<string, unknown>, published: Property, publishedAt: string): Promise<void> {
+        try {
+            await this.DB_Client.send(
+                new UpdateCommand({
+                    TableName: TABLE,
+                    Key: { PK: raw.PK as string, SK: raw.SK as string },
+                    UpdateExpression: 'SET published = :published, published_at = :publishedAt',
+                    ConditionExpression: '#data = :prevData',
+                    ExpressionAttributeNames: { '#data': 'data' },
+                    ExpressionAttributeValues: {
+                        ':published': JSON.stringify(published),
+                        ':publishedAt': publishedAt,
+                        ':prevData': raw.data as string,
+                    },
+                }),
+            );
+        } catch (error) {
+            if (error instanceof ConditionalCheckFailedException) throw new ConcurrentModificationError();
+            throw error;
+        }
     }
 
     // currency is always set from the property-level value, ignoring any per-unit currency the
@@ -502,18 +784,47 @@ export class PropertyService extends Service {
     // Existing records written before `scope`/`slug` existed have neither attribute — default
     // scope to 'staff' (internal-only) rather than a bulk migration, so nothing unexpectedly leaks
     // public; slug simply stays null (not publicly linkable until edited to add one).
-    private parseItem(data: string): Property {
+    private parseStored(data: string): Property {
         const property = JSON.parse(data) as Property;
         return normalizeStoredProperty({ ...property, scope: property.scope ?? 'staff', slug: property.slug ?? null });
     }
 
+    // A stored item holds two copies: `data` is the draft (what the dashboard edits and what every
+    // GSI is derived from) and `published` is the last-published snapshot (what the public website
+    // reads, via queries-api). Dashboard reads return the draft, annotated with each entity's
+    // publish state so the UI can show "unpublished" / "changed" without a second request.
+    private parseItem(item: Record<string, unknown>): Property {
+        const draft = this.parseStored(item.data as string);
+        const published = item.published ? this.parseStored(item.published as string) : null;
+        return this.annotate(draft, published, (item.published_at as string | undefined) ?? null);
+    }
+
+    private annotate(draft: Property, published: Property | null, publishedAt: string | null): Property {
+        const publishedUnits = new Map((published?.units ?? []).map((unit) => [unit.uuid, unit]));
+        const status = (isPublished: boolean, same: boolean): PropertyPublishStatus => (!isPublished ? 'unpublished' : same ? 'published' : 'changed');
+        return {
+            ...draft,
+            publishStatus: status(!!published, !!published && propertyContent(published) === propertyContent(draft)),
+            published_at: publishedAt,
+            units: draft.units.map((unit) => {
+                const live = publishedUnits.get(unit.uuid);
+                return { ...unit, publishStatus: status(!!live, !!live && unitContent(live) === unitContent(unit)) };
+            }),
+        };
+    }
+
     private parseItems(items: Record<string, unknown>[] | undefined): Property[] {
-        return (items ?? []).map((item) => this.parseItem(item.data as string));
+        return (items ?? []).map((item) => this.parseItem(item));
     }
 
     // Unfiltered single-item read, for internal use only (e.g. updateProperty's existence check) —
     // never expose this directly to a controller; use getPropertyById (viewer-scoped) for that.
     private async getPropertyRecord(orgUuid: string, propertyUuid: string): Promise<Property | null> {
+        const raw = await this.getRawItem(orgUuid, propertyUuid);
+        return raw ? this.parseItem(raw) : null;
+    }
+
+    private async getRawItem(orgUuid: string, propertyUuid: string): Promise<Record<string, unknown> | null> {
         const res = await this.DB_Client.send(
             new GetCommand({
                 TableName: TABLE,
@@ -521,7 +832,7 @@ export class PropertyService extends Service {
             }),
         );
 
-        return res.Item ? this.parseItem(res.Item.data as string) : null;
+        return (res.Item as Record<string, unknown> | undefined) ?? null;
     }
 
     // Audience rule (content-scope-visibility): 'guest'-role viewers see public+guest scope only;

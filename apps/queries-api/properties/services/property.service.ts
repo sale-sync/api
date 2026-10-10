@@ -51,8 +51,14 @@ export class PropertyService extends Service {
         );
         if (!res.Item) return null;
 
-        const property = normalizeStoredProperty(JSON.parse(res.Item.data as string) as Property);
-        return property.scope === 'public' ? property : null;
+        // Only the last-PUBLISHED snapshot is ever served (api/properties's draft/published model) —
+        // `data` is the dashboard's working draft and must never reach the public website. A property
+        // that was never published has no `published` attribute and is simply not found here.
+        const property = this.parsePublished(res.Item);
+        if (!property || property.scope !== 'public') return null;
+        // The slug lookup follows the draft's slug, which can run ahead of the published one until the
+        // next publish — a slug that isn't the published one isn't live yet.
+        return property.slug === slug ? property : null;
     }
 
     // All of an org's public properties — the initial, unfiltered fetch property-map-view loads
@@ -165,9 +171,18 @@ export class PropertyService extends Service {
 
     // Parse + drop anything that isn't scope: 'public' — every list method funnels through this, so
     // the "public only" rule lives in exactly one place.
+    //
+    // Always reads the published snapshot, never the draft `data` — the location GSIs these queries
+    // run against are derived from the draft, so an unpublished location edit can briefly change which
+    // filter a property appears under, but never what it shows.
     private parsePublicItems(items: Record<string, unknown>[] | undefined): Property[] {
         return (items ?? [])
-            .map((item) => normalizeStoredProperty(JSON.parse(item.data as string) as Property))
-            .filter((property) => property.scope === 'public');
+            .map((item) => this.parsePublished(item))
+            .filter((property): property is Property => property !== null && property.scope === 'public');
+    }
+
+    private parsePublished(item: Record<string, unknown>): Property | null {
+        if (typeof item.published !== 'string') return null;
+        return normalizeStoredProperty(JSON.parse(item.published) as Property);
     }
 }

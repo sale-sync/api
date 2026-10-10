@@ -81,7 +81,18 @@ class FaqController extends Controller implements IControllerMethods {
         try {
             await this.organisationService.assertCanManageTeam(organisation.uuid, organisation.user_id);
 
-            const updated = await this.faqService.publish(organisation.uuid);
+            // Optional body: { rebakeHero: true } from the Hero card (see FaqService.publish()). Only a
+            // literal `true` counts; anything else, including no body, is the plain publish.
+            let rebakeHero = false;
+            if (event.body) {
+                try {
+                    rebakeHero = JSON.parse(event.body)?.rebakeHero === true;
+                } catch {
+                    rebakeHero = false;
+                }
+            }
+
+            const updated = await this.faqService.publish(organisation.uuid, { rebakeHero });
 
             return {
                 statusCode: 200,

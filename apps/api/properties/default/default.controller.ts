@@ -1,7 +1,7 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { Controller, IControllerMethods, isAuthorize, UNAUTHORIZE_ERROR, ValidationError } from '@devyethiha/samjs';
 import { getOrganisation, NO_ORGANISATION } from '@sale-sync/shared';
-import { OrganisationNotFoundError, PropertyCategoryNotAllowedError, PropertyNotFoundError, SlugAlreadyExistsError, PropertyService } from '../services/property.service';
+import { ConcurrentModificationError, OrganisationNotFoundError, PropertyCategoryNotAllowedError, PropertyNotFoundError, SlugAlreadyExistsError, PropertyService } from '../services/property.service';
 import { CreatePropertyDTO } from '../dtos/create-property.dto';
 import { UpdatePropertyDTO } from '../dtos/update-property.dto';
 import { DeletePropertyDTO } from '../dtos/delete-property.dto';
@@ -131,7 +131,7 @@ class DefaultController extends Controller implements IControllerMethods {
             if (error instanceof PropertyNotFoundError) {
                 return { statusCode: 404, body: JSON.stringify({ message: (error as Error).message }) };
             }
-            if (error instanceof SlugAlreadyExistsError) {
+            if (error instanceof SlugAlreadyExistsError || error instanceof ConcurrentModificationError) {
                 return { statusCode: 409, body: JSON.stringify({ message: (error as Error).message }) };
             }
             throw error;

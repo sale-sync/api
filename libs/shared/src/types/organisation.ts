@@ -143,6 +143,23 @@ export type TestimonialsRecord = {
     published_at: string | null;
 };
 
+// Footer social links — see backlogs/footer-socials-ssr/plan.md. Same singleton-per-org, data/draft-split
+// shape as TestimonialsContent above. SOCIAL_NETWORKS' order IS the footer's fixed icon order (not
+// client-sortable). Every value is a full http(s) URL (LINE/WhatsApp included, e.g. https://wa.me/66812345678);
+// an empty string means "not set" and the footer hides that icon.
+export const SOCIAL_NETWORKS = ['facebook', 'instagram', 'line', 'whatsapp', 'youtube', 'tiktok', 'x'] as const;
+
+export type SocialNetwork = (typeof SOCIAL_NETWORKS)[number];
+
+export type SocialsContent = Record<SocialNetwork, string>;
+
+export type SocialsRecord = {
+    data: SocialsContent | null;
+    draft: SocialsContent | null;
+    updated_at: string;
+    published_at: string | null;
+};
+
 // Same singleton-per-org, data/draft-split shape as BrandingContent/TestimonialsContent above — see
 // backlogs/home-thailand-estates-dynamic-about/plan.md. `blocks` is passed through unmodified: it's
 // the `editor.document` array BlockNote (@blocknote/core) produces in web-app's About editor, stored
@@ -484,6 +501,7 @@ export const PUBLISH_STATUS_KEYS = [
     'articles',
     'locations',
     'faq',
+    'socials',
 ] as const;
 
 export type PublishStatusKey = (typeof PUBLISH_STATUS_KEYS)[number];

@@ -1,6 +1,8 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { Router, withCORS } from '@devyethiha/samjs';
 import DefaultController from './default/default.controller';
+import UnitsController from './units/units.controller';
+import PublishController from './publish/publish.controller';
 import { PropertyService } from './services/property.service';
 
 async function main(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
@@ -9,7 +11,11 @@ async function main(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult>
         const router = new Router(
             event,
             region,
-            [{ controller: DefaultController, services: [PropertyService] }],
+            [
+                { controller: DefaultController, services: [PropertyService] },
+                { controller: UnitsController, services: [PropertyService] },
+                { controller: PublishController, services: [PropertyService] },
+            ],
             '/properties',
         );
 

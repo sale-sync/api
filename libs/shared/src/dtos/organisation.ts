@@ -137,6 +137,42 @@ export const UpdateTestimonialsDraftSchema = z
 
 export type UpdateTestimonialsDraftInput = z.infer<typeof UpdateTestimonialsDraftSchema>;
 
+// A social link is baked into a public page's href by the page generators, so only http(s) URLs are
+// accepted (never javascript:/data: etc.). Empty string clears the field.
+const SocialUrlSchema = z
+    .string()
+    .trim()
+    .max(2048, 'url must be 2048 characters or fewer')
+    .refine(
+        (value) => {
+            if (value.length === 0) return true;
+            try {
+                const { protocol } = new URL(value);
+                return protocol === 'https:' || protocol === 'http:';
+            } catch {
+                return false;
+            }
+        },
+        { message: 'Enter a valid http(s) URL, or leave empty to remove' },
+    );
+
+export const UpdateSocialsDraftSchema = z
+    .object({
+        facebook: SocialUrlSchema.optional(),
+        instagram: SocialUrlSchema.optional(),
+        line: SocialUrlSchema.optional(),
+        whatsapp: SocialUrlSchema.optional(),
+        youtube: SocialUrlSchema.optional(),
+        tiktok: SocialUrlSchema.optional(),
+        x: SocialUrlSchema.optional(),
+    })
+    .strict()
+    .refine((data) => Object.keys(data).length > 0, {
+        message: 'At least one field (facebook, instagram, line, whatsapp, youtube, tiktok, x) must be provided',
+    });
+
+export type UpdateSocialsDraftInput = z.infer<typeof UpdateSocialsDraftSchema>;
+
 // Structural validation only — mirrors BlockNoteBlock in types/organisation.ts. Deliberately doesn't
 // enumerate BlockNote's actual block-type union (paragraph/heading/bulletListItem/...) since that
 // schema lives in @blocknote/core, not here; this just confirms the shape is a well-formed block

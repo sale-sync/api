@@ -112,7 +112,15 @@ export class FaqService extends Service {
     // trigger a Hero rebake on their own (same decoupling rationale as
     // ArticlesService.publish()/LocationsService.publish()). Unlike those two, there's no per-item
     // detail-page generator to also diff/invoke here — FAQ has no per-item routes.
-    public async publish(orgUuid: string): Promise<FaqRecord> {
+    //
+    // `rebakeHero` forces the FAQ page generator even when hero/seo are unchanged. The Hero card on the
+    // FAQ page sends it: publishing there means "make the live page match this", which must work when
+    // nothing was edited (e.g. the site was rebuilt/redeployed and its baked Hero was overwritten by the
+    // static template, or an earlier bake failed). Without it that publish saved nothing new, invoked
+    // nothing, and silently left the page stale. The topic/question publishes never send it, so list
+    // churn still can't trigger a Hero rebake. (Same flag as ArticlesService/LocationsService's
+    // `rebakeListing`, named for what FAQ's generator bakes.)
+    public async publish(orgUuid: string, options: { rebakeHero?: boolean } = {}): Promise<FaqRecord> {
         const current = await this.get(orgUuid);
         if (!current.draft) {
             throw new NoDraftToPublishError();
@@ -123,7 +131,8 @@ export class FaqService extends Service {
         // never baked until the Hero next changed.
         const heroOrSeoChanged =
             JSON.stringify(current.data?.hero) !== JSON.stringify(current.draft.hero) ||
-            JSON.stringify(current.data?.seo) !== JSON.stringify(current.draft.seo);
+            JSON.stringify(current.data?.seo) !== JSON.stringify(current.draft.seo) ||
+            options.rebakeHero === true;
 
         const updated: FaqRecord = {
             ...current,

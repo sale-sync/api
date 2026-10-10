@@ -10,7 +10,7 @@ export const PetFriendlySchema = z.enum(['Pet Friendly', 'Dog Friendly', 'Cat Fr
 export const YOUTUBE_URL_REGEX = /^https?:\/\/(?:www\.|m\.)?(?:youtube\.com\/(?:watch\?(?:.*&)?v=|embed\/|shorts\/)|youtu\.be\/)[\w-]{11}(?:[?&#].*)?$/;
 export const VideoUrlsSchema = z.array(z.string().regex(YOUTUBE_URL_REGEX, 'must be a YouTube link'));
 
-const UnitInputSchema = z.object({
+export const UnitInputSchema = z.object({
     uuid: z.string().uuid().optional(),
     title: z.string(),
     image: z.string().nullable().optional(),
@@ -88,7 +88,6 @@ export const CreatePropertySchema = z.object({
     images: z.array(z.string()).optional(),
     description: z.string().nullable().optional(),
     payment: z.string().nullable().optional(),
-    units: z.array(UnitInputSchema).optional(),
 });
 
 export type CreatePropertyInput = z.infer<typeof CreatePropertySchema>;
@@ -128,7 +127,6 @@ export const UpdatePropertySchema = z.object({
     images: z.array(z.string()).optional(),
     description: z.string().nullable().optional(),
     payment: z.string().nullable().optional(),
-    units: z.array(UnitInputSchema).optional(),
 });
 
 export type UpdatePropertyInput = z.infer<typeof UpdatePropertySchema>;
@@ -138,3 +136,35 @@ export const DeletePropertySchema = z.object({
 });
 
 export type DeletePropertyInput = z.infer<typeof DeletePropertySchema>;
+
+// Units are their own sub-resource (not part of the property's create/update payload): a property is
+// created first and units are added later, each saved and published on its own.
+export const CreateUnitSchema = UnitInputSchema.omit({ uuid: true }).extend({
+    property_uuid: z.string().uuid(),
+});
+
+export type CreateUnitInput = z.infer<typeof CreateUnitSchema>;
+
+export const UpdateUnitSchema = UnitInputSchema.omit({ uuid: true })
+    .partial()
+    .extend({
+        property_uuid: z.string().uuid(),
+        unit_uuid: z.string().uuid(),
+    });
+
+export type UpdateUnitInput = z.infer<typeof UpdateUnitSchema>;
+
+export const DeleteUnitSchema = z.object({
+    property_uuid: z.string().uuid(),
+    unit_uuid: z.string().uuid(),
+});
+
+export type DeleteUnitInput = z.infer<typeof DeleteUnitSchema>;
+
+// Publishes the property itself when unit_uuid is absent, otherwise just that one unit.
+export const PublishPropertySchema = z.object({
+    property_uuid: z.string().uuid(),
+    unit_uuid: z.string().uuid().optional(),
+});
+
+export type PublishPropertyInput = z.infer<typeof PublishPropertySchema>;
