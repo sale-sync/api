@@ -34,7 +34,7 @@ class TestimonialsController extends Controller implements IControllerMethods {
         };
     }
 
-    // PATCH /organisations/testimonials — update the draft stats/testimonials list. Restricted to owner/admin.
+    // PATCH /organisations/testimonials — update the draft testimonials list (whole-list save). Restricted to owner/admin.
     async patch(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
         if (!isAuthorize(event)) {
             return UNAUTHORIZE_ERROR;

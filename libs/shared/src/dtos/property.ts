@@ -10,10 +10,13 @@ export const PetFriendlySchema = z.enum(['Pet Friendly', 'Dog Friendly', 'Cat Fr
 export const YOUTUBE_URL_REGEX = /^https?:\/\/(?:www\.|m\.)?(?:youtube\.com\/(?:watch\?(?:.*&)?v=|embed\/|shorts\/)|youtu\.be\/)[\w-]{11}(?:[?&#].*)?$/;
 export const VideoUrlsSchema = z.array(z.string().regex(YOUTUBE_URL_REGEX, 'must be a YouTube link'));
 
+export const UnitLayoutSchema = z.enum(['Simplex', 'Duplex', 'Loft', 'Triplex']);
+
 export const UnitInputSchema = z.object({
     uuid: z.string().uuid().optional(),
     title: z.string(),
     image: z.string().nullable().optional(),
+    images: z.array(z.string()).optional(),
     actions: z.array(z.enum(['sell', 'rent', 'sold'])).min(1).optional(),
     sellPrice: z.number().nullable().optional(),
     sellDiscountPrice: z.number().nullable().optional(),
@@ -33,6 +36,11 @@ export const UnitInputSchema = z.object({
     ownership: z.enum(['Freehold', 'Leasehold']).nullable().optional(),
     petFriendly: PetFriendlySchema.nullable().optional(),
     multipurposeRoom: z.number().nullable().optional(),
+    maidRoom: z.number().nullable().optional(),
+    unitLayouts: z.array(UnitLayoutSchema).optional(),
+    unitDetail: z.string().nullable().optional(),
+    subType: z.string().nullable().optional(),
+    totalFloor: z.number().int().nonnegative().nullable().optional(),
     poolVilla: z.boolean().optional(),
     livingRoom: z.number().nullable().optional(),
     commonAreaFees: z.number().nullable().optional(),
@@ -40,7 +48,7 @@ export const UnitInputSchema = z.object({
     commonAreaFeesOverridden: z.boolean().optional(),
     sinkingFundOverridden: z.boolean().optional(),
     videos: VideoUrlsSchema.optional(),
-    bookingFees: z.string().nullable().optional(),
+    bookingFees: z.number().nonnegative().nullable().optional(),
     contractFees: z.string().nullable().optional(),
     contractFeesTimeline: z.string().nullable().optional(),
     paymentOptions: z.array(z.enum(['Complete', 'Installment'])).optional(),

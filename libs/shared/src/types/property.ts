@@ -57,6 +57,9 @@ export type PropertyCompletion = 'Ready to Move' | 'Off Plan';
 
 // A unit can offer multiple payment options at once (checkbox group, not radio) — mirrors
 // UnitAction's multi-select shape. Defaults to ['Complete'].
+export const UNIT_LAYOUTS = ['Simplex', 'Duplex', 'Loft', 'Triplex'] as const;
+export type UnitLayout = (typeof UNIT_LAYOUTS)[number];
+
 export type PaymentOption = 'Complete' | 'Installment';
 export type FinalPaymentTimeline = 'Within 30 Days from Contract Date' | 'Project Completion Date';
 export type InstallmentPaymentTimeline =
@@ -74,6 +77,7 @@ export type Unit = {
     uuid: string;
     title: string;
     image: string | null;
+    images: string[];
     actions: UnitAction[];
     sellPrice: number | null;
     sellDiscountPrice: number | null;
@@ -95,12 +99,23 @@ export type Unit = {
     petFriendly: PetFriendly | null;
     // Count of multi-purpose rooms, no default.
     multipurposeRoom: number | null;
+    // Count of maid rooms, no default.
+    maidRoom: number | null;
+    // Multi-select, defaults to []. Display + public site filter.
+    unitLayouts: UnitLayout[];
+    // Free multi-line text about this unit, no default.
+    unitDetail: string | null;
+    // House Type override: null = inherit Property.subType (resolved at read, not copied at save).
+    subType: PropertySubType;
+    // Total floors override: null = inherit Property.totalFloor (resolved at read, not copied at save).
+    totalFloor: number | null;
     // Amenity flag — non-nullable, default false, same pattern as Property.isLeasehold.
     // Private per-unit pool — not the shared project-level pool tracked in Property.swimmingPool.
     poolVilla: boolean;
     // Count/size fields, no default — same nullability pattern as hall/kitchen/etc.
     livingRoom: number | null;
-    // Total amounts in currency. Not overridden: unitSize x Property rate (see normalizeUnitFees).
+    // Total amounts in currency. Not overridden: size x Property rate (see normalizeUnitFees), where
+    // size is landSize for a house property and unitSize otherwise.
     // Overridden: the user-entered value, kept when unitSize or the Property rate changes.
     commonAreaFees: number | null;
     sinkingFund: number | null;
@@ -108,8 +123,9 @@ export type Unit = {
     sinkingFundOverridden: boolean;
     // YouTube links, raw URLs (validated on write, converted to embed URLs when rendering).
     videos: string[];
+    // Baht amount (legacy free-text values are converted on read, see normalizeStoredProperty).
+    bookingFees: number | null;
     // Free text — non-numeric content (e.g. "10% of sell price"), no default.
-    bookingFees: string | null;
     contractFees: string | null;
     // Free text with a suggested default ("Within 14 Days from Booking Date") offered in the UI,
     // no default enforced at the type/API level — same pattern as condition/furnishing.

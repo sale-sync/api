@@ -147,6 +147,16 @@ Parameters:
             when `hero` actually changed since the last publish, to bake the
             published Hero title/subtitle/bannerImage into faq-page's deployed
             dist/faq HTML and ssr/faq JSON.
+    PublishContactPageFunctionName:
+        Type: String
+        Description: >
+            Name of ss/infra's PublishContactPageFunction (see
+            backlogs/contact-page) — cross-stack reference, same convention as
+            the others (not 'real-estate-'-prefixed: the Contact page is
+            pageCategory 'normal', shared by every business category).
+            ContactService.publish() invokes it fire-and-forget when the title,
+            subtitle, business information or SEO changed, and SocialsService
+            re-bakes its footer socials.
     PublishRealEstateMapViewPageFunctionName:
         Type: String
         Description: >
@@ -262,6 +272,7 @@ Resources:
                     PUBLISH_LOCATION_LISTING_PAGE_FUNCTION_NAME: !Ref PublishLocationListingPageFunctionName
                     PUBLISH_LOCATION_DETAIL_PAGE_FUNCTION_NAME: !Ref PublishLocationDetailPageFunctionName
                     PUBLISH_FAQ_PAGE_FUNCTION_NAME: !Ref PublishFaqPageFunctionName
+                    PUBLISH_CONTACT_PAGE_FUNCTION_NAME: !Ref PublishContactPageFunctionName
                     PUBLISH_REAL_ESTATE_MAP_VIEW_PAGE_FUNCTION_NAME: !Ref PublishRealEstateMapViewPageFunctionName
                     PUBLISH_REAL_ESTATE_PROPERTIES_PAGE_FUNCTION_NAME: !Ref PublishRealEstatePropertiesPageFunctionName
                     # Only SocialsService.publish() invokes it from here (footer_only re-bake of the existing
@@ -328,6 +339,12 @@ Resources:
                         # Same cross-stack idiom as the eight grants above — publish-faq-page also
                         # lives in ss/infra.
                         Resource: !Sub 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${PublishFaqPageFunctionName}'
+                - Statement:
+                      - Effect: Allow
+                        Action: lambda:InvokeFunction
+                        # Same cross-stack idiom as the grants above — publish-contact-page also
+                        # lives in ss/infra.
+                        Resource: !Sub 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${PublishContactPageFunctionName}'
                 - Statement:
                       - Effect: Allow
                         Action: lambda:InvokeFunction

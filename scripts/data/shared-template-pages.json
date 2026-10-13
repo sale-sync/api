@@ -1,0 +1,10 @@
+[
+  {
+    "id": "contact-page",
+    "name": "Contact Page",
+    "pageType": "contact",
+    "pageCategory": "normal",
+    "render": "hybrid",
+    "generator": "contact-page"
+  }
+]

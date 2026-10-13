@@ -114,25 +114,26 @@ export const UpdateBrandingDraftSchema = z
 export type UpdateBrandingDraftInput = z.infer<typeof UpdateBrandingDraftSchema>;
 
 export const TestimonialItemSchema = z.object({
+    id: z.string().uuid('id must be a uuid'),
     name: z.string().trim().min(1, 'name is required').max(120, 'name must be 120 characters or fewer'),
     testimonial: z
         .string()
         .trim()
         .min(1, 'testimonial is required')
         .max(1000, 'testimonial must be 1000 characters or fewer'),
+    rating: z.number().int('rating must be a whole number').min(1, 'rating must be 1 to 5').max(5, 'rating must be 1 to 5'),
 });
 
+// Whole-list draft save (same as articles): the web-app sends the full list every time. Unknown keys
+// (e.g. the removed stat fields from an old client) are stripped, not rejected.
 export const UpdateTestimonialsDraftSchema = z
     .object({
-        averageRating: z.string().trim().min(1).max(40).optional(),
-        happyTenants: z.string().trim().min(1).max(40).optional(),
-        verifiedListings: z.string().trim().min(1).max(40).optional(),
-        avgResponseTime: z.string().trim().min(1).max(40).optional(),
-        testimonials: z.array(TestimonialItemSchema).max(50, 'testimonials must be 50 items or fewer').optional(),
-    })
-    .refine((data) => Object.keys(data).length > 0, {
-        message:
-            'At least one field (averageRating, happyTenants, verifiedListings, avgResponseTime, testimonials) must be provided',
+        testimonials: z
+            .array(TestimonialItemSchema)
+            .max(50, 'testimonials must be 50 items or fewer')
+            .refine((items) => new Set(items.map((item) => item.id)).size === items.length, {
+                message: 'testimonial ids must be unique',
+            }),
     });
 
 export type UpdateTestimonialsDraftInput = z.infer<typeof UpdateTestimonialsDraftSchema>;
@@ -465,6 +466,27 @@ export const UpdateFaqDraftSchema = z
     );
 
 export type UpdateFaqDraftInput = z.infer<typeof UpdateFaqDraftSchema>;
+
+// The Contact page's Business Information card — added 2026-10-11 (backlogs/contact-page). Fields
+// may be empty strings (an org may not have a public phone, say); an empty field is simply not shown.
+// `phone` is a free-text display string (country code included by the org), not validated as E.164 —
+// it is shown as-is on the page.
+export const ContactBusinessInfoSchema = z.object({
+    email: z.union([z.literal(''), z.string().trim().email('email must be a valid email address').max(254)]),
+    phone: z.string().trim().max(40, 'phone must be 40 characters or fewer'),
+    address: z.string().trim().max(300, 'address must be 300 characters or fewer'),
+});
+
+// `title`/`subtitle`/`businessInfo`/`seo` are all independently optional, same merge convention as
+// UpdateFaqDraftSchema — ContactService.updateDraft() merges each from the existing draft when omitted.
+export const UpdateContactDraftSchema = z.object({
+    title: z.string().trim().max(200, 'title must be 200 characters or fewer').optional(),
+    subtitle: z.string().trim().max(400, 'subtitle must be 400 characters or fewer').optional(),
+    businessInfo: ContactBusinessInfoSchema.optional(),
+    seo: SEOSchema.optional(),
+});
+
+export type UpdateContactDraftInput = z.infer<typeof UpdateContactDraftSchema>;
 
 // ─── Admin-only ──────────────────────────
 // Staff-side org update: status/plan reassignment only — deliberately a separate schema from

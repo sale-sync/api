@@ -19,6 +19,7 @@ import PropertiesPageController from './properties-page/properties-page.controll
 import LocationsController from './locations/locations.controller';
 import ArticlesController from './articles/articles.controller';
 import FaqController from './faq/faq.controller';
+import ContactController from './contact/contact.controller';
 import PrivacyPolicyController from './privacy-policy/privacy-policy.controller';
 import TermsAndConditionsController from './terms-and-conditions/terms-and-conditions.controller';
 import PublishStatusController from './publish-status/publish-status.controller';
@@ -37,6 +38,7 @@ import { PropertiesPageService } from './services/properties-page.service';
 import { LocationsService } from './services/locations.service';
 import { ArticlesService } from './services/articles.service';
 import { FaqService } from './services/faq.service';
+import { ContactService } from './services/contact.service';
 import { PrivacyPolicyService } from './services/privacy-policy.service';
 import { TermsAndConditionsService } from './services/terms-and-conditions.service';
 import { SignupRequestService } from './services/signup-request.service';
@@ -67,6 +69,7 @@ async function main(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult>
                 { controller: LocationsController, services: [OrganisationService, LocationsService] },
                 { controller: ArticlesController, services: [OrganisationService, ArticlesService] },
                 { controller: FaqController, services: [OrganisationService, FaqService] },
+                { controller: ContactController, services: [OrganisationService, ContactService] },
                 { controller: PrivacyPolicyController, services: [OrganisationService, PrivacyPolicyService] },
                 {
                     controller: TermsAndConditionsController,

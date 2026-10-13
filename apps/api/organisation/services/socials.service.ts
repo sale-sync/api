@@ -32,6 +32,7 @@ const FOOTER_TARGETS: FooterTarget[] = [
     { env: 'PUBLISH_REAL_ESTATE_PROPERTIES_PAGE_FUNCTION_NAME', generator: 'real-estate-properties-page' },
     { env: 'PUBLISH_REAL_ESTATE_MAP_VIEW_PAGE_FUNCTION_NAME', generator: 'real-estate-map-view-page' },
     { env: 'PUBLISH_FAQ_PAGE_FUNCTION_NAME', generator: 'faq-page' },
+    { env: 'PUBLISH_CONTACT_PAGE_FUNCTION_NAME', generator: 'contact-page' },
     { env: 'PUBLISH_ARTICLE_LISTING_PAGE_FUNCTION_NAME', generator: 'article-listing-page' },
     { env: 'PUBLISH_LOCATION_LISTING_PAGE_FUNCTION_NAME', generator: 'location-listing-page' },
     {

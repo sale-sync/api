@@ -23,6 +23,11 @@
 //     [--execute]
 //
 //   or --table <name> instead of --stage, for an arbitrary table name.
+//
+// Optional: --shared-pages-file scripts/data/shared-template-pages.json merges pages shared by every
+// business category (e.g. 'contact-page', see backlogs/contact-page) into the pages array. A shared
+// entry replaces a same-`id` entry already in --pages-file, otherwise it is appended, so the shared
+// file stays the single source for those pages instead of being copied into each category's file.
 
 const fs = require('fs');
 const path = require('path');
@@ -51,6 +56,7 @@ const VALID_PAGE_TYPES = [
     'articles',
     'article-detail',
     'location-detail',
+    'contact',
 ];
 const VALID_PAGE_CATEGORIES = ['normal', 'feature'];
 const VALID_PAGE_RENDERS = ['csr', 'ssr', 'hybrid'];
@@ -66,6 +72,7 @@ const VALID_GENERATORS = [
     'location-listing-page',
     'location-detail-page',
     'faq-page',
+    'contact-page',
     'real-estate-map-view-page',
     'real-estate-properties-page',
 ];
@@ -83,6 +90,7 @@ const TABLE_OVERRIDE = flagValue('--table');
 const CATEGORY = flagValue('--category');
 const UUID = flagValue('--uuid');
 const PAGES_FILE = flagValue('--pages-file');
+const SHARED_PAGES_FILE = flagValue('--shared-pages-file');
 
 if (STAGE && !TABLE_OVERRIDE && !STAGE_TABLES[STAGE]) {
     console.error(`--stage must be one of: ${Object.keys(STAGE_TABLES).join(', ')}`);
@@ -92,7 +100,7 @@ if (STAGE && !TABLE_OVERRIDE && !STAGE_TABLES[STAGE]) {
 const TABLE = TABLE_OVERRIDE ?? (STAGE ? STAGE_TABLES[STAGE] : undefined);
 
 if (!TABLE || !CATEGORY || !UUID || !PAGES_FILE) {
-    console.error('Usage: node scripts/update-template-pages.js --stage <prod|staging> --category <business_category> --uuid <uuid> --pages-file <path> [--execute]');
+    console.error('Usage: node scripts/update-template-pages.js --stage <prod|staging> --category <business_category> --uuid <uuid> --pages-file <path> [--shared-pages-file <path>] [--execute]');
     console.error('   or: node scripts/update-template-pages.js --table <name> --category <business_category> --uuid <uuid> --pages-file <path> [--execute]');
     process.exit(1);
 }
@@ -108,6 +116,25 @@ try {
 if (!Array.isArray(pages)) {
     console.error('[update-template-pages] --pages-file must contain a JSON array');
     process.exit(1);
+}
+
+if (SHARED_PAGES_FILE) {
+    let shared;
+    try {
+        shared = JSON.parse(fs.readFileSync(path.resolve(SHARED_PAGES_FILE), 'utf8'));
+    } catch (err) {
+        console.error(`[update-template-pages] failed to read/parse --shared-pages-file: ${err.message}`);
+        process.exit(1);
+    }
+    if (!Array.isArray(shared)) {
+        console.error('[update-template-pages] --shared-pages-file must contain a JSON array');
+        process.exit(1);
+    }
+    for (const sp of shared) {
+        const at = pages.findIndex((p) => p?.id === sp?.id);
+        if (at === -1) pages.push(sp);
+        else pages[at] = sp;
+    }
 }
 
 for (const [i, p] of pages.entries()) {

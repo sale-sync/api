@@ -120,19 +120,21 @@ export type BrandingRecord = {
 };
 
 // Same singleton-per-org, data/draft-split shape as BrandingContent/BrandingRecord above — see
-// backlogs/testimonials/plan.md. Stat fields are display strings (e.g. "4.9/5", "8,500+", "24 h"),
-// not numeric, matching the format the real-estate template's TestimonialsSlice already shows —
-// deliberately not structured {value, unit} pairs for v1.
+// backlogs/testimonials/plan.md and backlogs/testimonials-revamp/plan.md. The four stat fields the
+// first version carried (averageRating, happyTenants, verifiedListings, avgResponseTime) were removed
+// 2026-10-11: records already stored still contain them, they are simply ignored and dropped on the
+// org's next draft save.
 export type TestimonialItem = {
+    // Stable uuid so the web-app can route to one testimonial. Items stored before the revamp had none:
+    // TestimonialsService.get() backfills it.
+    id: string;
     name: string;
     testimonial: string;
+    // Integer 1-5. Items stored before the revamp had none: TestimonialsService.get() backfills 5.
+    rating: number;
 };
 
 export type TestimonialsContent = {
-    averageRating: string;
-    happyTenants: string;
-    verifiedListings: string;
-    avgResponseTime: string;
     testimonials: TestimonialItem[];
 };
 
@@ -417,6 +419,33 @@ export type FaqRecord = {
     published_at: string | null;
 };
 
+// The Contact page's editable content — added 2026-10-11 (backlogs/contact-page). Shared by every
+// business category (pageCategory 'normal'). No hero/banner: just a heading (title + subtitle), the
+// Business Information card and page SEO. Socials are deliberately NOT stored here — the page reuses
+// the org's footer socials (SocialsRecord), baked by the same footer pass as every other page.
+// The phone country code is not stored either: the generator derives it from `Organisation.market`.
+export type ContactBusinessInfo = {
+    email: string;
+    phone: string;
+    address: string;
+};
+
+// `title`/`subtitle`/`businessInfo`/`seo` are all independently optional and independently
+// updatable — ContactService.updateDraft() merges each field from the existing draft when omitted.
+export type ContactContent = {
+    title?: string;
+    subtitle?: string;
+    businessInfo?: ContactBusinessInfo;
+    seo?: SEO;
+};
+
+export type ContactRecord = {
+    data: ContactContent | null;
+    draft: ContactContent | null;
+    updated_at: string;
+    published_at: string | null;
+};
+
 // The Agents page's editable section — title/subtitle + banner image/opacity, same fields as Home's
 // Hero minus `badge` (added 2026-09-15 after Home's own title/subtitle pattern, following a smoke
 // test). See backlogs/real-estate-template/children/real-estate-agents-page-banner/plan.md.
@@ -501,6 +530,7 @@ export const PUBLISH_STATUS_KEYS = [
     'articles',
     'locations',
     'faq',
+    'contact',
     'socials',
 ] as const;
 

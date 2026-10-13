@@ -43,7 +43,8 @@ export type PageType =
     | 'locations'
     | 'articles'
     | 'article-detail'
-    | 'location-detail';
+    | 'location-detail'
+    | 'contact';
 
 // Redefined 2026-09-10 for the catalogue's `Page` entry — no longer describes rendering behavior
 // (see `PageRender` below for that). Now describes reusability scope: "normal" = a generic page type
@@ -97,6 +98,10 @@ export type PageRender = 'csr' | 'ssr' | 'hybrid';
 // generator, which FAQ has no equivalent of (no slugs, no per-item detail route). Named like
 // 'real-estate-home-page'/'real-estate-agents-page' instead — single catalogue entry gains a Hero,
 // no split.
+// 'contact-page' (added 2026-10-11 — see backlogs/contact-page): the shared Contact Us page, usable by
+// every business category (pageCategory 'normal', so no 'real-estate-' prefix). Hybrid: title,
+// subtitle, Business Information and SEO are baked; the form stays static UI. No hero/banner, no
+// detail-page sibling, hence no '-listing-' qualifier either (same naming reasoning as 'faq-page').
 // 'real-estate-map-view-page' / 'real-estate-properties-page' (added 2026-09-19 — see
 // backlogs/real-estate-template/children/real-estate-map-view-seo and real-estate-properties-page-hero):
 // two `render: 'csr'` pages that stay CSR (their live map/filter+grid sections are untouched) but gain a
@@ -113,6 +118,7 @@ export type PageGenerator =
     | 'location-listing-page'
     | 'location-detail-page'
     | 'faq-page'
+    | 'contact-page'
     | 'real-estate-map-view-page'
     | 'real-estate-properties-page'
     | null;

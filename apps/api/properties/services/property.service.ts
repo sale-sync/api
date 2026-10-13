@@ -723,11 +723,12 @@ export class PropertyService extends Service {
 
     // currency is always set from the property-level value, ignoring any per-unit currency the
     // client sends — a property has one currency, cascaded to every unit.
-    private normalizeUnit(unit: Partial<Unit> & { title: string }, currency: PropertyCurrency, property: Pick<Property, 'commonAreaFees' | 'sinkingFund'>): Unit {
+    private normalizeUnit(unit: Partial<Unit> & { title: string }, currency: PropertyCurrency, property: Pick<Property, 'type' | 'commonAreaFees' | 'sinkingFund'>): Unit {
         return {
             uuid: unit.uuid ?? uuidv4(),
             title: unit.title,
             image: unit.image ?? null,
+            images: unit.images ?? [],
             actions: unit.actions?.length ? unit.actions : ['sell'],
             sellPrice: unit.sellPrice ?? null,
             sellDiscountPrice: unit.sellDiscountPrice ?? null,
@@ -747,6 +748,11 @@ export class PropertyService extends Service {
             ownership: unit.ownership ?? null,
             petFriendly: unit.petFriendly ?? null,
             multipurposeRoom: unit.multipurposeRoom ?? null,
+            maidRoom: unit.maidRoom ?? null,
+            unitLayouts: unit.unitLayouts ?? [],
+            unitDetail: unit.unitDetail ?? null,
+            subType: unit.subType ?? null,
+            totalFloor: unit.totalFloor ?? null,
             poolVilla: unit.poolVilla ?? false,
             livingRoom: unit.livingRoom ?? null,
             ...normalizeUnitFees(unit, property),

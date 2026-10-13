@@ -20,6 +20,7 @@ const PageTypeSchema = z.enum([
     'real-estate-map-view',
     'real-estate-properties',
     'faq',
+    'contact',
     'locations',
 ]);
 // Reusability scope, not rendering behavior: "normal" = usable across multiple business categories,
