@@ -27,6 +27,7 @@
     "apps/queries-api/articles",
     "apps/queries-api/privacy-policy",
     "apps/queries-api/terms-and-conditions",
+    "apps/mutation-api/contacts",
     "libs/shared"
   ],
   "scripts": {
@@ -50,13 +51,19 @@
     "queries.bundle": "nx run-many -t bundle --projects=queries-branding,queries-properties,queries-testimonials,queries-agents,queries-about,queries-locations,queries-articles,queries-faq,queries-privacy-policy,queries-terms-and-conditions",
     "queries.lint": "nx run-many -t lint --projects=queries-branding,queries-properties,queries-testimonials,queries-agents,queries-about,queries-locations,queries-articles,queries-faq,queries-privacy-policy,queries-terms-and-conditions",
     "queries.test": "nx run-many -t unit --projects=queries-branding,queries-properties,queries-testimonials,queries-agents,queries-about,queries-locations,queries-articles,queries-faq,queries-privacy-policy,queries-terms-and-conditions",
+    "mutation.build": "nx run-many -t compile --projects=mutation-contacts",
+    "mutation.bundle": "nx run-many -t bundle --projects=mutation-contacts",
+    "mutation.lint": "nx run-many -t lint --projects=mutation-contacts",
+    "mutation.test": "nx run-many -t unit --projects=mutation-contacts",
     "samconfig:sync:staging": "node scripts/sync-samconfig.js staging staging.deploy.parameters",
     "samconfig:sync:prod": "node scripts/sync-samconfig.js prod prod.deploy.parameters",
     "admin.samconfig:sync:staging": "node scripts/sync-samconfig.js staging staging.deploy.parameters admin",
     "admin.samconfig:sync:prod": "node scripts/sync-samconfig.js prod prod.deploy.parameters admin",
     "queries.samconfig:sync:staging": "node scripts/sync-samconfig.js staging staging.deploy.parameters queries",
     "queries.samconfig:sync:prod": "node scripts/sync-samconfig.js prod prod.deploy.parameters queries",
-    "clean": "rimraf node_modules apps/api/auth/node_modules apps/api/organisation/node_modules apps/admin-api/payments/node_modules apps/admin-api/organisation/node_modules apps/admin-api/promo-codes/node_modules apps/admin-api/signup-requests/node_modules apps/queries-api/branding/node_modules apps/queries-api/properties/node_modules apps/queries-api/testimonials/node_modules apps/queries-api/about/node_modules apps/queries-api/locations/node_modules apps/queries-api/articles/node_modules apps/queries-api/privacy-policy/node_modules apps/queries-api/terms-and-conditions/node_modules libs/shared/node_modules .aws-sam"
+    "mutation.samconfig:sync:staging": "node scripts/sync-samconfig.js staging staging.deploy.parameters mutation",
+    "mutation.samconfig:sync:prod": "node scripts/sync-samconfig.js prod prod.deploy.parameters mutation",
+    "clean": "rimraf node_modules apps/api/auth/node_modules apps/api/organisation/node_modules apps/admin-api/payments/node_modules apps/admin-api/organisation/node_modules apps/admin-api/promo-codes/node_modules apps/admin-api/signup-requests/node_modules apps/queries-api/branding/node_modules apps/queries-api/properties/node_modules apps/queries-api/testimonials/node_modules apps/queries-api/about/node_modules apps/queries-api/locations/node_modules apps/queries-api/articles/node_modules apps/queries-api/privacy-policy/node_modules apps/queries-api/terms-and-conditions/node_modules apps/mutation-api/contacts/node_modules libs/shared/node_modules .aws-sam"
   },
   "repository": {
     "type": "git",

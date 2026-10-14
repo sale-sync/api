@@ -122,6 +122,31 @@ check_sale_sync_queries_resources() {
     esac
 }
 
+# Mutation API stack (sale-sync-mutation-api / staging-sale-sync-mutation-api) — like the queries
+# stack it has no DynamoDB/S3 of its own (it reads and writes the shared OrganisationTable), so the
+# CloudFormation/Lambda sections are the useful ones here.
+check_sale_sync_mutation_resources() {
+    local env="$1"
+    local region="${2:-ap-southeast-2}"
+
+    case "$env" in
+        staging)
+            _check_one "staging-sale-sync-" "staging-sale-sync-mutation-api" "$region"
+            ;;
+        prod|production)
+            _check_one "sale-sync-" "sale-sync-mutation-api" "$region"
+            ;;
+        both)
+            _check_one "staging-sale-sync-" "staging-sale-sync-mutation-api" "$region"
+            _check_one "sale-sync-" "sale-sync-mutation-api" "$region"
+            ;;
+        *)
+            echo "Usage: check_sale_sync_mutation_resources <staging|prod|both> [region]" >&2
+            return 1
+            ;;
+    esac
+}
+
 # Allow running directly (./scripts/check-resources.sh staging) as well as sourcing.
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
     if [[ "$1" == "admin" ]]; then
@@ -130,6 +155,9 @@ if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
     elif [[ "$1" == "queries" ]]; then
         shift
         check_sale_sync_queries_resources "$@"
+    elif [[ "$1" == "mutation" ]]; then
+        shift
+        check_sale_sync_mutation_resources "$@"
     else
         check_sale_sync_resources "$@"
     fi

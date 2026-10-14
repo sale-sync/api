@@ -9,9 +9,12 @@
 //   mode        defaults to "client"    -> "client" (env.*.json/samconfig.toml,
 //               customer-facing API), "admin" (admin.env.*.json/
 //               admin.samconfig.toml, staff-facing admin API — own template/stack,
-//               smaller Parameters block, see admin.template.yaml), or "queries"
+//               smaller Parameters block, see admin.template.yaml), "queries"
 //               (queries.env.*.json/queries.samconfig.toml, public unauthenticated
-//               read API — own template/stack, see queries.template.yaml)
+//               read API — own template/stack, see queries.template.yaml), or
+//               "mutation" (mutation.env.*.json/mutation.samconfig.toml, public
+//               unauthenticated write API — own template/stack, see
+//               mutation.template.yaml)
 
 const fs = require("fs");
 const path = require("path");
@@ -90,6 +93,15 @@ const MODE_CONFIG = {
     paramKeyMap: {
       ORGANISATION_TABLE_NAME: "OrganisationTableName",
       PROPERTY_TABLE_NAME: "PropertyTableName",
+    },
+  },
+  mutation: {
+    envPrefix: "mutation.env",
+    tomlFile: "mutation.samconfig.toml",
+    // mutation.template.yaml's Parameters block is just the organisation table (the
+    // Contact Us form definition and its submissions live there, per org).
+    paramKeyMap: {
+      ORGANISATION_TABLE_NAME: "OrganisationTableName",
     },
   },
 };

@@ -1,6 +1,7 @@
 export * from './agent';
 export * from './blocks';
 export * from './contact';
+export * from './contact-form';
 export * from './media';
 export * from './organisation';
 export * from './plan';

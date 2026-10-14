@@ -20,6 +20,8 @@ import LocationsController from './locations/locations.controller';
 import ArticlesController from './articles/articles.controller';
 import FaqController from './faq/faq.controller';
 import ContactController from './contact/contact.controller';
+import ContactFormController from './contact-form/contact-form.controller';
+import InboxController from './inbox/inbox.controller';
 import PrivacyPolicyController from './privacy-policy/privacy-policy.controller';
 import TermsAndConditionsController from './terms-and-conditions/terms-and-conditions.controller';
 import PublishStatusController from './publish-status/publish-status.controller';
@@ -39,6 +41,8 @@ import { LocationsService } from './services/locations.service';
 import { ArticlesService } from './services/articles.service';
 import { FaqService } from './services/faq.service';
 import { ContactService } from './services/contact.service';
+import { ContactFormService } from './services/contact-form.service';
+import { InboxService } from './services/inbox.service';
 import { PrivacyPolicyService } from './services/privacy-policy.service';
 import { TermsAndConditionsService } from './services/terms-and-conditions.service';
 import { SignupRequestService } from './services/signup-request.service';
@@ -70,6 +74,8 @@ async function main(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult>
                 { controller: ArticlesController, services: [OrganisationService, ArticlesService] },
                 { controller: FaqController, services: [OrganisationService, FaqService] },
                 { controller: ContactController, services: [OrganisationService, ContactService] },
+                { controller: ContactFormController, services: [OrganisationService, ContactFormService] },
+                { controller: InboxController, services: [OrganisationService, InboxService] },
                 { controller: PrivacyPolicyController, services: [OrganisationService, PrivacyPolicyService] },
                 {
                     controller: TermsAndConditionsController,

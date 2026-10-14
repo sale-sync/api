@@ -1,0 +1,78 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+
+Description: Sales Sync Mutation API — public, unauthenticated write API for deployed theme-maker sites
+
+Parameters:
+    OrganisationTableName:
+        Type: String
+        Description: The existing organisation table (shared with api/, admin-api and queries-api)
+
+Globals:
+    Function:
+        Timeout: 10
+        Environment:
+            Variables:
+                ORGANISATION_TABLE_NAME: !Ref OrganisationTableName
+
+Resources:
+    # =========================================================================
+    # API Gateway
+    # =========================================================================
+    SalesSyncMutationApi:
+        Type: AWS::Serverless::Api
+        Properties:
+            StageName: Prod
+
+    # =========================================================================
+    # Lambda Functions
+    # =========================================================================
+
+    # -------------------------------------------------------------------------
+    # Contacts Lambda
+    # -------------------------------------------------------------------------
+    # The first public, unauthenticated Lambda that *writes* to the organisation table, so its IAM is
+    # narrowed to exactly what the two handlers do rather than DynamoDBCrudPolicy: GetItem (the org's
+    # META record and its CONTACT_FORM definition) and PutItem (a new CONTACT_SUBMISSION item). No
+    # Query, UpdateItem or DeleteItem — a visitor can never list, change or remove anything, whatever
+    # they send. Reading, marking read and deleting submissions happens through
+    # api/apps/api/organisation's /organisations/inbox, never through this stack.
+    ContactsFunction:
+        Type: AWS::Serverless::Function
+        Properties:
+            CodeUri: apps/mutation-api/contacts/bundle
+            Handler: app.lambdaHandler
+            Runtime: nodejs22.x
+            Architectures: [x86_64]
+            Policies:
+                - AWSLambdaBasicExecutionRole
+                - Version: '2012-10-17'
+                  Statement:
+                      - Effect: Allow
+                        Action:
+                            - dynamodb:GetItem
+                            - dynamodb:PutItem
+                        Resource: !Sub 'arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${OrganisationTableName}'
+            Events:
+                # Method: ANY — GET (form definition), POST (submit) and the CORS preflight (OPTIONS)
+                # all need to reach the Lambda (withOpenCORS in contacts/app.ts handles the preflight).
+                # Any other verb 404s via the Router.
+                ApiRouter:
+                    Type: Api
+                    Properties:
+                        RestApiId: !Ref SalesSyncMutationApi
+                        Path: /contacts
+                        Method: ANY
+
+Outputs:
+    MutationApiId:
+        Description: API Gateway RestApi ID
+        Value: !Ref SalesSyncMutationApi
+
+    MutationApiInvokeUrl:
+        Description: Invoke URL for the Prod stage
+        Value: !Sub 'https://${SalesSyncMutationApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/'
+
+    ContactsFunctionArn:
+        Description: Contacts Lambda Function ARN
+        Value: !GetAtt ContactsFunction.Arn

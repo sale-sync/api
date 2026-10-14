@@ -2,6 +2,7 @@
 
 export * from './agent';
 export * from './contact';
+export * from './contact-form';
 export * from './form';
 export * from './organisation';
 export * from './plan';

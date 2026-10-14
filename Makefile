@@ -1,4 +1,4 @@
-.PHONY: help clean bundle build start start.prod deploy.staging deploy.prod dev dev.prod docs test check.staging check.prod check.both admin.dev admin.dev.staging admin.dev.prod admin.bundle admin.build admin.start admin.start.staging admin.start.prod admin.deploy.staging admin.deploy.prod admin.clean admin.check.staging admin.check.prod admin.check.both admin.docs admin.test queries.dev queries.bundle queries.build queries.start queries.deploy.staging queries.deploy.prod queries.clean queries.check.staging queries.check.prod queries.check.both queries.test test.all
+.PHONY: help clean bundle build start start.prod deploy.staging deploy.prod dev dev.prod docs test check.staging check.prod check.both admin.dev admin.dev.staging admin.dev.prod admin.bundle admin.build admin.start admin.start.staging admin.start.prod admin.deploy.staging admin.deploy.prod admin.clean admin.check.staging admin.check.prod admin.check.both admin.docs admin.test queries.dev queries.bundle queries.build queries.start queries.deploy.staging queries.deploy.prod queries.clean queries.check.staging queries.check.prod queries.check.both queries.test mutation.dev mutation.bundle mutation.build mutation.start mutation.deploy.staging mutation.deploy.prod mutation.clean mutation.check.staging mutation.check.prod mutation.check.both mutation.test test.all
 
 # Default target
 .DEFAULT_GOAL := help
@@ -337,8 +337,95 @@ queries.check.prod:
 queries.check.both:
 	@./scripts/check-resources.sh queries both
 
+# =============================================================================
+# Mutation API (public, unauthenticated, mutation.salesync.biz; staging:
+# staging-mutation.salesync.biz) — the write-side sibling of the Queries API
+# above, called by deployed client sites (first endpoint: /contacts, the Contact
+# Us form). Own template (mutation.template.yaml), samconfig
+# (mutation.samconfig.toml), and SAM build dir (.aws-sam-mutation), same layout
+# as the Queries API. See backlogs/contact-form-mutation.
+# =============================================================================
+define MUTATION_NODEMON_WATCH
+	npx nodemon -e ts,js,yml,yaml,json \
+	  -w apps/mutation-api/contacts \
+	  -w libs/shared/src \
+	  -w mutation.template.yaml \
+	  -i apps/mutation-api/contacts/bundle \
+	  -i .aws-sam-mutation \
+	  -i node_modules \
+	  -i libs/shared/dist \
+	  --delay 700ms \
+	  -x "$(1)"
+endef
+
+mutation.dev:
+	@echo "==> Starting mutation API development mode with nodemon (staging resources)"
+	$(call MUTATION_NODEMON_WATCH,make mutation.start)
+
+mutation.bundle:
+	@echo "==> Bundling mutation API Lambdas via Nx (auto-builds shared first, from cache if unchanged)"
+	npm run mutation.bundle
+
+mutation.test:
+	@echo "==> Running mutation API tests"
+	npm run mutation.test
+
+mutation.build: mutation.bundle
+	@echo "==> SAM build (mutation API, zipping pre-bundled Lambdas)"
+	sam build --template-file mutation.template.yaml --build-dir .aws-sam-mutation/build
+
+mutation.start: mutation.build
+	@echo "==> Starting local mutation API (staging resources)"
+	sam local start-api --template-file .aws-sam-mutation/build/template.yaml --port 8083 --env-vars mutation.env.staging.json
+
+# Deploy to the staging stack (staging-sale-sync-mutation-api). Syncs
+# mutation.env.staging.json into mutation.samconfig.toml's
+# [staging.deploy.parameters] section first so parameter_overrides can never go
+# stale relative to mutation.env.staging.json.
+mutation.deploy.staging: mutation.bundle
+	@echo "==> Syncing mutation.env.staging.json into mutation.samconfig.toml [staging.deploy.parameters]"
+	npm run mutation.samconfig:sync:staging
+	@echo "==> SAM build (mutation API, zipping pre-bundled Lambdas)"
+	sam build --template-file mutation.template.yaml --build-dir .aws-sam-mutation/build
+	@echo "==> Deploying mutation API to AWS (staging)"
+	sam deploy \
+	  --template-file mutation.template.yaml \
+	  --config-file mutation.samconfig.toml \
+	  --config-env staging \
+	  --resolve-s3
+
+# Deploy to the production stack (sale-sync-mutation-api). Syncs
+# mutation.env.prod.json into mutation.samconfig.toml's [prod.deploy.parameters]
+# section first so parameter_overrides can never go stale relative to
+# mutation.env.prod.json.
+mutation.deploy.prod: mutation.bundle
+	@echo "==> Syncing mutation.env.prod.json into mutation.samconfig.toml [prod.deploy.parameters]"
+	npm run mutation.samconfig:sync:prod
+	@echo "==> SAM build (mutation API, zipping pre-bundled Lambdas)"
+	sam build --template-file mutation.template.yaml --build-dir .aws-sam-mutation/build
+	@echo "==> Deploying mutation API to AWS (production)"
+	sam deploy \
+	  --template-file mutation.template.yaml \
+	  --config-file mutation.samconfig.toml \
+	  --config-env prod \
+	  --resolve-s3
+
+mutation.clean:
+	@echo "==> Cleaning mutation API build artifacts"
+	rm -rf .aws-sam-mutation apps/mutation-api/contacts/bundle
+
+# === Resource audit (CloudFormation/DynamoDB/S3/Lambda, read-only) — mutation stack ===
+mutation.check.staging:
+	@./scripts/check-resources.sh mutation staging
+
+mutation.check.prod:
+	@./scripts/check-resources.sh mutation prod
+
+mutation.check.both:
+	@./scripts/check-resources.sh mutation both
+
 # === Run every test suite, all APIs ===
-test.all: test admin.test queries.test
+test.all: test admin.test queries.test mutation.test
 
 # === Help ===
 help:
@@ -390,6 +477,19 @@ help:
 	@echo "  make queries.check.prod    - List production queries API CloudFormation/DynamoDB/S3/Lambda resources (read-only)"
 	@echo "  make queries.check.both    - Run queries.check.staging + queries.check.prod"
 	@echo ""
+	@echo "Mutation API (public, unauthenticated, mutation.salesync.biz):"
+	@echo "  make mutation.dev     - Run mutation API dev mode with nodemon auto-rebuild"
+	@echo "  make mutation.bundle  - Bundle mutation API Lambdas via Nx (auto-builds shared first)"
+	@echo "  make mutation.build   - Bundle + SAM build (mutation.template.yaml, .aws-sam-mutation)"
+	@echo "  make mutation.start   - Run local mutation API after build (port 8083)"
+	@echo "  make mutation.test    - Run mutation API tests (unit, all apps)"
+	@echo "  make mutation.deploy.staging - Build + deploy mutation API to AWS (staging stack: staging-sale-sync-mutation-api)"
+	@echo "  make mutation.deploy.prod    - Build + deploy mutation API to AWS (prod stack: sale-sync-mutation-api)"
+	@echo "  make mutation.clean   - Remove .aws-sam-mutation and mutation bundle folders"
+	@echo "  make mutation.check.staging - List staging mutation API CloudFormation/DynamoDB/S3/Lambda resources (read-only)"
+	@echo "  make mutation.check.prod    - List production mutation API CloudFormation/DynamoDB/S3/Lambda resources (read-only)"
+	@echo "  make mutation.check.both    - Run mutation.check.staging + mutation.check.prod"
+	@echo ""
 	@echo "Both:"
-	@echo "  make test.all      - Run every test suite, client + admin + queries API"
+	@echo "  make test.all      - Run every test suite, client + admin + queries + mutation API"
 	@echo ""
