@@ -43,6 +43,7 @@ const MODE_CONFIG = {
       CLIENT_ID: "ClientId",
       CLIENT_SECRET: "ClientSecret",
       COGNITO_CALLBACK_URL: "CognitoCallbackUrl",
+      COGNITO_CALLBACK_URLS: "CognitoCallbackUrls",
       AUTH_TABLE_NAME: "AuthTableName",
       ORGANISATION_TABLE_NAME: "OrganisationTableName",
       MEDIA_TABLE_NAME: "MediaTableName",

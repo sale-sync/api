@@ -11,9 +11,17 @@ class LoginController extends Controller implements IControllerMethods {
         this.authService = authService;
     }
 
-    async post(): Promise<APIGatewayProxyResult> {
+    async post(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
         // this.authService.check();
-        const authUrl = await this.authService.storeNonce();
+        // ?app= says which dashboard the user came from (estate | trade); none keeps the single configured callback.
+        const app = event.queryStringParameters?.app;
+        const authUrl = await this.authService.storeNonce(app);
+        if (authUrl === null) {
+            return {
+                statusCode: 400,
+                body: JSON.stringify({ message: 'Unknown app' }),
+            };
+        }
         return {
             statusCode: 200,
             body: JSON.stringify({

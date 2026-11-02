@@ -87,9 +87,53 @@ describe('POST /auth/login', () => {
             Item: {
                 PK: 'NONCE-STATE#fixed-state',
                 SK: 'fixed-state',
-                data: JSON.stringify({ nonce: 'fixed-nonce', state: 'fixed-state' }),
+                data: JSON.stringify({
+                    nonce: 'fixed-nonce',
+                    state: 'fixed-state',
+                    redirectUri: 'https://app.salesync.local/auth/callback',
+                }),
             },
         });
+    });
+
+    it('uses the callback URL of the app the user came from (?app=) and stores it with the nonce', async () => {
+        process.env.COGNITO_CALLBACK_URLS =
+            'estate=https://estate.silastech.co/auth/callback,trade=https://app.silastech.co/auth/callback';
+        mockNonce.mockReturnValue('fixed-nonce');
+        mockState.mockReturnValue('fixed-state');
+        mockAuthorizationUrl.mockReturnValue('https://cognito.example.com/authorize?state=fixed-state');
+        ddbMock.on(PutCommand).resolves({});
+
+        const res = await lambdaHandler(
+            buildEvent({ httpMethod: 'POST', path: '/auth/login', queryStringParameters: { app: 'trade' } }),
+        );
+
+        expect(res.statusCode).toBe(200);
+        expect(mockAuthorizationUrl).toHaveBeenCalledWith(
+            expect.objectContaining({ redirect_uri: 'https://app.silastech.co/auth/callback' }),
+        );
+        expect(ddbMock).toHaveReceivedCommandWith(PutCommand, {
+            Item: expect.objectContaining({
+                data: JSON.stringify({
+                    nonce: 'fixed-nonce',
+                    state: 'fixed-state',
+                    redirectUri: 'https://app.silastech.co/auth/callback',
+                }),
+            }),
+        });
+        delete process.env.COGNITO_CALLBACK_URLS;
+    });
+
+    it('returns 400 for an app that is not in COGNITO_CALLBACK_URLS and stores nothing', async () => {
+        process.env.COGNITO_CALLBACK_URLS = 'estate=https://estate.silastech.co/auth/callback';
+
+        const res = await lambdaHandler(
+            buildEvent({ httpMethod: 'POST', path: '/auth/login', queryStringParameters: { app: 'evil' } }),
+        );
+
+        expect(res.statusCode).toBe(400);
+        expect(ddbMock).not.toHaveReceivedCommand(PutCommand);
+        delete process.env.COGNITO_CALLBACK_URLS;
     });
 });
 
@@ -128,6 +172,35 @@ describe('GET /auth/login (Cognito callback)', () => {
             TableName: 'sale-sync-auth',
             Key: { PK: 'NONCE-STATE#fixed-state', SK: 'fixed-state' },
         });
+    });
+
+    it('exchanges the code with the redirect URI stored at login, not the configured default', async () => {
+        ddbMock.on(GetCommand).resolves({
+            Item: {
+                data: JSON.stringify({
+                    nonce: 'fixed-nonce',
+                    state: 'fixed-state',
+                    redirectUri: 'https://app.silastech.co/auth/callback',
+                }),
+            },
+        });
+        mockCallback.mockResolvedValue({ access_token: 'fake-access-token' });
+        mockUserinfo.mockResolvedValue({ sub: 'user-1' });
+
+        const res = await lambdaHandler(
+            buildEvent({
+                httpMethod: 'GET',
+                path: '/auth/login',
+                queryStringParameters: { code: 'auth-code', state: 'fixed-state' },
+            }),
+        );
+
+        expect(res.statusCode).toBe(200);
+        expect(mockCallback).toHaveBeenCalledWith(
+            'https://app.silastech.co/auth/callback',
+            { code: 'auth-code', state: 'fixed-state' },
+            { nonce: 'fixed-nonce', state: 'fixed-state' },
+        );
     });
 
     it('returns 400 when the state does not match a stored nonce', async () => {

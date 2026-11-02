@@ -24,6 +24,11 @@ Parameters:
         Type: String
     CognitoCallbackUrl:
         Type: String
+    # app=url pairs, comma separated (estate=https://...,trade=https://...): the OAuth callback per dashboard,
+    # chosen by POST /auth/login?app=. Empty keeps the single CognitoCallbackUrl above.
+    CognitoCallbackUrls:
+        Type: String
+        Default: ''
     # -------------------------------------------------------------------------
     # Shared infra (DynamoDB/S3), now owned by the standalone ss/infra stack
     # instead of a nested stack here. See ss/docs/infra/runbook.md.
@@ -206,6 +211,7 @@ Globals:
                 CLIENT_ID: !Ref ClientId
                 CLIENT_SECRET: !Ref ClientSecret
                 COGNITO_CALLBACK_URL: !Ref CognitoCallbackUrl
+                COGNITO_CALLBACK_URLS: !Ref CognitoCallbackUrls
 
 Resources:
     # =========================================================================
