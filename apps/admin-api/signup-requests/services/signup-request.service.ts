@@ -5,6 +5,10 @@ import { Service } from '@devyethiha/samjs';
 import type { Organisation, OrganisationUser, SignupRequest, Subscription } from '@sale-sync/shared/src/types';
 import { v4 as uuidv4 } from 'uuid';
 
+// This workspace's esbuild (0.14) cannot parse `satisfies`. This identity function keeps the same compile-time
+// check that the object is a complete SignupRequest.
+const checked = (request: SignupRequest): SignupRequest => request;
+
 // No hardcoded fallback: staging (`staging-sale-sync-organisation`) and prod
 // (`sale-sync-organisation`) are different literal tables (see admin.samconfig.toml) — a default
 // here would mean a misconfigured staging deploy silently writes to the prod table instead of
@@ -121,13 +125,13 @@ export class SignupRequestService extends Service {
                                 ExpressionAttributeNames: { '#data': 'data' },
                                 ExpressionAttributeValues: {
                                     ':approved': true,
-                                    ':data': JSON.stringify({
+                                    ':data': JSON.stringify(checked({
                                         ...request,
                                         status: 'approved',
                                         resulting_organisation_uuid: org.uuid,
                                         reviewed_by_user_id: reviewerUserId,
                                         reviewed_at: now,
-                                    } satisfies SignupRequest),
+                                    })),
                                 },
                             },
                         },
@@ -184,13 +188,13 @@ export class SignupRequestService extends Service {
                                 ConditionExpression: 'attribute_not_exists(Approved)',
                                 ExpressionAttributeNames: { '#data': 'data' },
                                 ExpressionAttributeValues: {
-                                    ':data': JSON.stringify({
+                                    ':data': JSON.stringify(checked({
                                         ...request,
                                         status: 'rejected',
                                         rejection_reason: rejectionReason,
                                         reviewed_by_user_id: reviewerUserId,
                                         reviewed_at: now,
-                                    } satisfies SignupRequest),
+                                    })),
                                 },
                             },
                         },

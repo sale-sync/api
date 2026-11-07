@@ -26,4 +26,8 @@ export const lambdaHandler = withCORS(main, [
     'http://localhost:3000',
     'http://127.0.0.1:3000',
     'https://app.salesync.local',
+    'https://estate.silastech.co',
+    'https://app.silastech.co',
+    'https://staging-estate.silastech.co',
+    'https://staging-app.silastech.co',
 ]);

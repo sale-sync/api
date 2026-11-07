@@ -22,6 +22,7 @@ async function main(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult>
 
 export const lambdaHandler = withCORS(main, [
     'https://admin.salesync.biz',
+    'https://admin.silastech.co',
     'https://staging-admin.salesync.biz',
     'https://admin.salesync.local',
     'http://localhost:3003',
