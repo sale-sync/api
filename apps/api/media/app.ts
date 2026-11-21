@@ -86,5 +86,7 @@ export const lambdaHandler = withCORS(main, [
     'https://estate.silastech.co',
     'https://app.silastech.co',
     'https://staging-estate.silastech.co',
+    'https://admin.silasestate.com',
+    'https://staging-admin.silasestate.com',
     'https://staging-app.silastech.co',
 ]);
