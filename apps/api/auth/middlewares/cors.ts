@@ -6,9 +6,9 @@ const allowedOrigins = [
     'https://staging.salesync.biz',
     'http://localhost:3000',
     'http://127.0.0.1:3000',
-    'https://estate.silastech.co',
     'https://app.silastech.co',
-    'https://staging-estate.silastech.co',
+    'https://admin.silasestate.com',
+    'https://staging-admin.silasestate.com',
     'https://staging-app.silastech.co',
 ];
 
