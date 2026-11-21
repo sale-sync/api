@@ -101,7 +101,9 @@ bundle/
 .env.test
 .env*.local
 env.*
+admin.env.*
 samconfig.toml
+admin.samconfig.toml
 
 # parcel-bundler cache (https://parceljs.org/)
 .cache
@@ -184,7 +186,7 @@ Temporary Items
 # Info: https://aws.amazon.com/serverless/sam/
 # Docs: https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/serverless-sam-reference.html
 
-**/.aws-sam
+**/.aws-sam*
 
 ### Windows ###
 # Windows thumbnail cache files

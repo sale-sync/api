@@ -1,0 +1,28 @@
+{
+  "name": "queries-articles",
+  "root": "apps/queries-api/articles",
+  "sourceRoot": "apps/queries-api/articles",
+  "projectType": "application",
+  "targets": {
+    "compile": {
+      "executor": "nx:run-commands",
+      "options": { "command": "npm run compile", "cwd": "apps/queries-api/articles" }
+    },
+    "bundle": {
+      "executor": "nx:run-commands",
+      "options": { "command": "npm run bundle", "cwd": "apps/queries-api/articles" }
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "options": { "command": "npm test", "cwd": "apps/queries-api/articles" }
+    },
+    "unit": {
+      "executor": "nx:run-commands",
+      "options": { "command": "npm run unit", "cwd": "apps/queries-api/articles" }
+    },
+    "lint": {
+      "executor": "nx:run-commands",
+      "options": { "command": "npm run lint", "cwd": "apps/queries-api/articles" }
+    }
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "name": "admin-promo-codes",
+  "root": "apps/admin-api/promo-codes",
+  "sourceRoot": "apps/admin-api/promo-codes",
+  "projectType": "application",
+  "targets": {
+    "compile": {
+      "executor": "nx:run-commands",
+      "options": { "command": "npm run compile", "cwd": "apps/admin-api/promo-codes" }
+    },
+    "bundle": {
+      "executor": "nx:run-commands",
+      "options": { "command": "npm run bundle", "cwd": "apps/admin-api/promo-codes" }
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "options": { "command": "npm test", "cwd": "apps/admin-api/promo-codes" }
+    },
+    "unit": {
+      "executor": "nx:run-commands",
+      "options": { "command": "npm run unit", "cwd": "apps/admin-api/promo-codes" }
+    },
+    "lint": {
+      "executor": "nx:run-commands",
+      "options": { "command": "npm run lint", "cwd": "apps/admin-api/promo-codes" }
+    }
+  }
+}

@@ -1,0 +1,112 @@
+import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
+import { Router, withCORS } from '@devyethiha/samjs';
+import DefaultController from './default/default.controller';
+import ByIdController from './by-id/by-id.controller';
+import UsersController from './users/users.controller';
+import ProfileController from './profile/profile.controller';
+import TeamController from './team/team.controller';
+import TeamMemberController from './team-member/team-member.controller';
+import TemplatesController from './templates/templates.controller';
+import ThemeController from './templates/theme/theme.controller';
+import BrandingController from './branding/branding.controller';
+import TestimonialsController from './testimonials/testimonials.controller';
+import SocialsController from './socials/socials.controller';
+import AboutController from './about/about.controller';
+import HomeController from './home/home.controller';
+import AgentsPageController from './agents-page/agents-page.controller';
+import MapViewController from './map-view/map-view.controller';
+import PropertiesPageController from './properties-page/properties-page.controller';
+import LocationsController from './locations/locations.controller';
+import ArticlesController from './articles/articles.controller';
+import FaqController from './faq/faq.controller';
+import ContactController from './contact/contact.controller';
+import ContactFormController from './contact-form/contact-form.controller';
+import InboxController from './inbox/inbox.controller';
+import PrivacyPolicyController from './privacy-policy/privacy-policy.controller';
+import TermsAndConditionsController from './terms-and-conditions/terms-and-conditions.controller';
+import PublishStatusController from './publish-status/publish-status.controller';
+import SignupRequestsController from './signup-requests/signup-requests.controller';
+import { OrganisationService } from './services/organisation.service';
+import { TemplateService } from './services/template.service';
+import { WebsiteTemplateService } from './services/website-template.service';
+import { BrandingService } from './services/branding.service';
+import { TestimonialsService } from './services/testimonials.service';
+import { SocialsService } from './services/socials.service';
+import { AboutService } from './services/about.service';
+import { HomeService } from './services/home.service';
+import { AgentsPageService } from './services/agents-page.service';
+import { MapViewService } from './services/map-view.service';
+import { PropertiesPageService } from './services/properties-page.service';
+import { LocationsService } from './services/locations.service';
+import { ArticlesService } from './services/articles.service';
+import { FaqService } from './services/faq.service';
+import { ContactService } from './services/contact.service';
+import { ContactFormService } from './services/contact-form.service';
+import { InboxService } from './services/inbox.service';
+import { PrivacyPolicyService } from './services/privacy-policy.service';
+import { TermsAndConditionsService } from './services/terms-and-conditions.service';
+import { SignupRequestService } from './services/signup-request.service';
+
+async function main(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
+    const region = 'ap-southeast-2';
+    try {
+        const router = new Router(
+            event,
+            region,
+            [
+                { controller: DefaultController, services: [OrganisationService, SignupRequestService] },
+                { controller: ByIdController, services: [OrganisationService] },
+                { controller: UsersController, services: [OrganisationService] },
+                { controller: ProfileController, services: [OrganisationService] },
+                { controller: TeamController, services: [OrganisationService] },
+                { controller: TeamMemberController, services: [OrganisationService] },
+                { controller: TemplatesController, services: [TemplateService] },
+                { controller: ThemeController, services: [WebsiteTemplateService] },
+                { controller: BrandingController, services: [OrganisationService, BrandingService] },
+                { controller: TestimonialsController, services: [OrganisationService, TestimonialsService] },
+                { controller: SocialsController, services: [OrganisationService, SocialsService] },
+                { controller: AboutController, services: [OrganisationService, AboutService] },
+                { controller: HomeController, services: [OrganisationService, HomeService] },
+                { controller: AgentsPageController, services: [OrganisationService, AgentsPageService] },
+                { controller: MapViewController, services: [OrganisationService, MapViewService] },
+                { controller: PropertiesPageController, services: [OrganisationService, PropertiesPageService] },
+                { controller: LocationsController, services: [OrganisationService, LocationsService] },
+                { controller: ArticlesController, services: [OrganisationService, ArticlesService] },
+                { controller: FaqController, services: [OrganisationService, FaqService] },
+                { controller: ContactController, services: [OrganisationService, ContactService] },
+                { controller: ContactFormController, services: [OrganisationService, ContactFormService] },
+                { controller: InboxController, services: [OrganisationService, InboxService] },
+                { controller: PrivacyPolicyController, services: [OrganisationService, PrivacyPolicyService] },
+                {
+                    controller: TermsAndConditionsController,
+                    services: [OrganisationService, TermsAndConditionsService],
+                },
+                { controller: PublishStatusController, services: [] },
+                { controller: SignupRequestsController, services: [SignupRequestService] },
+            ],
+            '/organisations',
+        );
+
+        return await router.handle();
+    } catch (err) {
+        console.log({ err });
+        return {
+            statusCode: 500,
+            body: JSON.stringify({
+                message: 'some error happened',
+            }),
+        };
+    }
+}
+
+export const lambdaHandler = withCORS(main, [
+    'https://app.salesync.biz',
+    'https://staging.salesync.biz',
+    'http://localhost:3000',
+    'http://127.0.0.1:3000',
+    'https://app.salesync.local',
+    'https://app.silastech.co',
+    'https://admin.silasestate.com',
+    'https://staging-admin.silasestate.com',
+    'https://staging-app.silastech.co',
+]);

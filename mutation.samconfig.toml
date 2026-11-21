@@ -1,0 +1,25 @@
+version = 0.1
+
+[staging.deploy.parameters]
+stack_name = "staging-sale-sync-mutation-api"
+resolve_s3 = true
+s3_prefix = "staging-sale-sync-mutation-api"
+region = "ap-southeast-2"
+confirm_changeset = true
+capabilities = "CAPABILITY_IAM CAPABILITY_AUTO_EXPAND"
+image_repositories = []
+parameter_overrides = [
+  "ParameterKey=OrganisationTableName,ParameterValue=staging-sale-sync-organisation"
+]
+
+[prod.deploy.parameters]
+stack_name = "sale-sync-mutation-api"
+resolve_s3 = true
+s3_prefix = "sale-sync-mutation-api"
+region = "ap-southeast-2"
+confirm_changeset = true
+capabilities = "CAPABILITY_IAM CAPABILITY_AUTO_EXPAND"
+image_repositories = []
+parameter_overrides = [
+  "ParameterKey=OrganisationTableName,ParameterValue=sale-sync-organisation"
+]

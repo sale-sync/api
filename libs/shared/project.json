@@ -1,0 +1,36 @@
+{
+  "name": "shared",
+  "root": "libs/shared",
+  "sourceRoot": "libs/shared/src",
+  "projectType": "library",
+  "targets": {
+    "build": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "npm run build",
+        "cwd": "libs/shared"
+      }
+    },
+    "compile": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "npm run compile",
+        "cwd": "libs/shared"
+      }
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "npm test",
+        "cwd": "libs/shared"
+      }
+    },
+    "lint": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "npm run lint",
+        "cwd": "libs/shared"
+      }
+    }
+  }
+}

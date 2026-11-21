@@ -1,0 +1,22 @@
+{
+  "name": "media",
+  "root": "apps/api/media",
+  "sourceRoot": "apps/api/media",
+  "projectType": "application",
+  "targets": {
+    "bundle": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "npm run bundle",
+        "cwd": "apps/api/media"
+      }
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "npm test",
+        "cwd": "apps/api/media"
+      }
+    }
+  }
+}

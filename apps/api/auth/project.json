@@ -1,0 +1,36 @@
+{
+  "name": "auth",
+  "root": "apps/api/auth",
+  "sourceRoot": "apps/api/auth",
+  "projectType": "application",
+  "targets": {
+    "compile": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "npm run compile",
+        "cwd": "apps/api/auth"
+      }
+    },
+    "bundle": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "npm run bundle",
+        "cwd": "apps/api/auth"
+      }
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "npm test",
+        "cwd": "apps/api/auth"
+      }
+    },
+    "lint": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "npm run lint",
+        "cwd": "apps/api/auth"
+      }
+    }
+  }
+}

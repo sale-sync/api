@@ -1,0 +1,17 @@
+# cfn-guard Suppression Configuration
+# =====================================
+# These rules are suppressed because the security controls ARE implemented,
+# but via separate AWS::S3::BucketPolicy resources which cfn-guard can't detect.
+#
+# Actual implementations:
+# - SSL enforcement: MediaBucketPolicy & MediaBucketLogsPolicy (DenyNonSSLRequests statement)
+# - Logging: MediaBucketLogs logs to itself, MediaBucket logs to MediaBucketLogs
+#
+# See media.template.yaml for full implementation details.
+
+suppress:
+  S3_BUCKET_SSL_REQUESTS_ONLY:
+    - MediaBucketLogs
+    - MediaBucket
+  S3_BUCKET_LOGGING_ENABLED:
+    - MediaBucketLogs

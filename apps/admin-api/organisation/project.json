@@ -1,0 +1,28 @@
+{
+  "name": "admin-organisation",
+  "root": "apps/admin-api/organisation",
+  "sourceRoot": "apps/admin-api/organisation",
+  "projectType": "application",
+  "targets": {
+    "compile": {
+      "executor": "nx:run-commands",
+      "options": { "command": "npm run compile", "cwd": "apps/admin-api/organisation" }
+    },
+    "bundle": {
+      "executor": "nx:run-commands",
+      "options": { "command": "npm run bundle", "cwd": "apps/admin-api/organisation" }
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "options": { "command": "npm test", "cwd": "apps/admin-api/organisation" }
+    },
+    "unit": {
+      "executor": "nx:run-commands",
+      "options": { "command": "npm run unit", "cwd": "apps/admin-api/organisation" }
+    },
+    "lint": {
+      "executor": "nx:run-commands",
+      "options": { "command": "npm run lint", "cwd": "apps/admin-api/organisation" }
+    }
+  }
+}

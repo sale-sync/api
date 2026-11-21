@@ -1,0 +1,28 @@
+{
+  "name": "queries-locations",
+  "root": "apps/queries-api/locations",
+  "sourceRoot": "apps/queries-api/locations",
+  "projectType": "application",
+  "targets": {
+    "compile": {
+      "executor": "nx:run-commands",
+      "options": { "command": "npm run compile", "cwd": "apps/queries-api/locations" }
+    },
+    "bundle": {
+      "executor": "nx:run-commands",
+      "options": { "command": "npm run bundle", "cwd": "apps/queries-api/locations" }
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "options": { "command": "npm test", "cwd": "apps/queries-api/locations" }
+    },
+    "unit": {
+      "executor": "nx:run-commands",
+      "options": { "command": "npm run unit", "cwd": "apps/queries-api/locations" }
+    },
+    "lint": {
+      "executor": "nx:run-commands",
+      "options": { "command": "npm run lint", "cwd": "apps/queries-api/locations" }
+    }
+  }
+}

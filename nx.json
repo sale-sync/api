@@ -1,6 +1,10 @@
 {
   "$schema": "./node_modules/nx/schemas/nx-schema.json",
-  "npmScope": "sales-sync",
+  "npmScope": "sale-sync",
+  "workspaceLayout": {
+    "appsDir": "apps",
+    "libsDir": "libs"
+  },
   "tasksRunnerOptions": {
     "default": {
       "runner": "nx/tasks-runners/default",
@@ -11,7 +15,6 @@
           "bundle",
           "test",
           "lint",
-          "shared.pack",
           "deploy"
         ]
       }
@@ -23,6 +26,10 @@
     },
     "compile": {
       "dependsOn": ["^compile"]
+    },
+    "bundle": {
+      "dependsOn": ["^build"],
+      "outputs": ["{projectRoot}/bundle"]
     }
   }
 }

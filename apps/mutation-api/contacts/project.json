@@ -1,0 +1,28 @@
+{
+  "name": "mutation-contacts",
+  "root": "apps/mutation-api/contacts",
+  "sourceRoot": "apps/mutation-api/contacts",
+  "projectType": "application",
+  "targets": {
+    "compile": {
+      "executor": "nx:run-commands",
+      "options": { "command": "npm run compile", "cwd": "apps/mutation-api/contacts" }
+    },
+    "bundle": {
+      "executor": "nx:run-commands",
+      "options": { "command": "npm run bundle", "cwd": "apps/mutation-api/contacts" }
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "options": { "command": "npm test", "cwd": "apps/mutation-api/contacts" }
+    },
+    "unit": {
+      "executor": "nx:run-commands",
+      "options": { "command": "npm run unit", "cwd": "apps/mutation-api/contacts" }
+    },
+    "lint": {
+      "executor": "nx:run-commands",
+      "options": { "command": "npm run lint", "cwd": "apps/mutation-api/contacts" }
+    }
+  }
+}

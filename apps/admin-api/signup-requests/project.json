@@ -1,0 +1,28 @@
+{
+  "name": "admin-signup-requests",
+  "root": "apps/admin-api/signup-requests",
+  "sourceRoot": "apps/admin-api/signup-requests",
+  "projectType": "application",
+  "targets": {
+    "compile": {
+      "executor": "nx:run-commands",
+      "options": { "command": "npm run compile", "cwd": "apps/admin-api/signup-requests" }
+    },
+    "bundle": {
+      "executor": "nx:run-commands",
+      "options": { "command": "npm run bundle", "cwd": "apps/admin-api/signup-requests" }
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "options": { "command": "npm test", "cwd": "apps/admin-api/signup-requests" }
+    },
+    "unit": {
+      "executor": "nx:run-commands",
+      "options": { "command": "npm run unit", "cwd": "apps/admin-api/signup-requests" }
+    },
+    "lint": {
+      "executor": "nx:run-commands",
+      "options": { "command": "npm run lint", "cwd": "apps/admin-api/signup-requests" }
+    }
+  }
+}

@@ -1,0 +1,123 @@
+import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
+import { Controller, IControllerMethods, isAuthorize, UNAUTHORIZE_ERROR, ValidationError } from '@devyethiha/samjs';
+import { getOrganisation, NO_ORGANISATION } from '@sale-sync/shared';
+import { InsufficientRoleError, OrganisationService } from '../services/organisation.service';
+import { FaqService, NoDraftToPublishError } from '../services/faq.service';
+import { UpdateFaqDraftDTO } from './faq.dto';
+
+class FaqController extends Controller implements IControllerMethods {
+    private organisationService: OrganisationService;
+    private faqService: FaqService;
+
+    constructor(organisationService: OrganisationService, faqService: FaqService) {
+        super('faq');
+        this.organisationService = organisationService;
+        this.faqService = faqService;
+    }
+
+    // GET /organisations/faq — no role gate, any org member can view the current record.
+    async get(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
+        if (!isAuthorize(event)) {
+            return UNAUTHORIZE_ERROR;
+        }
+
+        const organisation = getOrganisation(event);
+        if (!organisation) {
+            return NO_ORGANISATION;
+        }
+
+        const record = await this.faqService.get(organisation.uuid);
+
+        return {
+            statusCode: 200,
+            body: JSON.stringify(record),
+        };
+    }
+
+    // PATCH /organisations/faq — merge-updates the draft's `topics`/`faqs`/`hero`/`seo` (each
+    // independently optional — see FaqService.updateDraft()'s own comment). Restricted to
+    // owner/admin.
+    async patch(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
+        if (!isAuthorize(event)) {
+            return UNAUTHORIZE_ERROR;
+        }
+
+        const organisation = getOrganisation(event);
+        if (!organisation) {
+            return NO_ORGANISATION;
+        }
+
+        try {
+            await this.organisationService.assertCanManageTeam(organisation.uuid, organisation.user_id);
+
+            const body = new UpdateFaqDraftDTO().validate(JSON.parse(event.body || '{}'));
+            const updated = await this.faqService.updateDraft(organisation.uuid, {
+                topics: body.topics,
+                faqs: body.faqs,
+                hero: body.hero,
+                seo: body.seo,
+            });
+
+            return {
+                statusCode: 200,
+                body: JSON.stringify(updated),
+            };
+        } catch (error) {
+            return this.handleError(error);
+        }
+    }
+
+    // POST /organisations/faq — publish (draft -> data). Restricted to owner/admin.
+    async post(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
+        if (!isAuthorize(event)) {
+            return UNAUTHORIZE_ERROR;
+        }
+
+        const organisation = getOrganisation(event);
+        if (!organisation) {
+            return NO_ORGANISATION;
+        }
+
+        try {
+            await this.organisationService.assertCanManageTeam(organisation.uuid, organisation.user_id);
+
+            // Optional body: { rebakeHero: true } from the Hero card (see FaqService.publish()). Only a
+            // literal `true` counts; anything else, including no body, is the plain publish.
+            let rebakeHero = false;
+            if (event.body) {
+                try {
+                    rebakeHero = JSON.parse(event.body)?.rebakeHero === true;
+                } catch {
+                    rebakeHero = false;
+                }
+            }
+
+            const updated = await this.faqService.publish(organisation.uuid, { rebakeHero });
+
+            return {
+                statusCode: 200,
+                body: JSON.stringify(updated),
+            };
+        } catch (error) {
+            return this.handleError(error);
+        }
+    }
+
+    private handleError(error: unknown): APIGatewayProxyResult {
+        if (error instanceof ValidationError) {
+            return {
+                statusCode: 400,
+                body: JSON.stringify({ message: error.message, issues: error.issues }),
+            };
+        }
+        if (error instanceof InsufficientRoleError) {
+            return { statusCode: 403, body: JSON.stringify({ message: error.message }) };
+        }
+        if (error instanceof NoDraftToPublishError) {
+            return { statusCode: 409, body: JSON.stringify({ message: error.message }) };
+        }
+        throw error;
+    }
+}
+
+export default FaqController;

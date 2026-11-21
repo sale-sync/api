@@ -1,0 +1,22 @@
+{
+  "name": "admin-openapi",
+  "root": "apps/admin-api/openapi",
+  "sourceRoot": "apps/admin-api/openapi",
+  "projectType": "application",
+  "targets": {
+    "start": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "npm run start",
+        "cwd": "apps/admin-api/openapi"
+      }
+    },
+    "dev": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "npm run dev",
+        "cwd": "apps/admin-api/openapi"
+      }
+    }
+  }
+}

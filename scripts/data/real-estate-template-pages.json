@@ -1,0 +1,98 @@
+[
+  {
+    "id": "real-estate-home-page",
+    "name": "Real Estate Home Page",
+    "pageType": "real-estate-home",
+    "pageCategory": "feature",
+    "render": "hybrid",
+    "generator": "real-estate-home-page"
+  },
+  {
+    "id": "about-page",
+    "name": "About Page",
+    "pageType": "blocknote",
+    "pageCategory": "normal",
+    "render": "ssr",
+    "generator": "blocknote-singleton"
+  },
+  {
+    "id": "real-estate-agents-page",
+    "name": "Real Estate Agents Page",
+    "pageType": "real-estate-agents",
+    "pageCategory": "feature",
+    "render": "hybrid",
+    "generator": "real-estate-agents-page"
+  },
+  {
+    "id": "articles-page",
+    "name": "Articles Page",
+    "pageType": "articles",
+    "pageCategory": "normal",
+    "render": "hybrid",
+    "generator": "article-listing-page"
+  },
+  {
+    "id": "articles-detail-page",
+    "name": "Article Detail Page",
+    "pageType": "article-detail",
+    "pageCategory": "normal",
+    "render": "ssr",
+    "generator": "article-detail-page"
+  },
+  {
+    "id": "faq-page",
+    "name": "Faq Page",
+    "pageType": "faq",
+    "pageCategory": "normal",
+    "render": "hybrid",
+    "generator": "faq-page"
+  },
+  {
+    "id": "locations-page",
+    "name": "Locations Page",
+    "pageType": "locations",
+    "pageCategory": "normal",
+    "render": "hybrid",
+    "generator": "location-listing-page"
+  },
+  {
+    "id": "locations-detail-page",
+    "name": "Location Detail Page",
+    "pageType": "location-detail",
+    "pageCategory": "normal",
+    "render": "ssr",
+    "generator": "location-detail-page"
+  },
+  {
+    "id": "real-estate-map-view-page",
+    "name": "Real Estate Map View Page",
+    "pageType": "real-estate-map-view",
+    "pageCategory": "feature",
+    "render": "csr",
+    "generator": "real-estate-map-view-page"
+  },
+  {
+    "id": "privacy-policy-page",
+    "name": "Privacy Policy Page",
+    "pageType": "blocknote",
+    "pageCategory": "normal",
+    "render": "ssr",
+    "generator": "blocknote-singleton"
+  },
+  {
+    "id": "real-estate-properties-page",
+    "name": "Real Estate Properties Page",
+    "pageType": "real-estate-properties",
+    "pageCategory": "feature",
+    "render": "csr",
+    "generator": "real-estate-properties-page"
+  },
+  {
+    "id": "terms-and-conditions-page",
+    "name": "Terms and Conditions Page",
+    "pageType": "blocknote",
+    "pageCategory": "normal",
+    "render": "ssr",
+    "generator": "blocknote-singleton"
+  }
+]

@@ -1,0 +1,36 @@
+{
+  "name": "blocks",
+  "root": "apps/api/blocks",
+  "sourceRoot": "apps/api/blocks",
+  "projectType": "application",
+  "targets": {
+    "compile": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "npm run compile",
+        "cwd": "apps/api/blocks"
+      }
+    },
+    "bundle": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "npm run bundle",
+        "cwd": "apps/api/blocks"
+      }
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "npm test",
+        "cwd": "apps/api/blocks"
+      }
+    },
+    "lint": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "npm run lint",
+        "cwd": "apps/api/blocks"
+      }
+    }
+  }
+}

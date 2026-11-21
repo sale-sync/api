@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>S3 Presigned Uploader</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Syne:wght@400;700;800&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0c0e14;
+    --surface: #13151f;
+    --border: #1f2333;
+    --accent: #4fffb0;
+    --accent2: #5b8fff;
+    --text: #e8eaf2;
+    --muted: #6b7194;
+    --error: #ff5f6d;
+    --warn: #ffd166;
+    --mono: 'JetBrains Mono', monospace;
+    --sans: 'Syne', sans-serif;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 48px 16px;
+  }
+
+  /* Background grid */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(var(--border) 1px, transparent 1px),
+      linear-gradient(90deg, var(--border) 1px, transparent 1px);
+    background-size: 40px 40px;
+    opacity: 0.4;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 700px;
+  }
+
+  header {
+    margin-bottom: 40px;
+  }
+
+  .badge {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--accent);
+    border: 1px solid var(--accent);
+    padding: 3px 10px;
+    border-radius: 2px;
+    letter-spacing: 2px;
+    margin-bottom: 16px;
+    text-transform: uppercase;
+  }
+
+  h1 {
+    font-size: 36px;
+    font-weight: 800;
+    line-height: 1.1;
+    letter-spacing: -1px;
+  }
+
+  h1 span { color: var(--accent); }
+
+  .subtitle {
+    margin-top: 10px;
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 13px;
+  }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 28px;
+    margin-bottom: 20px;
+  }
+
+  .card-label {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--accent2);
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .card-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  textarea {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 12px;
+    padding: 14px;
+    resize: vertical;
+    min-height: 180px;
+    outline: none;
+    transition: border-color 0.2s;
+    line-height: 1.6;
+  }
+
+  textarea:focus { border-color: var(--accent2); }
+  textarea::placeholder { color: var(--muted); }
+
+  /* Parsed info */
+  .parsed-info {
+    margin-top: 12px;
+    display: none;
+    gap: 8px;
+    flex-direction: column;
+  }
+
+  .info-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    font-family: var(--mono);
+    font-size: 12px;
+  }
+
+  .info-key {
+    color: var(--muted);
+    min-width: 90px;
+    flex-shrink: 0;
+  }
+
+  .info-val {
+    color: var(--accent);
+    word-break: break-all;
+  }
+
+  .info-val.expired { color: var(--error); }
+  .info-val.valid { color: var(--accent); }
+
+  /* Drop zone */
+  .dropzone {
+    border: 2px dashed var(--border);
+    border-radius: 6px;
+    padding: 36px 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: var(--bg);
+    position: relative;
+  }
+
+  .dropzone:hover, .dropzone.drag-over {
+    border-color: var(--accent);
+    background: rgba(79, 255, 176, 0.04);
+  }
+
+  .dropzone input[type="file"] {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    cursor: pointer;
+    width: 100%;
+    height: 100%;
+  }
+
+  .drop-icon {
+    font-size: 32px;
+    margin-bottom: 10px;
+  }
+
+  .drop-text {
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 13px;
+  }
+
+  .drop-text strong { color: var(--text); }
+
+  .file-selected {
+    margin-top: 12px;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--accent);
+    display: none;
+    align-items: center;
+    gap: 8px;
+  }
+
+  /* Upload button */
+  .btn-upload {
+    width: 100%;
+    padding: 18px;
+    background: var(--accent);
+    color: #000;
+    border: none;
+    border-radius: 6px;
+    font-family: var(--sans);
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+    letter-spacing: 0.5px;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+  }
+
+  .btn-upload:hover { background: #6fffbf; transform: translateY(-1px); }
+  .btn-upload:active { transform: translateY(0); }
+  .btn-upload:disabled { background: var(--border); color: var(--muted); cursor: not-allowed; transform: none; }
+
+  /* Progress */
+  .progress-wrap {
+    display: none;
+    margin-top: 20px;
+  }
+
+  .progress-bar-bg {
+    background: var(--border);
+    border-radius: 4px;
+    height: 6px;
+    overflow: hidden;
+    margin-bottom: 10px;
+  }
+
+  .progress-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent2), var(--accent));
+    width: 0%;
+    transition: width 0.2s;
+    border-radius: 4px;
+  }
+
+  .progress-text {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--muted);
+    text-align: center;
+  }
+
+  /* Result */
+  .result {
+    display: none;
+    margin-top: 20px;
+    padding: 18px 20px;
+    border-radius: 6px;
+    font-family: var(--mono);
+    font-size: 13px;
+    line-height: 1.6;
+  }
+
+  .result.success {
+    background: rgba(79, 255, 176, 0.08);
+    border: 1px solid var(--accent);
+    color: var(--accent);
+  }
+
+  .result.error {
+    background: rgba(255, 95, 109, 0.08);
+    border: 1px solid var(--error);
+    color: var(--error);
+  }
+
+  .result-title {
+    font-size: 15px;
+    font-weight: 600;
+    margin-bottom: 6px;
+    font-family: var(--sans);
+  }
+
+  .result-detail {
+    opacity: 0.8;
+    font-size: 12px;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <div class="badge">Tool</div>
+    <h1>S3 Presigned<br><span>Uploader</span></h1>
+    <p class="subtitle">// paste your API response → pick file → upload</p>
+  </header>
+
+  <!-- Step 1: JSON -->
+  <div class="card">
+    <div class="card-label">01 — Paste API Response</div>
+    <textarea id="jsonInput" placeholder='{
+  "media_id": "...",
+  "upload_url": "https://...",
+  "upload_fields": { ... },
+  "expires_at": "..."
+}'></textarea>
+    <div class="parsed-info" id="parsedInfo">
+      <div class="info-row">
+        <span class="info-key">media_id</span>
+        <span class="info-val" id="infoMediaId">—</span>
+      </div>
+      <div class="info-row">
+        <span class="info-key">expires_at</span>
+        <span class="info-val" id="infoExpires">—</span>
+      </div>
+      <div class="info-row">
+        <span class="info-key">status</span>
+        <span class="info-val" id="infoStatus">—</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Step 2: File -->
+  <div class="card">
+    <div class="card-label">02 — Select File</div>
+    <div class="dropzone" id="dropzone">
+      <input type="file" id="fileInput" accept="image/*,video/*,application/pdf">
+      <div class="drop-icon">📁</div>
+      <div class="drop-text"><strong>Click to browse</strong> or drag & drop your file here</div>
+    </div>
+    <div class="file-selected" id="fileSelected">
+      <span>✓</span><span id="fileName">—</span><span id="fileSize" style="color:var(--muted)"></span>
+    </div>
+  </div>
+
+  <!-- Upload -->
+  <button class="btn-upload" id="uploadBtn" disabled>
+    <span>↑</span> Upload to S3
+  </button>
+
+  <!-- Progress -->
+  <div class="progress-wrap" id="progressWrap">
+    <div class="progress-bar-bg">
+      <div class="progress-bar-fill" id="progressFill"></div>
+    </div>
+    <div class="progress-text" id="progressText">Uploading…</div>
+  </div>
+
+  <!-- Result -->
+  <div class="result" id="result">
+    <div class="result-title" id="resultTitle"></div>
+    <div class="result-detail" id="resultDetail"></div>
+  </div>
+</div>
+
+<script>
+  let parsedJson = null;
+  let selectedFile = null;
+
+  const jsonInput = document.getElementById('jsonInput');
+  const parsedInfo = document.getElementById('parsedInfo');
+  const fileInput = document.getElementById('fileInput');
+  const dropzone = document.getElementById('dropzone');
+  const fileSelected = document.getElementById('fileSelected');
+  const uploadBtn = document.getElementById('uploadBtn');
+  const progressWrap = document.getElementById('progressWrap');
+  const progressFill = document.getElementById('progressFill');
+  const progressText = document.getElementById('progressText');
+  const result = document.getElementById('result');
+
+  function formatBytes(bytes) {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+  }
+
+  function tryParseJson(val) {
+    try {
+      const data = JSON.parse(val);
+      if (!data.upload_url) return null;
+      return data;
+    } catch { return null; }
+  }
+
+  jsonInput.addEventListener('input', () => {
+    parsedJson = tryParseJson(jsonInput.value.trim());
+    if (parsedJson) {
+      parsedInfo.style.display = 'flex';
+      document.getElementById('infoMediaId').textContent = parsedJson.media_id || '—';
+
+      const exp = parsedJson.expires_at ? new Date(parsedJson.expires_at) : null;
+      const expEl = document.getElementById('infoExpires');
+      const statusEl = document.getElementById('infoStatus');
+
+      if (exp) {
+        expEl.textContent = exp.toLocaleString();
+        if (exp < new Date()) {
+          expEl.className = 'info-val expired';
+          statusEl.textContent = '⚠ EXPIRED — get a new URL from your API';
+          statusEl.className = 'info-val expired';
+        } else {
+          expEl.className = 'info-val valid';
+          const mins = Math.round((exp - new Date()) / 60000);
+          statusEl.textContent = `✓ Valid — expires in ${mins} min`;
+          statusEl.className = 'info-val valid';
+        }
+      }
+    } else {
+      parsedInfo.style.display = 'none';
+    }
+    checkReady();
+  });
+
+  fileInput.addEventListener('change', () => {
+    if (fileInput.files[0]) selectFile(fileInput.files[0]);
+  });
+
+  dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('drag-over'); });
+  dropzone.addEventListener('dragleave', () => dropzone.classList.remove('drag-over'));
+  dropzone.addEventListener('drop', e => {
+    e.preventDefault();
+    dropzone.classList.remove('drag-over');
+    if (e.dataTransfer.files[0]) selectFile(e.dataTransfer.files[0]);
+  });
+
+  function selectFile(file) {
+    selectedFile = file;
+    fileSelected.style.display = 'flex';
+    document.getElementById('fileName').textContent = file.name;
+    document.getElementById('fileSize').textContent = '  ' + formatBytes(file.size);
+    checkReady();
+  }
+
+  function checkReady() {
+    uploadBtn.disabled = !(parsedJson && selectedFile);
+  }
+
+  uploadBtn.addEventListener('click', async () => {
+    if (!parsedJson || !selectedFile) return;
+
+    // Check expiry
+    if (parsedJson.expires_at && new Date(parsedJson.expires_at) < new Date()) {
+      showResult('error', '⚠ URL Expired', 'This presigned URL has expired. Please request a new one from your API and paste it above.');
+      return;
+    }
+
+    uploadBtn.disabled = true;
+    result.style.display = 'none';
+    progressWrap.style.display = 'block';
+    progressFill.style.width = '0%';
+    progressText.textContent = 'Uploading…';
+
+    // Only send Content-Type — presigned URL is signed for 'host' only.
+    // Sending extra headers (like x-amz-meta-media-id) causes 403 AccessDenied.
+    const headers = {};
+    if (parsedJson.upload_fields && parsedJson.upload_fields['Content-Type']) {
+      headers['Content-Type'] = parsedJson.upload_fields['Content-Type'];
+    } else {
+      headers['Content-Type'] = selectedFile.type || 'application/octet-stream';
+    }
+
+    try {
+      await new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open('PUT', parsedJson.upload_url);
+
+        Object.entries(headers).forEach(([k, v]) => xhr.setRequestHeader(k, v));
+
+        xhr.upload.onprogress = e => {
+          if (e.lengthComputable) {
+            const pct = Math.round((e.loaded / e.total) * 100);
+            progressFill.style.width = pct + '%';
+            progressText.textContent = `Uploading… ${pct}% (${formatBytes(e.loaded)} / ${formatBytes(e.total)})`;
+          }
+        };
+
+        xhr.onload = () => {
+          progressFill.style.width = '100%';
+          if (xhr.status === 200 || xhr.status === 204) {
+            resolve();
+          } else {
+            reject(new Error(`HTTP ${xhr.status}: ${xhr.responseText}`));
+          }
+        };
+
+        xhr.onerror = () => reject(new Error('Network error — check your connection'));
+        xhr.send(selectedFile);
+      });
+
+      progressWrap.style.display = 'none';
+      showResult('success', '✓ Upload Successful',
+        `File "${selectedFile.name}" (${formatBytes(selectedFile.size)}) uploaded successfully.\nMedia ID: ${parsedJson.media_id}`);
+
+    } catch (err) {
+      progressWrap.style.display = 'none';
+      let detail = err.message;
+      if (detail.includes('AuthorizationQueryParametersError')) {
+        detail = 'URL is malformed or double-encoded. Copy upload_url directly from your API JSON response.';
+      } else if (detail.includes('ExpiredToken') || detail.includes('expired')) {
+        detail = 'Token expired. Request a fresh presigned URL from your API.';
+      }
+      showResult('error', '✗ Upload Failed', detail);
+    }
+
+    uploadBtn.disabled = false;
+    checkReady();
+  });
+
+  function showResult(type, title, detail) {
+    result.className = 'result ' + type;
+    result.style.display = 'block';
+    document.getElementById('resultTitle').textContent = title;
+    document.getElementById('resultDetail').textContent = detail;
+  }
+</script>
+</body>
+</html>
