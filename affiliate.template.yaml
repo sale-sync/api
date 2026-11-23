@@ -1,0 +1,44 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+
+Description: Silas Tech Affiliate API (backlog affiliate-api). MOCK DATA for now (apps/affiliate-api/affiliates/store/mock-store.ts), so no DynamoDB table and no Cognito authorizer yet; both come later, then this template gets the table, its IAM policy and the stage parameters (and a samconfig with staging and prod stacks).
+
+Globals:
+    Function:
+        Timeout: 10
+
+Resources:
+    AffiliateApi:
+        Type: AWS::Serverless::Api
+        Properties:
+            StageName: Prod
+
+    # One Lambda for every /affiliates route; samjs routes inside it (account, application, links, referrals, payouts,
+    # payout-method, programme). ANY so OPTIONS reaches withCORS for the preflight.
+    AffiliatesFunction:
+        Type: AWS::Serverless::Function
+        Properties:
+            CodeUri: apps/affiliate-api/affiliates/bundle
+            Handler: app.lambdaHandler
+            Runtime: nodejs22.x
+            Architectures: [x86_64]
+            Policies:
+                - AWSLambdaBasicExecutionRole
+            Events:
+                AffiliatesProxy:
+                    Type: Api
+                    Properties:
+                        RestApiId: !Ref AffiliateApi
+                        Path: /affiliates/{proxy+}
+                        Method: ANY
+                Affiliates:
+                    Type: Api
+                    Properties:
+                        RestApiId: !Ref AffiliateApi
+                        Path: /affiliates
+                        Method: ANY
+
+Outputs:
+    AffiliateApiInvokeUrl:
+        Description: Invoke URL for the Prod stage
+        Value: !Sub 'https://${AffiliateApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/'
