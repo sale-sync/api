@@ -1,0 +1,43 @@
+{
+  "name": "affiliate-payouts",
+  "root": "apps/affiliate-api/payouts",
+  "sourceRoot": "apps/affiliate-api/payouts",
+  "projectType": "application",
+  "targets": {
+    "compile": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "npm run compile",
+        "cwd": "apps/affiliate-api/payouts"
+      }
+    },
+    "bundle": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "npm run bundle",
+        "cwd": "apps/affiliate-api/payouts"
+      }
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "npm test",
+        "cwd": "apps/affiliate-api/payouts"
+      }
+    },
+    "unit": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "npm run unit",
+        "cwd": "apps/affiliate-api/payouts"
+      }
+    },
+    "lint": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "npm run lint",
+        "cwd": "apps/affiliate-api/payouts"
+      }
+    }
+  }
+}

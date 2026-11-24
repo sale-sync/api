@@ -11,9 +11,9 @@ Parameters:
 Globals:
     Function:
         Timeout: 10
-        Environment:
-            Variables:
-                AFFILIATE_TABLE_NAME: !Ref AffiliateTableName
+        Runtime: nodejs22.x
+        Architectures: [x86_64]
+        Handler: app.lambdaHandler
 
 Resources:
     AffiliateApi:
@@ -21,31 +21,114 @@ Resources:
         Properties:
             StageName: Prod
 
-    # One Lambda for every /affiliates route; samjs routes inside it (account, application, links, referrals, payouts,
-    # payout-method, programme). ANY so OPTIONS reaches withCORS for the preflight.
+    # One Lambda per resource (domain-driven, least privilege, isolation, smaller bundles), each mapped to its exact
+    # paths (ANY, so the CORS preflight reaches samjs withCORS). Each has only the table access its domain needs.
+
+    # Account and application; writes affiliate profiles and the sample affiliates on first use.
     AffiliatesFunction:
         Type: AWS::Serverless::Function
         Properties:
             CodeUri: apps/affiliate-api/affiliates/bundle
-            Handler: app.lambdaHandler
-            Runtime: nodejs22.x
-            Architectures: [x86_64]
+            Environment:
+                Variables:
+                    AFFILIATE_TABLE_NAME: !Ref AffiliateTableName
             Policies:
                 - AWSLambdaBasicExecutionRole
                 - DynamoDBCrudPolicy:
                       TableName: !Ref AffiliateTableName
             Events:
-                AffiliatesProxy:
-                    Type: Api
-                    Properties:
-                        RestApiId: !Ref AffiliateApi
-                        Path: /affiliates/{proxy+}
-                        Method: ANY
-                Affiliates:
+                Account:
                     Type: Api
                     Properties:
                         RestApiId: !Ref AffiliateApi
                         Path: /affiliates
+                        Method: ANY
+                Application:
+                    Type: Api
+                    Properties:
+                        RestApiId: !Ref AffiliateApi
+                        Path: /affiliates/application
+                        Method: ANY
+
+    # Referral links; writes link records and address reservations, reads referrals for link results.
+    LinksFunction:
+        Type: AWS::Serverless::Function
+        Properties:
+            CodeUri: apps/affiliate-api/links/bundle
+            Environment:
+                Variables:
+                    AFFILIATE_TABLE_NAME: !Ref AffiliateTableName
+            Policies:
+                - AWSLambdaBasicExecutionRole
+                - DynamoDBCrudPolicy:
+                      TableName: !Ref AffiliateTableName
+            Events:
+                Links:
+                    Type: Api
+                    Properties:
+                        RestApiId: !Ref AffiliateApi
+                        Path: /affiliates/links
+                        Method: ANY
+
+    # Referred businesses; read only.
+    ReferralsFunction:
+        Type: AWS::Serverless::Function
+        Properties:
+            CodeUri: apps/affiliate-api/referrals/bundle
+            Environment:
+                Variables:
+                    AFFILIATE_TABLE_NAME: !Ref AffiliateTableName
+            Policies:
+                - AWSLambdaBasicExecutionRole
+                - DynamoDBReadPolicy:
+                      TableName: !Ref AffiliateTableName
+            Events:
+                Referrals:
+                    Type: Api
+                    Properties:
+                        RestApiId: !Ref AffiliateApi
+                        Path: /affiliates/referrals
+                        Method: ANY
+
+    # Earnings and payout method; writes the payout method (bank details stay in this function).
+    PayoutsFunction:
+        Type: AWS::Serverless::Function
+        Properties:
+            CodeUri: apps/affiliate-api/payouts/bundle
+            Environment:
+                Variables:
+                    AFFILIATE_TABLE_NAME: !Ref AffiliateTableName
+            Policies:
+                - AWSLambdaBasicExecutionRole
+                - DynamoDBCrudPolicy:
+                      TableName: !Ref AffiliateTableName
+            Events:
+                Payouts:
+                    Type: Api
+                    Properties:
+                        RestApiId: !Ref AffiliateApi
+                        Path: /affiliates/payouts
+                        Method: ANY
+                PayoutMethod:
+                    Type: Api
+                    Properties:
+                        RestApiId: !Ref AffiliateApi
+                        Path: /affiliates/payout-method
+                        Method: ANY
+
+    # Public programme terms; no table access, no table name.
+    ProgrammeFunction:
+        Type: AWS::Serverless::Function
+        Properties:
+            CodeUri: apps/affiliate-api/programme/bundle
+            Policies:
+                - AWSLambdaBasicExecutionRole
+            Events:
+                Programme:
+                    Type: Api
+                    Properties:
+                        RestApiId: !Ref AffiliateApi
+                        Path: /affiliates/programme
                         Method: ANY
 
 Outputs:

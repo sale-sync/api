@@ -1,7 +1,7 @@
 {
     "name": "@sale-sync-affiliate-api/affiliates",
     "version": "1.0.0",
-    "description": "Affiliate API: /affiliates (account, application, links, referrals, payouts, payout method, programme terms). Mock data, no DynamoDB or Cognito yet.",
+    "description": "Affiliate API, affiliates domain: account and application (/affiliates, /affiliates/application)",
     "main": "app.js",
     "author": "SAM CLI",
     "license": "MIT",

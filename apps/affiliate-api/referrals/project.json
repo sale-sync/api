@@ -1,0 +1,43 @@
+{
+  "name": "affiliate-referrals",
+  "root": "apps/affiliate-api/referrals",
+  "sourceRoot": "apps/affiliate-api/referrals",
+  "projectType": "application",
+  "targets": {
+    "compile": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "npm run compile",
+        "cwd": "apps/affiliate-api/referrals"
+      }
+    },
+    "bundle": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "npm run bundle",
+        "cwd": "apps/affiliate-api/referrals"
+      }
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "npm test",
+        "cwd": "apps/affiliate-api/referrals"
+      }
+    },
+    "unit": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "npm run unit",
+        "cwd": "apps/affiliate-api/referrals"
+      }
+    },
+    "lint": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "npm run lint",
+        "cwd": "apps/affiliate-api/referrals"
+      }
+    }
+  }
+}

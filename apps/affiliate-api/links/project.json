@@ -1,0 +1,43 @@
+{
+  "name": "affiliate-links",
+  "root": "apps/affiliate-api/links",
+  "sourceRoot": "apps/affiliate-api/links",
+  "projectType": "application",
+  "targets": {
+    "compile": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "npm run compile",
+        "cwd": "apps/affiliate-api/links"
+      }
+    },
+    "bundle": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "npm run bundle",
+        "cwd": "apps/affiliate-api/links"
+      }
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "npm test",
+        "cwd": "apps/affiliate-api/links"
+      }
+    },
+    "unit": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "npm run unit",
+        "cwd": "apps/affiliate-api/links"
+      }
+    },
+    "lint": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "npm run lint",
+        "cwd": "apps/affiliate-api/links"
+      }
+    }
+  }
+}
