@@ -442,8 +442,8 @@ affiliate.deploy.staging: affiliate.bundle
 	sam build --template-file affiliate.template.yaml --build-dir .aws-sam-affiliate/build
 	@echo "==> Deploying the affiliate API to AWS (staging, mock data)"
 	sam deploy \
-	  --template-file .aws-sam-affiliate/build/template.yaml \
-	  --config-file affiliate.samconfig.toml \
+	  --template-file affiliate.template.yaml \
+	  --config-file $(CURDIR)/affiliate.samconfig.toml \
 	  --config-env staging \
 	  --resolve-s3
 
