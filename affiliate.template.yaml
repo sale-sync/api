@@ -28,6 +28,15 @@ Parameters:
         Type: String
         Default: ''
         Description: Team emails allowed to review applications, separated by ; (empty means nobody can review)
+    AffiliateStage:
+        Type: String
+        AllowedValues: [staging, production]
+        Description: The stage of this stack; the decision emails' sender name and app address follow it
+    DecisionEmails:
+        Type: String
+        AllowedValues: ['on', 'off']
+        Default: 'off'
+        Description: on sends the applicant an email after each review, from noreply@silastech.co (SES identity in infra ses.yaml)
     AffiliateSampleAccounts:
         Type: String
         Default: ''
@@ -158,10 +167,17 @@ Resources:
                     AFFILIATE_TABLE_NAME: !Ref AffiliateTableName
                     REVIEW_FIREBASE_PROJECT_ID: !Ref ReviewFirebaseProjectId
                     AFFILIATE_REVIEWERS: !Ref AffiliateReviewers
+                    AFFILIATE_STAGE: !Ref AffiliateStage
+                    AFFILIATE_DECISION_EMAILS: !Ref DecisionEmails
             Policies:
                 - AWSLambdaBasicExecutionRole
                 - DynamoDBCrudPolicy:
                       TableName: !Ref AffiliateTableName
+                # the applicant's email after a review: send only, only from the silastech.co identity
+                - Statement:
+                      - Effect: Allow
+                        Action: ses:SendEmail
+                        Resource: !Sub 'arn:aws:ses:${AWS::Region}:${AWS::AccountId}:identity/silastech.co'
             Events:
                 Reviews:
                     Type: Api

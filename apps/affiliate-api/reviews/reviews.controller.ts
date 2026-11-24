@@ -34,13 +34,14 @@ class ReviewsController extends Controller implements IControllerMethods {
         }
     }
 
-    // POST /affiliates/reviews { userId, decision: approve|refuse, reason? }: only a pending application; 409 ALREADY_REVIEWED otherwise
+    // POST /affiliates/reviews { userId, decision: approve|refuse, reason? }: only a pending application; 409 ALREADY_REVIEWED otherwise.
+    // Then the applicant's email (decision-email.ts); the answer says whether it was sent
     async post(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
         const reviewer = await signedInReviewer(event);
         if (isResponse(reviewer)) return reviewer;
         try {
             const input = new DecisionDTO().validate(parseBody(event.body));
-            return json(200, { application: await this.reviewService.decide(reviewer.email, input) });
+            return json(200, await this.reviewService.decide(reviewer.email, input)); // { application, email: sent|skipped|off|failed }
         } catch (error) {
             return errorResponse(error);
         }

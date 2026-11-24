@@ -8,6 +8,9 @@ import { quiet, withSamples } from '../../../shared/testing/setup';
 import { setReviewerVerifier } from '../../../shared/reviewer';
 import { createProfile } from '../../../affiliates/affiliate.repository';
 import { MOCK_JORDAN } from '../../../shared/seed';
+import { mockClient } from 'aws-sdk-client-mock';
+import { SESv2Client, SendEmailCommand } from '@aws-sdk/client-sesv2';
+import { decisionEmail } from '../../decision-email';
 
 // Reviews domain: team portal reviewers (their Firebase sign-in, a local key here) list applications by stage and approve
 // them, or refuse them with a reason the applicant sees. Only a pending application can be decided.
@@ -115,5 +118,76 @@ describe('deciding', () => {
         await review('POST', { token: T(), body: { userId: 'nok', decision: 'approve' } });
         await affiliates(event('PUT', '/affiliates', { user: 'nok', body: { first: 'Nok', last: 'S', phone: '' } }));
         expect(body(await review('GET', { token: T(), query: { userId: 'nok' } })).application).toMatchObject({ stage: 'approved', reviewedBy: 'atom@silastech.co', first: 'Nok' });
+    });
+});
+
+describe('the email to the applicant', () => {
+    const ses = mockClient(SESv2Client);
+    const apply2 = (userId: string, email: string, market: 'australia' | 'thailand' = 'australia') =>
+        createProfile({ userId, market, stage: 'pending', first: 'Jo', last: 'Test', email, phone: '', reach: 'creator', channelUrl: '', plan: '', appliedOn: '2026-11-25' });
+    beforeEach(() => {
+        ses.reset();
+        process.env.AFFILIATE_DECISION_EMAILS = 'on';
+        process.env.AFFILIATE_STAGE = 'staging';
+    });
+    afterAll(() => {
+        delete process.env.AFFILIATE_DECISION_EMAILS;
+        delete process.env.AFFILIATE_STAGE;
+    });
+
+    it('is off unless switched on', async () => {
+        process.env.AFFILIATE_DECISION_EMAILS = 'off';
+        await apply2('jo', 'jo@example.com');
+        expect(body(await review('POST', { token: T(), body: { userId: 'jo', decision: 'approve' } })).email).toBe('off');
+        expect(ses.commandCalls(SendEmailCommand)).toHaveLength(0);
+    });
+    it('approved: sent from the staging sender to the applicant, with the Links page', async () => {
+        await apply2('jo', 'jo@example.com');
+        const r = body(await review('POST', { token: T(), body: { userId: 'jo', decision: 'approve' } }));
+        expect(r.email).toBe('sent');
+        const sent = ses.commandCalls(SendEmailCommand)[0].args[0].input;
+        expect(sent.FromEmailAddress).toBe('Silas Tech Affiliate (staging) <noreply@silastech.co>');
+        expect(sent.Destination?.ToAddresses).toEqual(['jo@example.com']);
+        expect(sent.Content?.Simple?.Subject?.Data).toBe('Your Silas Tech Affiliate application is approved');
+        expect(sent.Content?.Simple?.Body?.Text?.Data).toContain('https://staging-affiliate.silastech.co/dashboard/links');
+    });
+    it('production: the plain sender name and the live app', async () => {
+        process.env.AFFILIATE_STAGE = 'production';
+        await apply2('jo', 'jo@example.com');
+        await review('POST', { token: T(), body: { userId: 'jo', decision: 'approve' } });
+        const sent = ses.commandCalls(SendEmailCommand)[0].args[0].input;
+        expect(sent.FromEmailAddress).toBe('Silas Tech Affiliate <noreply@silastech.co>');
+        expect(sent.Content?.Simple?.Body?.Text?.Data).toContain('https://affiliate.silastech.co/dashboard/links');
+    });
+    it('never mails the staging sample addresses (no mailbox, no bounces)', async () => {
+        await apply2('jo', 'affiliate-check-1@sample.silastech.co');
+        expect(body(await review('POST', { token: T(), body: { userId: 'jo', decision: 'approve' } })).email).toBe('skipped');
+        expect(ses.commandCalls(SendEmailCommand)).toHaveLength(0);
+    });
+    it('a failed email keeps the decision', async () => {
+        ses.on(SendEmailCommand).rejects(new Error('throttled'));
+        await apply2('jo', 'jo@example.com');
+        const r = await review('POST', { token: T(), body: { userId: 'jo', decision: 'refuse', reason: 'No audience on the channel you shared.' } });
+        expect(r.statusCode).toBe(200);
+        expect(body(r).email).toBe('failed');
+        expect(body(await review('GET', { token: T(), query: { userId: 'jo' } })).application.stage).toBe('refused');
+    });
+    it('refused: the reason as text, escaped in the HTML, never who reviewed', () => {
+        const m = decisionEmail(
+            { userId: 'n', market: 'thailand', stage: 'refused', first: 'Nok', last: 'S', email: 'n@example.com', phone: '', reach: 'creator', channelUrl: '', plan: '', appliedOn: '2026-11-25', reviewedBy: 'atom@silastech.co', refusalReason: 'No <b>audience</b> & no plan' },
+            'staging',
+        );
+        expect(m.subject).toBe('About your Silas Tech Affiliate application');
+        expect(m.text).toContain('real estate in Thailand programme');
+        expect(m.text).toContain('No <b>audience</b> & no plan');
+        expect(m.html).toContain('No &lt;b&gt;audience&lt;/b&gt; &amp; no plan');
+        expect(m.html + m.text).not.toContain('atom@silastech.co');
+    });
+    it('approved: the commission line comes from the rules, per programme', () => {
+        const m = decisionEmail(
+            { userId: 'n', market: 'thailand', stage: 'approved', first: 'Nok', last: 'S', email: 'n@example.com', phone: '', reach: 'creator', channelUrl: '', plan: '', appliedOn: '2026-11-25' },
+            'staging',
+        );
+        expect(m.text).toContain('When a real estate agency subscribes through your link, you earn 4%, 8% or 16% of their 6, 12 or 24 month subscription.');
     });
 });

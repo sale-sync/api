@@ -7,6 +7,7 @@ import type { Stage } from '../shared/rules';
 import type { Affiliate } from '../shared/seed';
 import type { DecisionInput } from './dtos';
 import { listByStage, saveDecision } from './review.repository';
+import { sendDecisionEmail, type EmailOutcome } from './decision-email';
 
 /** The team review: list applications by stage, read one, approve it or refuse it with a reason (shown to the applicant). */
 export class ReviewService extends Service implements IService {
@@ -26,7 +27,8 @@ export class ReviewService extends Service implements IService {
         return a;
     }
 
-    async decide(reviewer: string, input: DecisionInput): Promise<Affiliate> {
+    /** Saves the decision, then emails the applicant (the email never undoes the decision; its outcome is reported). */
+    async decide(reviewer: string, input: DecisionInput): Promise<{ application: Affiliate; email: EmailOutcome }> {
         const a = await this.get(input.userId);
         if (a.stage !== 'pending') throw new AlreadyReviewedError();
         const decided: Affiliate = {
@@ -37,6 +39,7 @@ export class ReviewService extends Service implements IService {
         };
         if (input.decision === 'refuse') decided.refusalReason = input.reason;
         else delete decided.refusalReason;
-        return saveDecision(decided);
+        const application = await saveDecision(decided);
+        return { application, email: await sendDecisionEmail(application) };
     }
 }

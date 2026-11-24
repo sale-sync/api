@@ -16,6 +16,8 @@ parameter_overrides = [
   "ParameterKey=AffiliateAuth,ParameterValue=cognito",
   "ParameterKey=AffiliateUserPoolId,ParameterValue=ap-southeast-2_yt3wGnE5U",
   "ParameterKey=AffiliateUserPoolClientId,ParameterValue=30n5dadil5lsqkl07oebuanq84",
+  "ParameterKey=AffiliateStage,ParameterValue=staging",
+  "ParameterKey=DecisionEmails,ParameterValue=on",
   "ParameterKey=AffiliateReviewers,ParameterValue=yethiha@silastech.co;scott@silastech.co",
   "ParameterKey=AffiliateSampleAccounts,ParameterValue=affiliate-jordan@sample.silastech.co:mock-affiliate-jordan;affiliate-ploy@sample.silastech.co:mock-affiliate-ploy"
 ]
