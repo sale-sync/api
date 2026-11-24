@@ -1,6 +1,6 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { ValidationError } from '@devyethiha/samjs';
-import { AlreadyAppliedError, AlreadyReviewedError, NotAnAffiliateError, NotApprovedError, SlugTakenError } from './errors';
+import { AlreadyAppliedError, AlreadyReviewedError, LinkNotFoundError, NotAnAffiliateError, NotApprovedError, SlugTakenError } from './errors';
 
 export const json = (statusCode: number, body: unknown): APIGatewayProxyResult => ({ statusCode, body: JSON.stringify(body) });
 
@@ -19,6 +19,7 @@ export function errorResponse(error: unknown): APIGatewayProxyResult {
     if (error instanceof NotApprovedError) return json(403, { code: 'NOT_APPROVED', message: error.message });
     if (error instanceof AlreadyAppliedError) return json(409, { code: 'ALREADY_APPLIED', message: error.message });
     if (error instanceof SlugTakenError) return json(409, { code: 'SLUG_TAKEN', message: error.message });
+    if (error instanceof LinkNotFoundError) return json(404, { code: 'LINK_NOT_FOUND', message: error.message });
     if (error instanceof AlreadyReviewedError) return json(409, { code: 'ALREADY_REVIEWED', message: error.message });
     throw error;
 }

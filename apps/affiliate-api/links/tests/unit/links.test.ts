@@ -21,6 +21,15 @@ it('lists each link with its own results', async () => {
     // Coastline (8% of 1188) and Northside (16% of 2376) came through YouTube; Harbour did not subscribe
     expect(youtube.stats).toEqual({ clicks: 612, signups: 3, subscribed: 2, earned: 475.2 });
 });
+it('staging links live on the staging app, never the production host', async () => {
+    process.env.AFFILIATE_STAGE = 'staging';
+    try {
+        const links = body(await call('GET', '/affiliates/links', { user: MOCK_JORDAN })).links;
+        expect(links[0].url).toMatch(/^https:\/\/staging-affiliate\.silastech\.co\/r\//);
+    } finally {
+        delete process.env.AFFILIATE_STAGE;
+    }
+});
 it('creates a link for a channel', async () => {
     const r = await call('POST', '/affiliates/links', { user: MOCK_JORDAN, body: { channel: 'tiktok', name: 'TikTok live', slug: 'jordan-tiktok-2' } });
     expect(r.statusCode).toBe(201);

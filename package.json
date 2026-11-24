@@ -34,6 +34,7 @@
     "apps/affiliate-api/payouts",
     "apps/affiliate-api/programme",
     "apps/affiliate-api/reviews",
+    "apps/affiliate-api/clicks",
     "libs/shared"
   ],
   "scripts": {
@@ -61,10 +62,10 @@
     "mutation.bundle": "nx run-many -t bundle --projects=mutation-contacts",
     "mutation.lint": "nx run-many -t lint --projects=mutation-contacts",
     "mutation.test": "nx run-many -t unit --projects=mutation-contacts",
-    "affiliate.build": "nx run-many -t compile --projects=affiliate-affiliates,affiliate-links,affiliate-referrals,affiliate-payouts,affiliate-programme,affiliate-reviews",
-    "affiliate.bundle": "nx run-many -t bundle --projects=affiliate-affiliates,affiliate-links,affiliate-referrals,affiliate-payouts,affiliate-programme,affiliate-reviews",
-    "affiliate.lint": "nx run-many -t lint --projects=affiliate-affiliates,affiliate-links,affiliate-referrals,affiliate-payouts,affiliate-programme,affiliate-reviews",
-    "affiliate.test": "nx run-many -t unit --projects=affiliate-affiliates,affiliate-links,affiliate-referrals,affiliate-payouts,affiliate-programme,affiliate-reviews",
+    "affiliate.build": "nx run-many -t compile --projects=affiliate-affiliates,affiliate-links,affiliate-referrals,affiliate-payouts,affiliate-programme,affiliate-reviews,affiliate-clicks",
+    "affiliate.bundle": "nx run-many -t bundle --projects=affiliate-affiliates,affiliate-links,affiliate-referrals,affiliate-payouts,affiliate-programme,affiliate-reviews,affiliate-clicks",
+    "affiliate.lint": "nx run-many -t lint --projects=affiliate-affiliates,affiliate-links,affiliate-referrals,affiliate-payouts,affiliate-programme,affiliate-reviews,affiliate-clicks",
+    "affiliate.test": "nx run-many -t unit --projects=affiliate-affiliates,affiliate-links,affiliate-referrals,affiliate-payouts,affiliate-programme,affiliate-reviews,affiliate-clicks",
     "samconfig:sync:staging": "node scripts/sync-samconfig.js staging staging.deploy.parameters",
     "samconfig:sync:prod": "node scripts/sync-samconfig.js prod prod.deploy.parameters",
     "admin.samconfig:sync:staging": "node scripts/sync-samconfig.js staging staging.deploy.parameters admin",

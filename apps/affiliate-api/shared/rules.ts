@@ -25,7 +25,9 @@ export const TRIAL_DAYS = 14;
 export const MIN_PAYOUT_USD = 100;
 export const PAYOUT_PERIOD = 'monthly';
 export const CURRENCY: Record<Market, 'AUD' | 'THB'> = { australia: 'AUD', thailand: 'THB' };
-export const LINK_BASE = 'https://silastech.co/r/';
+/** The address of an affiliate link: silastech.co/r/<slug> in production (a Worker route on the affiliate app, so web-front is
+ * untouched); staging links live on the staging app, so a staging link never points at production. AFFILIATE_STAGE decides. */
+export const linkBase = (): string => (process.env.AFFILIATE_STAGE === 'staging' ? 'https://staging-affiliate.silastech.co/r/' : 'https://silastech.co/r/');
 
 /** Stand-in for our own rate service (not built yet): 1 unit of the currency in USD, approximate. */
 const USD_RATE: Record<'AUD' | 'THB', number> = { AUD: 0.65, THB: 0.028 };

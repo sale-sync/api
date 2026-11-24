@@ -31,7 +31,7 @@ Parameters:
     AffiliateStage:
         Type: String
         AllowedValues: [staging, production]
-        Description: The stage of this stack; the decision emails' sender name and app address follow it
+        Description: The stage of this stack; the link address (silastech.co/r/ or the staging app) and the decision emails follow it
     DecisionEmails:
         Type: String
         AllowedValues: ['on', 'off']
@@ -54,6 +54,7 @@ Globals:
                 AFFILIATE_USER_POOL_ID: !Ref AffiliateUserPoolId
                 AFFILIATE_USER_POOL_CLIENT_ID: !Ref AffiliateUserPoolClientId
                 AFFILIATE_SAMPLE_ACCOUNTS: !Ref AffiliateSampleAccounts
+                AFFILIATE_STAGE: !Ref AffiliateStage
 
 Resources:
     AffiliateApi:
@@ -167,7 +168,6 @@ Resources:
                     AFFILIATE_TABLE_NAME: !Ref AffiliateTableName
                     REVIEW_FIREBASE_PROJECT_ID: !Ref ReviewFirebaseProjectId
                     AFFILIATE_REVIEWERS: !Ref AffiliateReviewers
-                    AFFILIATE_STAGE: !Ref AffiliateStage
                     AFFILIATE_DECISION_EMAILS: !Ref DecisionEmails
             Policies:
                 - AWSLambdaBasicExecutionRole
@@ -184,6 +184,29 @@ Resources:
                     Properties:
                         RestApiId: !Ref AffiliateApi
                         Path: /affiliates/reviews
+                        Method: ANY
+
+    # silastech.co/r/<slug> opened (called by the affiliate app's Worker): reads the address reservation and the owner's
+    # stage, adds 1 to the link's clicks. Read and update only, no put or delete.
+    ClicksFunction:
+        Type: AWS::Serverless::Function
+        Properties:
+            CodeUri: apps/affiliate-api/clicks/bundle
+            Environment:
+                Variables:
+                    AFFILIATE_TABLE_NAME: !Ref AffiliateTableName
+            Policies:
+                - AWSLambdaBasicExecutionRole
+                - Statement:
+                      - Effect: Allow
+                        Action: [dynamodb:GetItem, dynamodb:UpdateItem]
+                        Resource: !Sub 'arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${AffiliateTableName}'
+            Events:
+                Clicks:
+                    Type: Api
+                    Properties:
+                        RestApiId: !Ref AffiliateApi
+                        Path: /affiliates/clicks
                         Method: ANY
 
     # Public programme terms; no table access, no table name.

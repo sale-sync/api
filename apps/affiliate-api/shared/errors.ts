@@ -29,3 +29,9 @@ export class AlreadyReviewedError extends Error {
         this.name = 'AlreadyReviewedError';
     }
 }
+export class LinkNotFoundError extends Error {
+    constructor() {
+        super('No affiliate link at this address');
+        this.name = 'LinkNotFoundError';
+    }
+}

@@ -2,7 +2,7 @@ import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import { IService, Service } from '@devyethiha/samjs';
 import { requireAffiliate, requireApproved } from '../shared/affiliate';
-import { LINK_BASE, referralCommission, type Channel } from '../shared/rules';
+import { linkBase, referralCommission, type Channel } from '../shared/rules';
 import { addLink, listLinks, listReferralsForStats } from './link.repository';
 import type { LinkInput } from './dtos';
 
@@ -23,7 +23,7 @@ export class LinkService extends Service implements IService {
             const mine = refs.filter((r) => r.linkId === l.id);
             return {
                 ...l,
-                url: LINK_BASE + l.slug,
+                url: linkBase() + l.slug,
                 stats: {
                     clicks: l.clicks,
                     signups: mine.length,
@@ -39,6 +39,6 @@ export class LinkService extends Service implements IService {
         await requireApproved(userId);
         const channel = input.channel as Channel;
         const link = await addLink({ userId, channel, name: input.name || channel, slug: input.slug, clicks: 0, createdOn: new Date().toISOString().slice(0, 10) });
-        return { ...link, url: LINK_BASE + link.slug, stats: { clicks: 0, signups: 0, subscribed: 0, earned: 0 } };
+        return { ...link, url: linkBase() + link.slug, stats: { clicks: 0, signups: 0, subscribed: 0, earned: 0 } };
     }
 }

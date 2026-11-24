@@ -1,9 +1,9 @@
 // An in-memory DynamoDB document client for the unit tests: just the commands and conditions the affiliate repositories use
 // (Get, Put with attribute_(not_)exists(PK) or #name = :value, Query with PK = :pk AND begins_with(SK, :sk) or on the ByStage
-// index, BatchWrite puts, TransactWrite puts).
+// index, BatchWrite puts, TransactWrite puts, Update with ADD <attr> :n on an existing item).
 // The repositories run their real code against it, so the tests cover the same code path as DynamoDB.
 import { ConditionalCheckFailedException, TransactionCanceledException } from '@aws-sdk/client-dynamodb';
-import { BatchWriteCommand, DynamoDBDocumentClient, GetCommand, PutCommand, QueryCommand, TransactWriteCommand } from '@aws-sdk/lib-dynamodb';
+import { BatchWriteCommand, DynamoDBDocumentClient, GetCommand, PutCommand, QueryCommand, TransactWriteCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 
 type Item = Record<string, unknown>;
 
@@ -45,6 +45,17 @@ export class FakeDdb {
             if (command.input.IndexName) throw new Error(`FakeDdb: unsupported index ${command.input.IndexName}`);
             const rows = [...this.items.values()].filter((i) => i.PK === v[':pk'] && String(i.SK).startsWith(String(v[':sk'])));
             return { Items: rows.sort((a, b) => String(a.SK).localeCompare(String(b.SK))).map(clone) };
+        }
+        if (command instanceof UpdateCommand) {
+            const key = command.input.Key as Item;
+            const add = /^ADD (#?\w+) (:\w+)$/.exec(command.input.UpdateExpression ?? '');
+            if (!add) throw new Error(`FakeDdb: unsupported update ${command.input.UpdateExpression}`);
+            if (!this.check(command.input.ConditionExpression, key)) throw new ConditionalCheckFailedException({ message: 'The conditional request failed', $metadata: {} });
+            const it = this.items.get(this.key(key.PK, key.SK)) ?? { ...key };
+            const attr = add[1].startsWith('#') ? command.input.ExpressionAttributeNames![add[1]] : add[1];
+            it[attr] = Number(it[attr] ?? 0) + Number((command.input.ExpressionAttributeValues as Item)[add[2]]);
+            this.items.set(this.key(key.PK, key.SK), it);
+            return { Attributes: clone(it) };
         }
         if (command instanceof BatchWriteCommand) {
             for (const reqs of Object.values(command.input.RequestItems ?? {})) for (const r of reqs) if (r.PutRequest?.Item) this.items.set(this.key(r.PutRequest.Item.PK, r.PutRequest.Item.SK), clone(r.PutRequest.Item));

@@ -30,6 +30,8 @@ function cognitoVerifier(): Verifier {
 
 export function authMode(): 'cognito' | 'mock' {
     const mode = process.env.AFFILIATE_AUTH;
+    // production only ever verifies the token: mock (an unsigned cookie) there would let anyone act as anyone
+    if (mode === 'mock' && process.env.AFFILIATE_STAGE === 'production') throw new Error('AFFILIATE_AUTH=mock is not allowed in production');
     if (mode === 'cognito' || mode === 'mock') return mode;
     throw new Error('AFFILIATE_AUTH environment variable must be cognito or mock');
 }
@@ -37,6 +39,7 @@ export function authMode(): 'cognito' | 'mock' {
 /** The staging sample accounts: verified email to sample user id. Empty unless AFFILIATE_SAMPLE_ACCOUNTS is set. */
 export function sampleAccounts(): Map<string, string> {
     const m = new Map<string, string>();
+    if (process.env.AFFILIATE_STAGE === 'production') return m; // the sample affiliates are staging only
     for (const pair of (process.env.AFFILIATE_SAMPLE_ACCOUNTS ?? '').split(/[,;]/)) {
         const [email, id] = pair.split(/[=:]/).map((s) => s.trim());
         if (email && id) m.set(email.toLowerCase(), id);

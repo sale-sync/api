@@ -3,7 +3,8 @@ import { CognitoJwtVerifier } from 'aws-jwt-verify';
 import { lambdaHandler as handler } from '../../app';
 import { body, event } from '../../../shared/testing/event';
 import { freshTable, quiet } from '../../../shared/testing/setup';
-import { setVerifier } from '../../../shared/auth';
+import { sampleAccounts, setVerifier } from '../../../shared/auth';
+import { MOCK_JORDAN } from '../../../shared/seed';
 
 // Sign-in with the affiliate Cognito pool: the ID token is verified (signature, pool, client, expiry, email verified), never
 // only decoded. A local RSA key stands in for the pool's published keys.
@@ -64,3 +65,22 @@ it('refuses to run without a sign-in mode (never falls back to trusting the cook
     delete process.env.AFFILIATE_AUTH;
     expect((await call('GET', '/affiliates', token())).statusCode).toBe(500);
 });
+
+describe('production', () => {
+    afterEach(() => {
+        delete process.env.AFFILIATE_STAGE;
+        process.env.AFFILIATE_AUTH = 'mock';
+    });
+    it('refuses mock sign-in in production (500, nobody gets in)', async () => {
+        process.env.AFFILIATE_STAGE = 'production';
+        process.env.AFFILIATE_AUTH = 'mock';
+        expect((await handler(event('GET', '/affiliates', { user: MOCK_JORDAN }))).statusCode).toBe(500);
+    });
+    it('has no sample accounts in production, whatever the setting', () => {
+        process.env.AFFILIATE_STAGE = 'production';
+        process.env.AFFILIATE_SAMPLE_ACCOUNTS = 'affiliate-jordan@sample.silastech.co:mock-affiliate-jordan';
+        expect(sampleAccounts().size).toBe(0);
+        delete process.env.AFFILIATE_SAMPLE_ACCOUNTS;
+    });
+});
+

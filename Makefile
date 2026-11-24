@@ -447,6 +447,16 @@ affiliate.deploy.staging: affiliate.bundle
 	  --config-env staging \
 	  --resolve-s3
 
+affiliate.deploy.prod: affiliate.bundle
+	@echo "==> SAM build (affiliate API, zipping the pre-bundled Lambda)"
+	sam build --template-file affiliate.template.yaml --build-dir .aws-sam-affiliate/build
+	@echo "==> Deploying the affiliate API to AWS (PRODUCTION: sale-sync-affiliate-api)"
+	sam deploy \
+	  --template-file affiliate.template.yaml \
+	  --config-file $(CURDIR)/affiliate.samconfig.toml \
+	  --config-env prod \
+	  --resolve-s3
+
 affiliate.clean:
 	@echo "==> Cleaning affiliate API build artifacts"
 	rm -rf .aws-sam-affiliate apps/affiliate-api/affiliates/bundle
