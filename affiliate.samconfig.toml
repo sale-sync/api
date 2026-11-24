@@ -11,5 +11,6 @@ confirm_changeset = true
 capabilities = "CAPABILITY_IAM CAPABILITY_AUTO_EXPAND"
 image_repositories = []
 parameter_overrides = [
-  "ParameterKey=AffiliateTableName,ParameterValue=staging-sale-sync-affiliate"
+  "ParameterKey=AffiliateTableName,ParameterValue=staging-sale-sync-affiliate",
+  "ParameterKey=AffiliateAuth,ParameterValue=mock"
 ]

@@ -16,7 +16,7 @@ class ApplicationController extends Controller implements IControllerMethods {
 
     // GET /affiliates/application: the application and its stage (pending or approved)
     async get(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
-        const user = signedInUser(event);
+        const user = await signedInUser(event);
         if (isResponse(user)) return user;
         try {
             const a = await this.affiliateService.get(user.id);
@@ -28,7 +28,7 @@ class ApplicationController extends Controller implements IControllerMethods {
 
     // POST /affiliates/application: 201 pending; 409 ALREADY_APPLIED for a second one (one market per affiliate)
     async post(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
-        const user = signedInUser(event);
+        const user = await signedInUser(event);
         if (isResponse(user)) return user;
         try {
             const input = new ApplicationDTO().validate(parseBody(event.body));

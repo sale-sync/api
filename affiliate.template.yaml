@@ -1,12 +1,29 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
 
-Description: Silas Tech Affiliate API (backlog affiliate-api). One Lambda under /affiliates. Its DynamoDB table is owned by ss/infra (template.yaml, AffiliateTable, ${ResourcePrefix}sale-sync-affiliate), like every table; deploy infra first. No Cognito authorizer yet (mock sign-in).
+Description: >
+    Silas Tech Affiliate API (backlog affiliate-api). One Lambda under /affiliates. Its DynamoDB table is owned by ss/infra (template.yaml, AffiliateTable, ${ResourcePrefix}sale-sync-affiliate), like every table; deploy infra first. Sign-in is the affiliate Cognito pool (ss/infra affiliate-cognito.yaml): each Lambda verifies the ID token itself (shared/auth.ts), so there is no API Gateway authorizer.
 
 Parameters:
     AffiliateTableName:
         Type: String
         Description: The affiliate table of this stage, created by the infra stack (staging-sale-sync-affiliate, later sale-sync-affiliate)
+    AffiliateAuth:
+        Type: String
+        AllowedValues: [cognito, mock]
+        Description: cognito verifies the ID token against the affiliate pool; mock only decodes the cookie (staging switch-over only, never production)
+    AffiliateUserPoolId:
+        Type: String
+        Default: ''
+        Description: Output AffiliateUserPoolId of the affiliate Cognito stack (needed when AffiliateAuth is cognito)
+    AffiliateUserPoolClientId:
+        Type: String
+        Default: ''
+        Description: Output AffiliateUserPoolClientId of the affiliate Cognito stack (needed when AffiliateAuth is cognito)
+    AffiliateSampleAccounts:
+        Type: String
+        Default: ''
+        Description: Staging only, empty in production. "email=sampleUserId,..." opens the sample affiliates with the staging sample accounts
 
 Globals:
     Function:
@@ -14,6 +31,12 @@ Globals:
         Runtime: nodejs22.x
         Architectures: [x86_64]
         Handler: app.lambdaHandler
+        Environment:
+            Variables:
+                AFFILIATE_AUTH: !Ref AffiliateAuth
+                AFFILIATE_USER_POOL_ID: !Ref AffiliateUserPoolId
+                AFFILIATE_USER_POOL_CLIENT_ID: !Ref AffiliateUserPoolClientId
+                AFFILIATE_SAMPLE_ACCOUNTS: !Ref AffiliateSampleAccounts
 
 Resources:
     AffiliateApi:

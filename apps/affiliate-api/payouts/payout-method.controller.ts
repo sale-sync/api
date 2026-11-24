@@ -15,7 +15,7 @@ class PayoutMethodController extends Controller implements IControllerMethods {
     }
 
     async get(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
-        const user = signedInUser(event); // isAuthorize + getUser
+        const user = await signedInUser(event); // the verified sign-in (auth.ts)
         if (isResponse(user)) return user;
         try {
             return json(200, { method: await this.payoutService.getMethod(user.id) });
@@ -26,7 +26,7 @@ class PayoutMethodController extends Controller implements IControllerMethods {
 
     // PUT /affiliates/payout-method { kind: 'stripe' } | { kind: 'bank', accountName, bank, branch, accountNumber }
     async put(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
-        const user = signedInUser(event);
+        const user = await signedInUser(event);
         if (isResponse(user)) return user;
         try {
             const input = new PayoutMethodDTO().validate(parseBody(event.body));

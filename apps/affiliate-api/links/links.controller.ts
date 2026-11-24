@@ -16,7 +16,7 @@ class LinksController extends Controller implements IControllerMethods {
 
     // GET /affiliates/links
     async get(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
-        const user = signedInUser(event); // isAuthorize + getUser
+        const user = await signedInUser(event); // the verified sign-in (auth.ts)
         if (isResponse(user)) return user;
         try {
             return json(200, { links: await this.linkService.list(user.id) });
@@ -27,7 +27,7 @@ class LinksController extends Controller implements IControllerMethods {
 
     // POST /affiliates/links { channel, name, slug }: 403 while pending, 409 SLUG_TAKEN when the address is used
     async post(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
-        const user = signedInUser(event);
+        const user = await signedInUser(event);
         if (isResponse(user)) return user;
         try {
             const input = new LinkDTO().validate(parseBody(event.body));

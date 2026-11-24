@@ -1,20 +1,14 @@
 // "Who is calling, and are they an affiliate?" Every domain needs the signed-in user and their affiliate profile (market,
-// stage); only the affiliates domain writes profiles. The sign-in is samjs's cookie check until the Cognito pool exists.
-import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
-import { getUser, isAuthorize, NO_USER, UNAUTHORIZE_ERROR } from '@devyethiha/samjs';
+// stage); only the affiliates domain writes profiles. The sign-in itself is checked in auth.ts.
+import type { APIGatewayProxyResult } from 'aws-lambda';
 import { ConditionalCheckFailedException } from '@aws-sdk/client-dynamodb';
 import { BatchWriteCommand, GetCommand, PutCommand } from '@aws-sdk/lib-dynamodb';
 import { doc, pk, strip, table } from './db';
 import { NotAnAffiliateError, NotApprovedError } from './errors';
 import { seed, type Affiliate } from './seed';
 
-/** The signed-in user, or the response to send (401 without the cookies, 404 without a user id). */
-export function signedInUser(event: APIGatewayProxyEvent): { id: string; email: string } | APIGatewayProxyResult {
-    if (!isAuthorize(event)) return UNAUTHORIZE_ERROR;
-    const user = getUser(event);
-    if (!user?.id) return NO_USER;
-    return { id: user.id, email: user.email };
-}
+export { signedInUser } from './auth';
+
 export const isResponse = (x: unknown): x is APIGatewayProxyResult => !!x && typeof x === 'object' && 'statusCode' in x;
 
 /** The affiliate profile, or null. `seedSamples`: write a sample affiliate on first use (only the affiliates Lambda may). */

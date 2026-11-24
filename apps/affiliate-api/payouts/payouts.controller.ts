@@ -14,7 +14,7 @@ class PayoutsController extends Controller implements IControllerMethods {
     }
 
     async get(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
-        const user = signedInUser(event); // isAuthorize + getUser
+        const user = await signedInUser(event); // the verified sign-in (auth.ts)
         if (isResponse(user)) return user;
         try {
             return json(200, await this.payoutService.summary(user.id));

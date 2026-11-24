@@ -15,7 +15,7 @@ class ReferralsController extends Controller implements IControllerMethods {
     }
 
     async get(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
-        const user = signedInUser(event); // isAuthorize + getUser
+        const user = await signedInUser(event); // the verified sign-in (auth.ts)
         if (isResponse(user)) return user;
         const { status } = event.queryStringParameters ?? {};
         if (status !== undefined && !isStatus(status)) return json(400, { message: 'status must be trial, pending, subscribed or ended' });
