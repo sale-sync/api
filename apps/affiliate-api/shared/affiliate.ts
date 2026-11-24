@@ -24,7 +24,7 @@ export async function requireAffiliate(userId: string): Promise<Affiliate> {
 }
 export async function requireApproved(userId: string): Promise<Affiliate> {
     const a = await requireAffiliate(userId);
-    if (a.stage !== 'approved') throw new NotApprovedError();
+    if (a.stage !== 'approved') throw new NotApprovedError(a.stage === 'refused');
     return a;
 }
 

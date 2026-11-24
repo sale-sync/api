@@ -14,7 +14,8 @@ export type Market = 'australia' | 'thailand';
 export type Plan = 6 | 12 | 24;
 export type Channel = 'tiktok' | 'youtube' | 'instagram' | 'facebook' | 'line' | 'newsletter' | 'other';
 export type ReferralStatus = 'trial' | 'pending' | 'subscribed' | 'ended';
-export type Stage = 'pending' | 'approved';
+export type Stage = 'pending' | 'approved' | 'refused'; // the team reviews every application (team portal)
+export const STAGES: Stage[] = ['pending', 'approved', 'refused'];
 
 export const MARKETS: Market[] = ['australia', 'thailand'];
 export const PLANS: Plan[] = [6, 12, 24];

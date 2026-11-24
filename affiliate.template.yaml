@@ -20,6 +20,14 @@ Parameters:
         Type: String
         Default: ''
         Description: Output AffiliateUserPoolClientId of the affiliate Cognito stack (needed when AffiliateAuth is cognito)
+    ReviewFirebaseProjectId:
+        Type: String
+        Default: silas-team-portal
+        Description: The team portal's Firebase project; the reviews Lambda accepts its ID tokens only
+    AffiliateReviewers:
+        Type: String
+        Default: ''
+        Description: Team emails allowed to review applications, separated by ; (empty means nobody can review)
     AffiliateSampleAccounts:
         Type: String
         Default: ''
@@ -137,6 +145,29 @@ Resources:
                     Properties:
                         RestApiId: !Ref AffiliateApi
                         Path: /affiliates/payout-method
+                        Method: ANY
+
+    # The team review of applications, from the team portal: its own sign-in (the portal's Firebase token and the reviewer
+    # list), never the affiliate pool. Reads profiles and the ByStage index, writes the decision on a profile.
+    ReviewsFunction:
+        Type: AWS::Serverless::Function
+        Properties:
+            CodeUri: apps/affiliate-api/reviews/bundle
+            Environment:
+                Variables:
+                    AFFILIATE_TABLE_NAME: !Ref AffiliateTableName
+                    REVIEW_FIREBASE_PROJECT_ID: !Ref ReviewFirebaseProjectId
+                    AFFILIATE_REVIEWERS: !Ref AffiliateReviewers
+            Policies:
+                - AWSLambdaBasicExecutionRole
+                - DynamoDBCrudPolicy:
+                      TableName: !Ref AffiliateTableName
+            Events:
+                Reviews:
+                    Type: Api
+                    Properties:
+                        RestApiId: !Ref AffiliateApi
+                        Path: /affiliates/reviews
                         Method: ANY
 
     # Public programme terms; no table access, no table name.

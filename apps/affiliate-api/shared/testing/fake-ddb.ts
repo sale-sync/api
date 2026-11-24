@@ -1,5 +1,6 @@
 // An in-memory DynamoDB document client for the unit tests: just the commands and conditions the affiliate repositories use
-// (Get, Put with attribute_(not_)exists(PK), Query with PK = :pk AND begins_with(SK, :sk), BatchWrite puts, TransactWrite puts).
+// (Get, Put with attribute_(not_)exists(PK) or #name = :value, Query with PK = :pk AND begins_with(SK, :sk) or on the ByStage
+// index, BatchWrite puts, TransactWrite puts).
 // The repositories run their real code against it, so the tests cover the same code path as DynamoDB.
 import { ConditionalCheckFailedException, TransactionCanceledException } from '@aws-sdk/client-dynamodb';
 import { BatchWriteCommand, DynamoDBDocumentClient, GetCommand, PutCommand, QueryCommand, TransactWriteCommand } from '@aws-sdk/lib-dynamodb';
@@ -10,11 +11,14 @@ export class FakeDdb {
     items = new Map<string, Item>();
     readonly key = (pk: unknown, sk: unknown) => `${pk}|${sk}`;
 
-    private check(cond: string | undefined, it: Item) {
+    private check(cond: string | undefined, it: Item, names?: Record<string, string>, values?: Item) {
         if (!cond) return true;
-        const exists = this.items.has(this.key(it.PK, it.SK));
+        const current = this.items.get(this.key(it.PK, it.SK));
+        const exists = !!current;
         if (cond === 'attribute_not_exists(PK)') return !exists;
         if (cond === 'attribute_exists(PK)') return exists;
+        const eq = /^(#\w+) = (:\w+)$/.exec(cond); // the stored item's attribute equals a value
+        if (eq && names && values) return !!current && current[names[eq[1]]] === values[eq[2]];
         throw new Error(`FakeDdb: unsupported condition ${cond}`);
     }
 
@@ -27,12 +31,18 @@ export class FakeDdb {
         }
         if (command instanceof PutCommand) {
             const it = command.input.Item as Item;
-            if (!this.check(command.input.ConditionExpression, it)) throw new ConditionalCheckFailedException({ message: 'The conditional request failed', $metadata: {} });
+            if (!this.check(command.input.ConditionExpression, it, command.input.ExpressionAttributeNames, command.input.ExpressionAttributeValues)) throw new ConditionalCheckFailedException({ message: 'The conditional request failed', $metadata: {} });
             this.items.set(this.key(it.PK, it.SK), clone(it));
             return {};
         }
         if (command instanceof QueryCommand) {
             const v = command.input.ExpressionAttributeValues as Item;
+            if (command.input.IndexName === 'ByStage') {
+                // sparse index: only items with stage and appliedOn, sorted by appliedOn
+                const rows = [...this.items.values()].filter((i) => i.stage === v[':stage'] && typeof i.appliedOn === 'string');
+                return { Items: rows.sort((a, b) => String(a.appliedOn).localeCompare(String(b.appliedOn))).map(clone) };
+            }
+            if (command.input.IndexName) throw new Error(`FakeDdb: unsupported index ${command.input.IndexName}`);
             const rows = [...this.items.values()].filter((i) => i.PK === v[':pk'] && String(i.SK).startsWith(String(v[':sk'])));
             return { Items: rows.sort((a, b) => String(a.SK).localeCompare(String(b.SK))).map(clone) };
         }

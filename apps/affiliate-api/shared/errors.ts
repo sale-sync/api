@@ -12,8 +12,8 @@ export class AlreadyAppliedError extends Error {
     }
 }
 export class NotApprovedError extends Error {
-    constructor() {
-        super('The application is still being reviewed');
+    constructor(refused = false) {
+        super(refused ? 'The application was not approved' : 'The application is still being reviewed');
         this.name = 'NotApprovedError';
     }
 }
@@ -21,5 +21,11 @@ export class SlugTakenError extends Error {
     constructor(slug: string) {
         super(`The link address "${slug}" is already taken`);
         this.name = 'SlugTakenError';
+    }
+}
+export class AlreadyReviewedError extends Error {
+    constructor() {
+        super('This application has already been reviewed');
+        this.name = 'AlreadyReviewedError';
     }
 }

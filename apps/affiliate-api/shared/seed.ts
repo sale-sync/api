@@ -15,6 +15,10 @@ export type Affiliate = {
     channelUrl: string;
     plan: string;
     appliedOn: string;
+    /** set by the team review (reviews Lambda): when, by whom (a team email, never shown to the affiliate), and why not */
+    reviewedOn?: string;
+    reviewedBy?: string;
+    refusalReason?: string;
 };
 export type AffLink = { id: string; userId: string; channel: Channel; name: string; slug: string; clicks: number; createdOn: string };
 export type Referral = {
