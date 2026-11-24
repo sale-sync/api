@@ -1,4 +1,4 @@
-.PHONY: help clean bundle build start start.prod deploy.staging deploy.prod dev dev.prod docs test check.staging check.prod check.both admin.dev admin.dev.staging admin.dev.prod admin.bundle admin.build admin.start admin.start.staging admin.start.prod admin.deploy.staging admin.deploy.prod admin.clean admin.check.staging admin.check.prod admin.check.both admin.docs admin.test queries.dev queries.bundle queries.build queries.start queries.deploy.staging queries.deploy.prod queries.clean queries.check.staging queries.check.prod queries.check.both queries.test mutation.dev mutation.bundle mutation.build mutation.start mutation.deploy.staging mutation.deploy.prod mutation.clean mutation.check.staging mutation.check.prod mutation.check.both mutation.test test.all
+.PHONY: help clean bundle build start start.prod deploy.staging deploy.prod dev dev.prod docs test check.staging check.prod check.both admin.dev admin.dev.staging admin.dev.prod admin.bundle admin.build admin.start admin.start.staging admin.start.prod admin.deploy.staging admin.deploy.prod admin.clean admin.check.staging admin.check.prod admin.check.both admin.docs admin.test queries.dev queries.bundle queries.build queries.start queries.deploy.staging queries.deploy.prod queries.clean queries.check.staging queries.check.prod queries.check.both queries.test mutation.dev mutation.bundle mutation.build mutation.start mutation.deploy.staging mutation.deploy.prod mutation.clean mutation.check.staging mutation.check.prod mutation.check.both mutation.test affiliate.bundle affiliate.test affiliate.build affiliate.start affiliate.deploy.staging affiliate.clean test.all
 
 # Default target
 .DEFAULT_GOAL := help
@@ -414,6 +414,53 @@ mutation.clean:
 	@echo "==> Cleaning mutation API build artifacts"
 	rm -rf .aws-sam-mutation apps/mutation-api/contacts/bundle
 
+# =============================================================================
+# Affiliate API (backlog affiliate-api): /affiliates for the affiliate app (affiliate.silastech.co). Data in DynamoDB
+# (table per stage, owned by ss/infra: deploy infra first; two sample affiliates written on first use), mock sign-in until Cognito. Staging only for now (stack
+# staging-sale-sync-affiliate-api, affiliate.samconfig.toml); production comes with the table and the affiliate user pool.
+# Own template (affiliate.template.yaml) and SAM build dir (.aws-sam-affiliate). Steps and checks: make affiliate-api-staging.help
+# from ss/.
+# =============================================================================
+affiliate.bundle:
+	@echo "==> Bundling the affiliate API Lambda"
+	npm run affiliate.bundle
+
+affiliate.test:
+	@echo "==> Running affiliate API tests"
+	npm run affiliate.test
+
+affiliate.build: affiliate.bundle
+	@echo "==> SAM build (affiliate API, zipping the pre-bundled Lambda)"
+	sam build --template-file affiliate.template.yaml --build-dir .aws-sam-affiliate/build
+
+affiliate.start: affiliate.build
+	@echo "==> Starting the local affiliate API on port 8084 (staging table staging-sale-sync-affiliate, needs Docker)"
+	sam local start-api --template-file .aws-sam-affiliate/build/template.yaml --port 8084 --parameter-overrides AffiliateTableName=staging-sale-sync-affiliate
+
+affiliate.deploy.staging: affiliate.bundle
+	@echo "==> SAM build (affiliate API, zipping the pre-bundled Lambda)"
+	sam build --template-file affiliate.template.yaml --build-dir .aws-sam-affiliate/build
+	@echo "==> Deploying the affiliate API to AWS (staging)"
+	sam deploy \
+	  --template-file affiliate.template.yaml \
+	  --config-file $(CURDIR)/affiliate.samconfig.toml \
+	  --config-env staging \
+	  --resolve-s3
+
+affiliate.deploy.prod: affiliate.bundle
+	@echo "==> SAM build (affiliate API, zipping the pre-bundled Lambda)"
+	sam build --template-file affiliate.template.yaml --build-dir .aws-sam-affiliate/build
+	@echo "==> Deploying the affiliate API to AWS (PRODUCTION: sale-sync-affiliate-api)"
+	sam deploy \
+	  --template-file affiliate.template.yaml \
+	  --config-file $(CURDIR)/affiliate.samconfig.toml \
+	  --config-env prod \
+	  --resolve-s3
+
+affiliate.clean:
+	@echo "==> Cleaning affiliate API build artifacts"
+	rm -rf .aws-sam-affiliate apps/affiliate-api/affiliates/bundle
+
 # === Resource audit (CloudFormation/DynamoDB/S3/Lambda, read-only) — mutation stack ===
 mutation.check.staging:
 	@./scripts/check-resources.sh mutation staging
@@ -482,6 +529,8 @@ help:
 	@echo "  make mutation.bundle  - Bundle mutation API Lambdas via Nx (auto-builds shared first)"
 	@echo "  make mutation.build   - Bundle + SAM build (mutation.template.yaml, .aws-sam-mutation)"
 	@echo "  make mutation.start   - Run local mutation API after build (port 8083)"
+	@echo "  make affiliate.test    - Affiliate API tests (in-memory store)"
+	@echo "  make affiliate.start   - Run local affiliate API after build (port 8084, staging table)"
 	@echo "  make mutation.test    - Run mutation API tests (unit, all apps)"
 	@echo "  make mutation.deploy.staging - Build + deploy mutation API to AWS (staging stack: staging-sale-sync-mutation-api)"
 	@echo "  make mutation.deploy.prod    - Build + deploy mutation API to AWS (prod stack: sale-sync-mutation-api)"

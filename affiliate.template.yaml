@@ -1,0 +1,230 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+
+Description: >
+    Silas Tech Affiliate API (backlog affiliate-api). One Lambda under /affiliates. Its DynamoDB table is owned by ss/infra (template.yaml, AffiliateTable, ${ResourcePrefix}sale-sync-affiliate), like every table; deploy infra first. Sign-in is the affiliate Cognito pool (ss/infra affiliate-cognito.yaml): each Lambda verifies the ID token itself (shared/auth.ts), so there is no API Gateway authorizer.
+
+Parameters:
+    AffiliateTableName:
+        Type: String
+        Description: The affiliate table of this stage, created by the infra stack (staging-sale-sync-affiliate, later sale-sync-affiliate)
+    AffiliateAuth:
+        Type: String
+        AllowedValues: [cognito, mock]
+        Description: cognito verifies the ID token against the affiliate pool; mock only decodes the cookie (staging switch-over only, never production)
+    AffiliateUserPoolId:
+        Type: String
+        Default: ''
+        Description: Output AffiliateUserPoolId of the affiliate Cognito stack (needed when AffiliateAuth is cognito)
+    AffiliateUserPoolClientId:
+        Type: String
+        Default: ''
+        Description: Output AffiliateUserPoolClientId of the affiliate Cognito stack (needed when AffiliateAuth is cognito)
+    ReviewFirebaseProjectId:
+        Type: String
+        Default: silas-team-portal
+        Description: The team portal's Firebase project; the reviews Lambda accepts its ID tokens only
+    AffiliateReviewers:
+        Type: String
+        Default: ''
+        Description: Team emails allowed to review applications, separated by ; (empty means nobody can review)
+    AffiliateStage:
+        Type: String
+        AllowedValues: [staging, production]
+        Description: The stage of this stack; the link address (silastech.co/r/ or the staging app) and the decision emails follow it
+    DecisionEmails:
+        Type: String
+        AllowedValues: ['on', 'off']
+        Default: 'off'
+        Description: on sends the applicant an email after each review, from noreply@silastech.co (SES identity in infra ses.yaml)
+    AffiliateSampleAccounts:
+        Type: String
+        Default: ''
+        Description: Staging only, empty in production. "email:sampleUserId;..." opens the sample affiliates with the staging sample accounts
+
+Globals:
+    Function:
+        Timeout: 10
+        Runtime: nodejs22.x
+        Architectures: [x86_64]
+        Handler: app.lambdaHandler
+        Environment:
+            Variables:
+                AFFILIATE_AUTH: !Ref AffiliateAuth
+                AFFILIATE_USER_POOL_ID: !Ref AffiliateUserPoolId
+                AFFILIATE_USER_POOL_CLIENT_ID: !Ref AffiliateUserPoolClientId
+                AFFILIATE_SAMPLE_ACCOUNTS: !Ref AffiliateSampleAccounts
+                AFFILIATE_STAGE: !Ref AffiliateStage
+
+Resources:
+    AffiliateApi:
+        Type: AWS::Serverless::Api
+        Properties:
+            StageName: Prod
+
+    # One Lambda per resource (domain-driven, least privilege, isolation, smaller bundles), each mapped to its exact
+    # paths (ANY, so the CORS preflight reaches samjs withCORS). Each has only the table access its domain needs.
+
+    # Account and application; writes affiliate profiles and the sample affiliates on first use.
+    AffiliatesFunction:
+        Type: AWS::Serverless::Function
+        Properties:
+            CodeUri: apps/affiliate-api/affiliates/bundle
+            Environment:
+                Variables:
+                    AFFILIATE_TABLE_NAME: !Ref AffiliateTableName
+            Policies:
+                - AWSLambdaBasicExecutionRole
+                - DynamoDBCrudPolicy:
+                      TableName: !Ref AffiliateTableName
+            Events:
+                Account:
+                    Type: Api
+                    Properties:
+                        RestApiId: !Ref AffiliateApi
+                        Path: /affiliates
+                        Method: ANY
+                Application:
+                    Type: Api
+                    Properties:
+                        RestApiId: !Ref AffiliateApi
+                        Path: /affiliates/application
+                        Method: ANY
+
+    # Referral links; writes link records and address reservations, reads referrals for link results.
+    LinksFunction:
+        Type: AWS::Serverless::Function
+        Properties:
+            CodeUri: apps/affiliate-api/links/bundle
+            Environment:
+                Variables:
+                    AFFILIATE_TABLE_NAME: !Ref AffiliateTableName
+            Policies:
+                - AWSLambdaBasicExecutionRole
+                - DynamoDBCrudPolicy:
+                      TableName: !Ref AffiliateTableName
+            Events:
+                Links:
+                    Type: Api
+                    Properties:
+                        RestApiId: !Ref AffiliateApi
+                        Path: /affiliates/links
+                        Method: ANY
+
+    # Referred businesses; read only.
+    ReferralsFunction:
+        Type: AWS::Serverless::Function
+        Properties:
+            CodeUri: apps/affiliate-api/referrals/bundle
+            Environment:
+                Variables:
+                    AFFILIATE_TABLE_NAME: !Ref AffiliateTableName
+            Policies:
+                - AWSLambdaBasicExecutionRole
+                - DynamoDBReadPolicy:
+                      TableName: !Ref AffiliateTableName
+            Events:
+                Referrals:
+                    Type: Api
+                    Properties:
+                        RestApiId: !Ref AffiliateApi
+                        Path: /affiliates/referrals
+                        Method: ANY
+
+    # Earnings and payout method; writes the payout method (bank details stay in this function).
+    PayoutsFunction:
+        Type: AWS::Serverless::Function
+        Properties:
+            CodeUri: apps/affiliate-api/payouts/bundle
+            Environment:
+                Variables:
+                    AFFILIATE_TABLE_NAME: !Ref AffiliateTableName
+            Policies:
+                - AWSLambdaBasicExecutionRole
+                - DynamoDBCrudPolicy:
+                      TableName: !Ref AffiliateTableName
+            Events:
+                Payouts:
+                    Type: Api
+                    Properties:
+                        RestApiId: !Ref AffiliateApi
+                        Path: /affiliates/payouts
+                        Method: ANY
+                PayoutMethod:
+                    Type: Api
+                    Properties:
+                        RestApiId: !Ref AffiliateApi
+                        Path: /affiliates/payout-method
+                        Method: ANY
+
+    # The team review of applications, from the team portal: its own sign-in (the portal's Firebase token and the reviewer
+    # list), never the affiliate pool. Reads profiles and the ByStage index, writes the decision on a profile.
+    ReviewsFunction:
+        Type: AWS::Serverless::Function
+        Properties:
+            CodeUri: apps/affiliate-api/reviews/bundle
+            Environment:
+                Variables:
+                    AFFILIATE_TABLE_NAME: !Ref AffiliateTableName
+                    REVIEW_FIREBASE_PROJECT_ID: !Ref ReviewFirebaseProjectId
+                    AFFILIATE_REVIEWERS: !Ref AffiliateReviewers
+                    AFFILIATE_DECISION_EMAILS: !Ref DecisionEmails
+            Policies:
+                - AWSLambdaBasicExecutionRole
+                - DynamoDBCrudPolicy:
+                      TableName: !Ref AffiliateTableName
+                # the applicant's email after a review: send only, only from the silastech.co identity
+                - Statement:
+                      - Effect: Allow
+                        Action: ses:SendEmail
+                        Resource: !Sub 'arn:aws:ses:${AWS::Region}:${AWS::AccountId}:identity/silastech.co'
+            Events:
+                Reviews:
+                    Type: Api
+                    Properties:
+                        RestApiId: !Ref AffiliateApi
+                        Path: /affiliates/reviews
+                        Method: ANY
+
+    # silastech.co/r/<slug> opened (called by the affiliate app's Worker): reads the address reservation and the owner's
+    # stage, adds 1 to the link's clicks. Read and update only, no put or delete.
+    ClicksFunction:
+        Type: AWS::Serverless::Function
+        Properties:
+            CodeUri: apps/affiliate-api/clicks/bundle
+            Environment:
+                Variables:
+                    AFFILIATE_TABLE_NAME: !Ref AffiliateTableName
+            Policies:
+                - AWSLambdaBasicExecutionRole
+                - Statement:
+                      - Effect: Allow
+                        Action: [dynamodb:GetItem, dynamodb:UpdateItem]
+                        Resource: !Sub 'arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${AffiliateTableName}'
+            Events:
+                Clicks:
+                    Type: Api
+                    Properties:
+                        RestApiId: !Ref AffiliateApi
+                        Path: /affiliates/clicks
+                        Method: ANY
+
+    # Public programme terms; no table access, no table name.
+    ProgrammeFunction:
+        Type: AWS::Serverless::Function
+        Properties:
+            CodeUri: apps/affiliate-api/programme/bundle
+            Policies:
+                - AWSLambdaBasicExecutionRole
+            Events:
+                Programme:
+                    Type: Api
+                    Properties:
+                        RestApiId: !Ref AffiliateApi
+                        Path: /affiliates/programme
+                        Method: ANY
+
+Outputs:
+    AffiliateApiInvokeUrl:
+        Description: Invoke URL for the Prod stage
+        Value: !Sub 'https://${AffiliateApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/'

@@ -1,0 +1,59 @@
+{
+  "name": "affiliate-programme",
+  "root": "apps/affiliate-api/programme",
+  "sourceRoot": "apps/affiliate-api/programme",
+  "projectType": "application",
+  "targets": {
+    "compile": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "npm run compile",
+        "cwd": "apps/affiliate-api/programme"
+      },
+      "inputs": [
+        "default",
+        "{workspaceRoot}/apps/affiliate-api/shared/**/*"
+      ]
+    },
+    "bundle": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "npm run bundle",
+        "cwd": "apps/affiliate-api/programme"
+      },
+      "inputs": [
+        "default",
+        "{workspaceRoot}/apps/affiliate-api/shared/**/*"
+      ]
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "npm test",
+        "cwd": "apps/affiliate-api/programme"
+      },
+      "inputs": [
+        "default",
+        "{workspaceRoot}/apps/affiliate-api/shared/**/*"
+      ]
+    },
+    "unit": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "npm run unit",
+        "cwd": "apps/affiliate-api/programme"
+      },
+      "inputs": [
+        "default",
+        "{workspaceRoot}/apps/affiliate-api/shared/**/*"
+      ]
+    },
+    "lint": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "npm run lint",
+        "cwd": "apps/affiliate-api/programme"
+      }
+    }
+  }
+}

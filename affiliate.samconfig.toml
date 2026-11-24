@@ -1,0 +1,42 @@
+version = 0.1
+
+# Affiliate API (backlog affiliate-api). Staging and production. Sign-in: the staging affiliate Cognito pool
+# (infra affiliate-cognito.yaml); the pool and client ids are not secrets. AffiliateSampleAccounts is staging only.
+
+[staging.deploy.parameters]
+stack_name = "staging-sale-sync-affiliate-api"
+resolve_s3 = true
+s3_prefix = "staging-sale-sync-affiliate-api"
+region = "ap-southeast-2"
+confirm_changeset = true
+capabilities = "CAPABILITY_IAM CAPABILITY_AUTO_EXPAND"
+image_repositories = []
+parameter_overrides = [
+  "ParameterKey=AffiliateTableName,ParameterValue=staging-sale-sync-affiliate",
+  "ParameterKey=AffiliateAuth,ParameterValue=cognito",
+  "ParameterKey=AffiliateUserPoolId,ParameterValue=ap-southeast-2_yt3wGnE5U",
+  "ParameterKey=AffiliateUserPoolClientId,ParameterValue=30n5dadil5lsqkl07oebuanq84",
+  "ParameterKey=AffiliateStage,ParameterValue=staging",
+  "ParameterKey=DecisionEmails,ParameterValue=on",
+  "ParameterKey=AffiliateReviewers,ParameterValue=yethiha@silastech.co;scott@silastech.co",
+  "ParameterKey=AffiliateSampleAccounts,ParameterValue=affiliate-jordan@sample.silastech.co:mock-affiliate-jordan;affiliate-ploy@sample.silastech.co:mock-affiliate-ploy"
+]
+
+# Production (2026-11-24): the production affiliate pool (sale-sync-affiliate-cognito), no sample accounts, never mock.
+[prod.deploy.parameters]
+stack_name = "sale-sync-affiliate-api"
+resolve_s3 = true
+s3_prefix = "sale-sync-affiliate-api"
+region = "ap-southeast-2"
+confirm_changeset = true
+capabilities = "CAPABILITY_IAM CAPABILITY_AUTO_EXPAND"
+image_repositories = []
+parameter_overrides = [
+  "ParameterKey=AffiliateTableName,ParameterValue=sale-sync-affiliate",
+  "ParameterKey=AffiliateAuth,ParameterValue=cognito",
+  "ParameterKey=AffiliateUserPoolId,ParameterValue=ap-southeast-2_eefdG7Bxj",
+  "ParameterKey=AffiliateUserPoolClientId,ParameterValue=143vv1avgj79s050t14mbb9b6b",
+  "ParameterKey=AffiliateStage,ParameterValue=production",
+  "ParameterKey=DecisionEmails,ParameterValue=on",
+  "ParameterKey=AffiliateReviewers,ParameterValue=yethiha@silastech.co;scott@silastech.co"
+]
