@@ -22,10 +22,9 @@ Resources:
             Handler: app.lambdaHandler
             Runtime: nodejs22.x
             Architectures: [x86_64]
-            # MOCK PHASE ONLY: the mock store lives in the Lambda's memory, so every request must reach the same instance, or a
-            # write on one instance is missing on the next read (seen on staging 2026-11-24: 4 of 8 parallel reads were stale).
-            # One concurrent instance serialises them; staging traffic is tiny. Remove this line when DynamoDB replaces the mock store.
-            ReservedConcurrentExecutions: 1
+            # Known mock-phase limit: the mock store lives in the Lambda's memory, so with several instances a write can be missing on
+            # the next read (seen on staging 2026-11-24). ReservedConcurrentExecutions: 1 would fix it but the account's Lambda
+            # concurrency limit is 10 and AWS keeps 10 unreserved, so it cannot be reserved (deploy rolled back). Goes away with DynamoDB.
             Policies:
                 - AWSLambdaBasicExecutionRole
             Events:
