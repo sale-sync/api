@@ -33,3 +33,13 @@ it('needs a 6 digit BSB in Australia', async () => {
 it('switches to Stripe', async () => {
     expect(body(await call('PUT', '/affiliates/payout-method', { user: MOCK_JORDAN, body: { kind: 'stripe' } })).method).toEqual({ kind: 'stripe' });
 });
+it('production stores no payout method yet (403 PAYOUTS_NOT_OPEN): payouts are their own backlog', async () => {
+    process.env.AFFILIATE_STAGE = 'production';
+    try {
+        const r = await call('PUT', '/affiliates/payout-method', { user: MOCK_JORDAN, body: { kind: 'stripe' } });
+        expect(r.statusCode).toBe(403);
+        expect(body(r).code).toBe('PAYOUTS_NOT_OPEN');
+    } finally {
+        delete process.env.AFFILIATE_STAGE;
+    }
+});

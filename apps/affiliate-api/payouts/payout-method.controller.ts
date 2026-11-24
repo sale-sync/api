@@ -26,6 +26,8 @@ class PayoutMethodController extends Controller implements IControllerMethods {
 
     // PUT /affiliates/payout-method { kind: 'stripe' } | { kind: 'bank', accountName, bank, branch, accountNumber }
     async put(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
+        // payouts are their own backlog (blocked until the company's ABN): production stores no bank details before then
+        if (process.env.AFFILIATE_STAGE === 'production') return json(403, { code: 'PAYOUTS_NOT_OPEN', message: 'Payouts are not open yet' });
         const user = await signedInUser(event);
         if (isResponse(user)) return user;
         try {
