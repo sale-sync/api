@@ -416,7 +416,7 @@ mutation.clean:
 
 # =============================================================================
 # Affiliate API (backlog affiliate-api): /affiliates for the affiliate app (affiliate.silastech.co). Data in DynamoDB
-# (table per stage, created by the stack; two sample affiliates written on first use), mock sign-in until Cognito. Staging only for now (stack
+# (table per stage, owned by ss/infra: deploy infra first; two sample affiliates written on first use), mock sign-in until Cognito. Staging only for now (stack
 # staging-sale-sync-affiliate-api, affiliate.samconfig.toml); production comes with the table and the affiliate user pool.
 # Own template (affiliate.template.yaml) and SAM build dir (.aws-sam-affiliate). Steps and checks: make affiliate-api-staging.help
 # from ss/.

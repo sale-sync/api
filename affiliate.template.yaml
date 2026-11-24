@@ -1,12 +1,12 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
 
-Description: Silas Tech Affiliate API (backlog affiliate-api). One Lambda under /affiliates and its DynamoDB table (single-table layout, see apps/affiliate-api/affiliates/store/dynamo-store.ts). No Cognito authorizer yet (mock sign-in).
+Description: Silas Tech Affiliate API (backlog affiliate-api). One Lambda under /affiliates. Its DynamoDB table is owned by ss/infra (template.yaml, AffiliateTable, ${ResourcePrefix}sale-sync-affiliate), like every table; deploy infra first. No Cognito authorizer yet (mock sign-in).
 
 Parameters:
     AffiliateTableName:
         Type: String
-        Description: The affiliate table of this stage (staging-sale-sync-affiliate, later sale-sync-affiliate)
+        Description: The affiliate table of this stage, created by the infra stack (staging-sale-sync-affiliate, later sale-sync-affiliate)
 
 Globals:
     Function:
@@ -16,27 +16,6 @@ Globals:
                 AFFILIATE_TABLE_NAME: !Ref AffiliateTableName
 
 Resources:
-    # Affiliates, their links (and the address reservations), referrals and payout methods. Kept if the stack is removed.
-    AffiliateTable:
-        Type: AWS::DynamoDB::Table
-        DeletionPolicy: Retain
-        UpdateReplacePolicy: Retain
-        Properties:
-            TableName: !Ref AffiliateTableName
-            BillingMode: PAY_PER_REQUEST
-            AttributeDefinitions:
-                - AttributeName: PK
-                  AttributeType: S
-                - AttributeName: SK
-                  AttributeType: S
-            KeySchema:
-                - AttributeName: PK
-                  KeyType: HASH
-                - AttributeName: SK
-                  KeyType: RANGE
-            PointInTimeRecoverySpecification:
-                PointInTimeRecoveryEnabled: true
-
     AffiliateApi:
         Type: AWS::Serverless::Api
         Properties:
@@ -54,7 +33,7 @@ Resources:
             Policies:
                 - AWSLambdaBasicExecutionRole
                 - DynamoDBCrudPolicy:
-                      TableName: !Ref AffiliateTable
+                      TableName: !Ref AffiliateTableName
             Events:
                 AffiliatesProxy:
                     Type: Api
