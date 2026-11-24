@@ -1,10 +1,10 @@
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import { IService, Service } from '@devyethiha/samjs';
-import { store, MOCK_TODAY } from '../store/mock-store';
+import { store, MOCK_TODAY } from '../store';
 import { LINK_BASE, type Channel } from '../domain/rules';
 import type { LinkInput } from '../dtos/schemas';
-import { NotAnAffiliateError, NotApprovedError, SlugTakenError } from './errors';
+import { NotAnAffiliateError, NotApprovedError } from './errors';
 import { referralCommission } from './referral.service';
 
 /** An affiliate's links, one per channel, each with its own results. */
@@ -38,7 +38,7 @@ export class LinkService extends Service implements IService {
         const affiliate = await store.getAffiliate(userId);
         if (!affiliate) throw new NotAnAffiliateError();
         if (affiliate.stage !== 'approved') throw new NotApprovedError();
-        if (await store.slugTaken(input.slug)) throw new SlugTakenError(input.slug);
+        // addLink reserves the address across every affiliate and throws SlugTakenError when it is used
         const channel = input.channel as Channel;
         const link = await store.addLink({ userId, channel, name: input.name || channel, slug: input.slug, clicks: 0, createdOn: MOCK_TODAY.toISOString().slice(0, 10) });
         return { ...link, url: LINK_BASE + link.slug, stats: { clicks: 0, signups: 0, subscribed: 0, earned: 0 } };

@@ -1,7 +1,7 @@
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import { IService, Service } from '@devyethiha/samjs';
-import { store, MOCK_TODAY, type Referral } from '../store/mock-store';
+import { store, MOCK_TODAY, type Referral } from '../store';
 import { RATES, commission, trialDaysLeft, type ReferralStatus } from '../domain/rules';
 import { NotAnAffiliateError } from './errors';
 

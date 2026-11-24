@@ -1,10 +1,6 @@
-// MOCK STORE: in-memory data, no DynamoDB yet (backlog affiliate-api; the user decided 2026-11-24 to build the API on mock
-// data first). Every service reads and writes through this one module, so the DynamoDB version replaces this file, not the
-// services. Writes live only as long as the Lambda instance (a cold start resets to the seed below).
-//
-// Seed: the same two sample affiliates the app's mock uses (platform/apps/affiliate/src/lib/mock.ts), keyed by the user id
-// (the `sub` of the ID token in the Identifier cookie, as Cognito will issue it). Any other user id has no affiliate yet and
-// starts with an application.
+// Sample data of the affiliate API, keyed by user id (the `sub` of the ID token). Used by the in-memory store (tests) and
+// written to DynamoDB the first time a sample affiliate is requested (dynamo-store.ts). The same people and numbers as the
+// app's browser mock (platform/apps/affiliate/src/lib/mock.ts).
 import type { Channel, Market, Plan, ReferralStatus, Stage } from '../domain/rules';
 
 export type Affiliate = {
@@ -44,9 +40,10 @@ export const MOCK_PLOY = 'mock-affiliate-ploy';
 /** "Today" for the mock, so trial days and dates stay stable in tests. */
 export const MOCK_TODAY = new Date('2026-11-24T00:00:00Z');
 
-type Db = { affiliates: Map<string, Affiliate>; links: AffLink[]; referrals: Referral[]; payouts: Map<string, PayoutMethod> };
+export type Seed = { affiliates: Map<string, Affiliate>; links: AffLink[]; referrals: Referral[]; payouts: Map<string, PayoutMethod> };
 
-function seed(): Db {
+/** The two sample affiliates (Jordan, Australia; Ploy, Thailand) with their links, referrals and payout method. */
+export function seed(): Seed {
     const affiliates = new Map<string, Affiliate>([
         [MOCK_JORDAN, { userId: MOCK_JORDAN, market: 'australia', stage: 'approved', first: 'Jordan', last: 'Lee', email: 'jordan@jordanbuilds.com.au', phone: '+61 412 345 678', reach: 'creator', channelUrl: 'youtube.com/@jordanbuilds', plan: '', appliedOn: '2026-10-01' }],
         [MOCK_PLOY, { userId: MOCK_PLOY, market: 'thailand', stage: 'approved', first: 'Ploy', last: 'Chaiyaporn', email: 'ploy@ployproperty.co.th', phone: '+66 81 234 5678', reach: 'creator', channelUrl: '', plan: '', appliedOn: '2026-10-01' }],
@@ -84,33 +81,3 @@ function seed(): Db {
     return { affiliates, links, referrals, payouts };
 }
 
-let db: Db = seed();
-let counter = 0;
-const nextId = (prefix: string) => `${prefix}-${Date.now().toString(36)}-${(counter++).toString(36)}`;
-
-/** Back to the seed (tests). */
-export function resetMockStore(): void {
-    db = seed();
-}
-
-export const store = {
-    getAffiliate: async (userId: string) => db.affiliates.get(userId) ?? null,
-    putAffiliate: async (a: Affiliate) => {
-        db.affiliates.set(a.userId, a);
-        return a;
-    },
-    listLinks: async (userId: string) => db.links.filter((l) => l.userId === userId),
-    /** slugs are unique across every affiliate: a referral link must point at exactly one */
-    slugTaken: async (slug: string) => db.links.some((l) => l.slug === slug),
-    addLink: async (link: Omit<AffLink, 'id'>) => {
-        const created = { ...link, id: nextId('link') };
-        db.links.push(created);
-        return created;
-    },
-    listReferrals: async (userId: string) => db.referrals.filter((r) => r.userId === userId),
-    getPayoutMethod: async (userId: string): Promise<PayoutMethod> => db.payouts.get(userId) ?? { kind: 'none' },
-    putPayoutMethod: async (userId: string, m: PayoutMethod) => {
-        db.payouts.set(userId, m);
-        return m;
-    },
-};

@@ -1,6 +1,9 @@
 import type { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { lambdaHandler } from '../../app';
-import { MOCK_JORDAN, MOCK_PLOY, resetMockStore } from '../../store/mock-store';
+import { MOCK_JORDAN, MOCK_PLOY } from '../../store';
+import { resetMemoryStore } from '../../store/memory-store';
+
+process.env.AFFILIATE_STORE = 'memory';
 
 // Pins the programme rules and the access rules of the affiliate API on the mock store.
 function idToken(sub: string, email = `${sub}@example.com`): string {
@@ -28,7 +31,7 @@ function call(method: string, path: string, opts: { user?: string; body?: unknow
 }
 const body = (r: APIGatewayProxyResult) => JSON.parse(r.body);
 
-beforeEach(() => resetMockStore());
+beforeEach(() => resetMemoryStore());
 // samjs logs every missing cookie; keep the test output readable
 beforeAll(() => jest.spyOn(console, 'error').mockImplementation(() => undefined));
 

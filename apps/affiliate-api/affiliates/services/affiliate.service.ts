@@ -1,7 +1,7 @@
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import { IService, Service } from '@devyethiha/samjs';
-import { store, MOCK_TODAY, type Affiliate } from '../store/mock-store';
+import { store, MOCK_TODAY, type Affiliate } from '../store';
 import type { Market } from '../domain/rules';
 import type { ApplicationInput, ProfileInput } from '../dtos/schemas';
 import { AlreadyAppliedError, NotAnAffiliateError } from './errors';
@@ -23,7 +23,8 @@ export class AffiliateService extends Service implements IService {
     /** One application per user, one market per affiliate: a second application is refused, never a market change. */
     async apply(userId: string, email: string, input: ApplicationInput): Promise<Affiliate> {
         if (await store.getAffiliate(userId)) throw new AlreadyAppliedError();
-        return store.putAffiliate({
+        // createAffiliate refuses a second one too (conditional write), so two requests at once cannot both apply
+        return store.createAffiliate({
             userId,
             market: input.market as Market,
             stage: 'pending', // the team reviews every application (review flow not built yet)

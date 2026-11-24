@@ -1,5 +1,5 @@
-// Affiliate API (backlog affiliate-api): one Lambda under /affiliates. MOCK DATA for now (store/mock-store.ts), no DynamoDB
-// and no Cognito yet (user, 2026-11-24). Who is calling comes from samjs isAuthorize()/getUser(): the Authentication and
+// Affiliate API (backlog affiliate-api): one Lambda under /affiliates. Data in DynamoDB (store/dynamo-store.ts, table from
+// AFFILIATE_TABLE_NAME), with two sample affiliates written on first use. No Cognito yet (user, 2026-11-24). Who is calling comes from samjs isAuthorize()/getUser(): the Authentication and
 // Identifier cookies, the latter an ID token whose `sub` is the user id; the affiliate Cognito pool will issue them.
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { Router, withCORS } from '@devyethiha/samjs';

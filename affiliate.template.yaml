@@ -1,13 +1,42 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
 
-Description: Silas Tech Affiliate API (backlog affiliate-api). MOCK DATA for now (apps/affiliate-api/affiliates/store/mock-store.ts), so no DynamoDB table and no Cognito authorizer yet; both come later, then this template gets the table, its IAM policy and the stage parameters (and a samconfig with staging and prod stacks).
+Description: Silas Tech Affiliate API (backlog affiliate-api). One Lambda under /affiliates and its DynamoDB table (single-table layout, see apps/affiliate-api/affiliates/store/dynamo-store.ts). No Cognito authorizer yet (mock sign-in).
+
+Parameters:
+    AffiliateTableName:
+        Type: String
+        Description: The affiliate table of this stage (staging-sale-sync-affiliate, later sale-sync-affiliate)
 
 Globals:
     Function:
         Timeout: 10
+        Environment:
+            Variables:
+                AFFILIATE_TABLE_NAME: !Ref AffiliateTableName
 
 Resources:
+    # Affiliates, their links (and the address reservations), referrals and payout methods. Kept if the stack is removed.
+    AffiliateTable:
+        Type: AWS::DynamoDB::Table
+        DeletionPolicy: Retain
+        UpdateReplacePolicy: Retain
+        Properties:
+            TableName: !Ref AffiliateTableName
+            BillingMode: PAY_PER_REQUEST
+            AttributeDefinitions:
+                - AttributeName: PK
+                  AttributeType: S
+                - AttributeName: SK
+                  AttributeType: S
+            KeySchema:
+                - AttributeName: PK
+                  KeyType: HASH
+                - AttributeName: SK
+                  KeyType: RANGE
+            PointInTimeRecoverySpecification:
+                PointInTimeRecoveryEnabled: true
+
     AffiliateApi:
         Type: AWS::Serverless::Api
         Properties:
@@ -22,11 +51,10 @@ Resources:
             Handler: app.lambdaHandler
             Runtime: nodejs22.x
             Architectures: [x86_64]
-            # Known mock-phase limit: the mock store lives in the Lambda's memory, so with several instances a write can be missing on
-            # the next read (seen on staging 2026-11-24). ReservedConcurrentExecutions: 1 would fix it but the account's Lambda
-            # concurrency limit is 10 and AWS keeps 10 unreserved, so it cannot be reserved (deploy rolled back). Goes away with DynamoDB.
             Policies:
                 - AWSLambdaBasicExecutionRole
+                - DynamoDBCrudPolicy:
+                      TableName: !Ref AffiliateTable
             Events:
                 AffiliatesProxy:
                     Type: Api

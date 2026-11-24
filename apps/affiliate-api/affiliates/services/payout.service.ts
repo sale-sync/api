@@ -1,7 +1,7 @@
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import { IService, Service, ValidationError } from '@devyethiha/samjs';
-import { store, type PayoutMethod } from '../store/mock-store';
+import { store, type PayoutMethod } from '../store';
 import { CURRENCY, MIN_PAYOUT_USD, PAYOUT_PERIOD, RATES, toUsd } from '../domain/rules';
 import type { PayoutMethodInput } from '../dtos/schemas';
 import { NotAnAffiliateError } from './errors';

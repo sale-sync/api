@@ -415,8 +415,8 @@ mutation.clean:
 	rm -rf .aws-sam-mutation apps/mutation-api/contacts/bundle
 
 # =============================================================================
-# Affiliate API (backlog affiliate-api): /affiliates for the affiliate app (affiliate.silastech.co). MOCK DATA for now
-# (apps/affiliate-api/affiliates/store/mock-store.ts): no DynamoDB, no Cognito. Staging only for now (stack
+# Affiliate API (backlog affiliate-api): /affiliates for the affiliate app (affiliate.silastech.co). Data in DynamoDB
+# (table per stage, created by the stack; two sample affiliates written on first use), mock sign-in until Cognito. Staging only for now (stack
 # staging-sale-sync-affiliate-api, affiliate.samconfig.toml); production comes with the table and the affiliate user pool.
 # Own template (affiliate.template.yaml) and SAM build dir (.aws-sam-affiliate). Steps and checks: make affiliate-api-staging.help
 # from ss/.
@@ -434,13 +434,13 @@ affiliate.build: affiliate.bundle
 	sam build --template-file affiliate.template.yaml --build-dir .aws-sam-affiliate/build
 
 affiliate.start: affiliate.build
-	@echo "==> Starting the local affiliate API on port 8084 (mock data, needs Docker)"
-	sam local start-api --template-file .aws-sam-affiliate/build/template.yaml --port 8084
+	@echo "==> Starting the local affiliate API on port 8084 (staging table staging-sale-sync-affiliate, needs Docker)"
+	sam local start-api --template-file .aws-sam-affiliate/build/template.yaml --port 8084 --parameter-overrides AffiliateTableName=staging-sale-sync-affiliate
 
 affiliate.deploy.staging: affiliate.bundle
 	@echo "==> SAM build (affiliate API, zipping the pre-bundled Lambda)"
 	sam build --template-file affiliate.template.yaml --build-dir .aws-sam-affiliate/build
-	@echo "==> Deploying the affiliate API to AWS (staging, mock data)"
+	@echo "==> Deploying the affiliate API to AWS (staging)"
 	sam deploy \
 	  --template-file affiliate.template.yaml \
 	  --config-file $(CURDIR)/affiliate.samconfig.toml \
@@ -519,8 +519,8 @@ help:
 	@echo "  make mutation.bundle  - Bundle mutation API Lambdas via Nx (auto-builds shared first)"
 	@echo "  make mutation.build   - Bundle + SAM build (mutation.template.yaml, .aws-sam-mutation)"
 	@echo "  make mutation.start   - Run local mutation API after build (port 8083)"
-	@echo "  make affiliate.test    - Affiliate API tests (mock data)"
-	@echo "  make affiliate.start   - Run local affiliate API after build (port 8084, mock data)"
+	@echo "  make affiliate.test    - Affiliate API tests (in-memory store)"
+	@echo "  make affiliate.start   - Run local affiliate API after build (port 8084, staging table)"
 	@echo "  make mutation.test    - Run mutation API tests (unit, all apps)"
 	@echo "  make mutation.deploy.staging - Build + deploy mutation API to AWS (staging stack: staging-sale-sync-mutation-api)"
 	@echo "  make mutation.deploy.prod    - Build + deploy mutation API to AWS (prod stack: sale-sync-mutation-api)"

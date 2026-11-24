@@ -1,7 +1,6 @@
 version = 0.1
 
-# Affiliate API (backlog affiliate-api). Staging only for now: the API runs on mock data (no DynamoDB, no Cognito), so there
-# are no parameters yet. The prod block comes with the table and the affiliate user pool.
+# Affiliate API (backlog affiliate-api). Staging only for now; the prod block comes with the affiliate user pool.
 
 [staging.deploy.parameters]
 stack_name = "staging-sale-sync-affiliate-api"
@@ -11,3 +10,6 @@ region = "ap-southeast-2"
 confirm_changeset = true
 capabilities = "CAPABILITY_IAM CAPABILITY_AUTO_EXPAND"
 image_repositories = []
+parameter_overrides = [
+  "ParameterKey=AffiliateTableName,ParameterValue=staging-sale-sync-affiliate"
+]
