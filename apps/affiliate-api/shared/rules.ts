@@ -1,5 +1,6 @@
 // The affiliate programme rules (set by the founders 2026-11-24; backlog affiliate-programme, plan "Commission and trial").
-// The same rules drive platform/apps/affiliate/src/lib/mock.ts; when the app calls this API the numbers come from here.
+// The source of the rules: every commission is computed here. The app keeps a copy for its pages
+// (platform/apps/affiliate/src/lib/mock.ts; the repos share no package): change both, then run `make affiliate-production.terms`.
 //
 // - two markets, an affiliate is in exactly one: trade business in Australia (main), real estate in Thailand
 // - clients pay for 6, 12 or 24 months only; the affiliate earns 4%, 8% or 16% of that subscription, once per client
