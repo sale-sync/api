@@ -56,7 +56,7 @@ it.each([
     expect((await call('GET', '/affiliates', t)).statusCode).toBe(401);
 });
 it('maps a staging sample account to its sample affiliate', async () => {
-    process.env.AFFILIATE_SAMPLE_ACCOUNTS = 'jordan.sample@example.com=mock-affiliate-jordan';
+    process.env.AFFILIATE_SAMPLE_ACCOUNTS = 'ploy.sample@example.com:mock-affiliate-ploy;jordan.sample@example.com:mock-affiliate-jordan';
     const r = await call('GET', '/affiliates', token({ email: 'Jordan.Sample@example.com' }));
     expect(body(r).affiliate).toMatchObject({ userId: 'mock-affiliate-jordan', first: 'Jordan' });
 });

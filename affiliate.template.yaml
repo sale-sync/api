@@ -23,7 +23,7 @@ Parameters:
     AffiliateSampleAccounts:
         Type: String
         Default: ''
-        Description: Staging only, empty in production. "email=sampleUserId,..." opens the sample affiliates with the staging sample accounts
+        Description: Staging only, empty in production. "email:sampleUserId;..." opens the sample affiliates with the staging sample accounts
 
 Globals:
     Function:

@@ -5,7 +5,7 @@
 // AFFILIATE_AUTH picks the mode and must be set (no default, so a misconfigured deploy fails instead of trusting cookies):
 //   cognito  the ID token is verified (AFFILIATE_USER_POOL_ID, AFFILIATE_USER_POOL_CLIENT_ID). Staging and production.
 //   mock     the cookie is only decoded, as before the pool existed. Unit tests and the switch-over on staging only.
-// AFFILIATE_SAMPLE_ACCOUNTS (staging only, never production): "email=sampleUserId,..." lets the staging sample accounts
+// AFFILIATE_SAMPLE_ACCOUNTS (staging only, never production): "email:sampleUserId;..." (= for :, and , for ;, also work) lets the staging sample accounts
 // in the pool open the sample affiliates (Jordan, Ploy), whose data is keyed by the sample id.
 import type { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { getUser, isAuthorize, NO_USER, UNAUTHORIZE_ERROR } from '@devyethiha/samjs';
@@ -37,8 +37,8 @@ export function authMode(): 'cognito' | 'mock' {
 /** The staging sample accounts: verified email to sample user id. Empty unless AFFILIATE_SAMPLE_ACCOUNTS is set. */
 export function sampleAccounts(): Map<string, string> {
     const m = new Map<string, string>();
-    for (const pair of (process.env.AFFILIATE_SAMPLE_ACCOUNTS ?? '').split(',')) {
-        const [email, id] = pair.split('=').map((s) => s.trim());
+    for (const pair of (process.env.AFFILIATE_SAMPLE_ACCOUNTS ?? '').split(/[,;]/)) {
+        const [email, id] = pair.split(/[=:]/).map((s) => s.trim());
         if (email && id) m.set(email.toLowerCase(), id);
     }
     return m;

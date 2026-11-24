@@ -1,6 +1,7 @@
 version = 0.1
 
-# Affiliate API (backlog affiliate-api). Staging only for now; the prod block comes with the affiliate user pool.
+# Affiliate API (backlog affiliate-api). Staging only for now. Sign-in: the staging affiliate Cognito pool
+# (infra affiliate-cognito.yaml); the pool and client ids are not secrets. AffiliateSampleAccounts is staging only.
 
 [staging.deploy.parameters]
 stack_name = "staging-sale-sync-affiliate-api"
@@ -12,5 +13,8 @@ capabilities = "CAPABILITY_IAM CAPABILITY_AUTO_EXPAND"
 image_repositories = []
 parameter_overrides = [
   "ParameterKey=AffiliateTableName,ParameterValue=staging-sale-sync-affiliate",
-  "ParameterKey=AffiliateAuth,ParameterValue=mock"
+  "ParameterKey=AffiliateAuth,ParameterValue=cognito",
+  "ParameterKey=AffiliateUserPoolId,ParameterValue=ap-southeast-2_yt3wGnE5U",
+  "ParameterKey=AffiliateUserPoolClientId,ParameterValue=30n5dadil5lsqkl07oebuanq84",
+  "ParameterKey=AffiliateSampleAccounts,ParameterValue=affiliate-jordan@sample.silastech.co:mock-affiliate-jordan;affiliate-ploy@sample.silastech.co:mock-affiliate-ploy"
 ]
